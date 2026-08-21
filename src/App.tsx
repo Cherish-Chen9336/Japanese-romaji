@@ -1,150 +1,44 @@
 import { For, Show, createMemo, createSignal, onCleanup, onMount } from 'solid-js'
 import './App.css'
-
-type SourceName = 'auto' | 'drills' | 'difficult' | 'quotes' | 'words' | 'library'
-type RouteName = 'practice' | 'result' | 'stats' | 'library' | 'settings'
-type CharStatus = 'pending' | 'correct' | 'incorrect'
-type Unlock = {
-  id: string
-  label: string
-  reached: boolean
-}
-
-type TextItem = {
-  kana: string
-  romaji: string
-}
-
-type Lesson = TextItem & {
-  source: SourceName
-}
-
-type RunResult = {
-  source: SourceName
-  chars: number
-  mistakes: number
-  accuracy: number
-  wpm: number
-  rawWpm?: number
-  cpm?: number
-  rawCpm?: number
-  consistency?: number
-  elapsedMs: number
-  date: string
-  keyStats?: Record<string, TimingStat>
-  bigramStats?: Record<string, TimingStat>
-}
-
-type Settings = {
-  paragraphItems: number
-}
-
-type TimingStat = {
-  attempts: number
-  misses: number
-  totalMs: number
-}
-
-type AggregatedTimingStat = TimingStat & {
-  avgMs: number
-  errorRate: number
-}
+import { generateLesson, parseLibraryText, sourceOptions, sourceUnlocked } from './engine/lessons'
+import { applyBackspace, applyTypeChar, buildRunResult, computeMetrics, emptySession } from './engine/session'
+import type { SessionState } from './engine/session'
+import {
+  dailyCounts,
+  mergeTimingStats,
+  newlyReachedMilestones,
+  recentDayKeys,
+  runRawWpm,
+  runWpm,
+  sourceBreakdown,
+  streakStats,
+  topTimingStats,
+  unlockedMilestones,
+  wpmDistribution,
+} from './engine/stats'
+import type { Lesson, RunResult, Settings, SourceName, TextItem, Unlock } from './engine/types'
+import {
+  CONFUSIONS_KEY,
+  LIBRARY_KEY,
+  MISSES_KEY,
+  RUNS_KEY,
+  SETTINGS_KEY,
+  SHOW_KEYBOARD_KEY,
+  readConfusionMap,
+  readLibrary,
+  readMissMap,
+  readRuns,
+  readSettings,
+  readShowKeyboard,
+} from './io/persistence'
+import { writeJson } from './io/storage'
+import { routeFromHash, type RouteName } from './ui/router'
 
 type KeyDef = {
   code: string
   label: string
   width?: number
   variant?: 'mod' | 'space'
-}
-
-const SHOW_KEYBOARD_KEY = 'japanese-romaji:show-keyboard'
-const SETTINGS_KEY = 'japanese-romaji:settings'
-const RUNS_KEY = 'japanese-romaji:runs'
-const MISSES_KEY = 'japanese-romaji:misses'
-const CONFUSIONS_KEY = 'japanese-romaji:confusions'
-const LIBRARY_KEY = 'japanese-romaji:library'
-
-const sourceOptions: { value: SourceName; label: string; unlockAt: number }[] = [
-  { value: 'auto', label: 'auto', unlockAt: 0 },
-  { value: 'drills', label: 'drills', unlockAt: 0 },
-  { value: 'words', label: 'words', unlockAt: 0 },
-  { value: 'difficult', label: 'difficult', unlockAt: 30 },
-  { value: 'quotes', label: 'quotes', unlockAt: 50 },
-  { value: 'library', label: 'library', unlockAt: 70 },
-]
-
-const wordBank: TextItem[] = [
-  { kana: 'おはよう', romaji: 'ohayou' },
-  { kana: 'こんにちは', romaji: 'konnichiwa' },
-  { kana: 'ありがとう', romaji: 'arigatou' },
-  { kana: 'すみません', romaji: 'sumimasen' },
-  { kana: 'ともだち', romaji: 'tomodachi' },
-  { kana: 'せんせい', romaji: 'sensei' },
-  { kana: 'がくせい', romaji: 'gakusei' },
-  { kana: 'でんしゃ', romaji: 'densha' },
-  { kana: 'じかん', romaji: 'jikan' },
-  { kana: 'にほんご', romaji: 'nihongo' },
-  { kana: 'たべもの', romaji: 'tabemono' },
-  { kana: 'のみもの', romaji: 'nomimono' },
-  { kana: 'あした', romaji: 'ashita' },
-  { kana: 'きょう', romaji: 'kyou' },
-  { kana: 'きのう', romaji: 'kinou' },
-  { kana: 'えき', romaji: 'eki' },
-  { kana: 'まち', romaji: 'machi' },
-  { kana: 'ほん', romaji: 'hon' },
-  { kana: 'ひこうき', romaji: 'hikouki' },
-  { kana: 'かいしゃ', romaji: 'kaisha' },
-  { kana: 'しゃしん', romaji: 'shashin' },
-  { kana: 'りょうり', romaji: 'ryouri' },
-  { kana: 'えいが', romaji: 'eiga' },
-  { kana: 'てがみ', romaji: 'tegami' },
-]
-
-const difficultBank: TextItem[] = [
-  { kana: 'がっこう', romaji: 'gakkou' },
-  { kana: 'きって', romaji: 'kitte' },
-  { kana: 'ざっし', romaji: 'zasshi' },
-  { kana: 'しゅくだい', romaji: 'shukudai' },
-  { kana: 'じゅぎょう', romaji: 'jugyou' },
-  { kana: 'びょういん', romaji: 'byouin' },
-  { kana: 'りょこう', romaji: 'ryokou' },
-  { kana: 'きゃく', romaji: 'kyaku' },
-  { kana: 'ちょっと', romaji: 'chotto' },
-  { kana: 'しんぶん', romaji: 'shinbun' },
-  { kana: 'ほんや', romaji: 'honya' },
-  { kana: 'こんや', romaji: 'konya' },
-  { kana: 'ちゃわん', romaji: 'chawan' },
-  { kana: 'ちゅうしゃ', romaji: 'chuusha' },
-  { kana: 'ちょきん', romaji: 'chokin' },
-]
-
-const drillFallbackBank: TextItem[] = [
-  { kana: 'かきくけこ', romaji: 'kakikukeko' },
-  { kana: 'さしすせそ', romaji: 'sashisuseso' },
-  { kana: 'たちつてと', romaji: 'tachitsuteto' },
-  { kana: 'なにぬねの', romaji: 'naninuneno' },
-  { kana: 'はひふへほ', romaji: 'hahifuheho' },
-  { kana: 'まみむめも', romaji: 'mamimumemo' },
-  { kana: 'やゆよ', romaji: 'yayuyo' },
-  { kana: 'らりるれろ', romaji: 'rarirurero' },
-  { kana: 'わをん', romaji: 'wawon' },
-  { kana: 'がぎぐげご', romaji: 'gagigugego' },
-  { kana: 'ざじずぜぞ', romaji: 'zajizuzezo' },
-]
-
-const quoteBank: TextItem[] = [
-  { kana: 'ななころび やおき', romaji: 'nanakorobi yaoki' },
-  { kana: 'いそがば まわれ', romaji: 'isogaba maware' },
-  { kana: 'ちりもつもれば やまとなる', romaji: 'chirimotsumoreba yamatonaru' },
-  { kana: 'すきこそ もののじょうずなれ', romaji: 'sukikoso mononojouzunare' },
-  { kana: 'あめふって じかたまる', romaji: 'amefutte jikatamaru' },
-  { kana: 'いしのうえにも さんねん', romaji: 'ishinouenimo sannen' },
-]
-
-const sourceBanks: Record<Exclude<SourceName, 'auto' | 'drills' | 'library'>, TextItem[]> = {
-  difficult: difficultBank,
-  quotes: quoteBank,
-  words: wordBank,
 }
 
 const keyboardRows: KeyDef[][] = [
@@ -220,296 +114,27 @@ const keyboardRows: KeyDef[][] = [
   ],
 ]
 
-function readJson<T>(key: string, fallback: T): T {
-  try {
-    const value = localStorage.getItem(key)
-    return value ? (JSON.parse(value) as T) : fallback
-  } catch {
-    return fallback
-  }
-}
-
-function writeJson<T>(key: string, value: T): void {
-  localStorage.setItem(key, JSON.stringify(value))
-}
-
-function pickRandom<T>(items: readonly T[]): T {
-  return items[Math.floor(Math.random() * items.length)]
-}
-
-function stripMarkdown(text: string): string {
-  return text
-    .replace(/```[\s\S]*?```/g, ' ')
-    .replace(/[#>*_`[\]()!-]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-}
-
-function parseLibraryText(text: string): TextItem[] {
-  return stripMarkdown(text)
-    .split(/\n|。|、|\.|,|;/)
-    .map((part) => part.trim())
-    .filter(Boolean)
-    .map((part) => {
-      const [kana, romaji] = part.includes('|') ? part.split('|') : part.split(/\s{2,}/)
-      return kana && romaji ? { kana: kana.trim(), romaji: romaji.trim().toLowerCase() } : null
-    })
-    .filter((item): item is TextItem => item !== null)
-}
-
-function buildParagraph(items: TextItem[], source: SourceName, length: number): Lesson {
-  const picked = Array.from({ length }, () => pickRandom(items))
-  return {
-    kana: picked.map((item) => item.kana).join(' '),
-    romaji: picked.map((item) => item.romaji).join(' '),
-    source,
-  }
-}
-
-function drillBankFromMisses(misses: Record<string, number>): TextItem[] {
-  const weakLetters = Object.entries(misses)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
-    .map(([letter]) => letter)
-
-  if (weakLetters.length === 0) return drillFallbackBank
-
-  const candidates = [...wordBank, ...difficultBank, ...drillFallbackBank].filter((item) =>
-    weakLetters.some((letter) => item.romaji.includes(letter)),
-  )
-  return candidates.length > 0 ? candidates : drillFallbackBank
-}
-
-function generateLesson(
-  requestedSource: SourceName,
-  settings: Settings,
-  misses: Record<string, number>,
-  library: TextItem[],
-  bestWpmValue = 0,
-): Lesson {
-  const usableSource =
-    !sourceUnlocked(requestedSource, bestWpmValue)
-      ? 'words'
-      : requestedSource === 'library' && library.length === 0
-      ? 'words'
-      : requestedSource === 'auto'
-        ? pickRandom<Exclude<SourceName, 'auto' | 'library'>>(
-            explicitSourcesForBest(bestWpmValue).filter(
-              (item): item is Exclude<SourceName, 'auto' | 'library'> => item !== 'library',
-            ),
-          )
-        : requestedSource
-
-  if (usableSource === 'drills') {
-    return buildParagraph(drillBankFromMisses(misses), 'drills', settings.paragraphItems)
-  }
-  if (usableSource === 'library') {
-    return buildParagraph(library, 'library', settings.paragraphItems)
-  }
-  return buildParagraph(sourceBanks[usableSource], usableSource, settings.paragraphItems)
-}
-
-function routeFromHash(): RouteName {
-  const hash = window.location.hash.replace(/^#\/?/, '')
-  if (hash === 'result' || hash === 'stats' || hash === 'library' || hash === 'settings') {
-    return hash
-  }
-  return 'practice'
-}
-
-function dayKey(dateString: string): string {
-  return new Date(dateString).toISOString().slice(0, 10)
-}
-
-function runWpm(run: RunResult): number {
-  return run.wpm ?? Math.round((run.cpm ?? 0) / 5)
-}
-
-function runRawWpm(run: RunResult): number {
-  return run.rawWpm ?? Math.round((run.rawCpm ?? run.cpm ?? 0) / 5)
-}
-
-function sourceUnlockAt(source: SourceName): number {
-  return sourceOptions.find((option) => option.value === source)?.unlockAt ?? 0
-}
-
-function sourceUnlocked(source: SourceName, best: number): boolean {
-  return best >= sourceUnlockAt(source)
-}
-
-function explicitSourcesForBest(best: number): Exclude<SourceName, 'auto'>[] {
-  return sourceOptions
-    .filter((option) => option.value !== 'auto' && option.value !== 'library')
-    .filter((option) => sourceUnlocked(option.value, best))
-    .map((option) => option.value as Exclude<SourceName, 'auto'>)
-}
-
-function unlockedMilestones(runs: RunResult[]): Unlock[] {
-  const best = Math.max(0, ...runs.map((run) => runWpm(run)))
-  const sessions = runs.length
-  const chars = runs.reduce((sum, run) => sum + run.chars, 0)
-  return [
-    { id: 'first', label: 'first run', reached: sessions >= 1 },
-    { id: 'wpm30', label: '30 wpm · difficult unlocked', reached: best >= 30 },
-    { id: 'wpm50', label: '50 wpm · quotes unlocked', reached: best >= 50 },
-    { id: 'wpm70', label: '70 wpm · library source unlocked', reached: best >= 70 },
-    { id: 'wpm100', label: '100 wpm · long-run mastery', reached: best >= 100 },
-    { id: 'sessions10', label: '10 sessions', reached: sessions >= 10 },
-    { id: 'sessions50', label: '50 sessions', reached: sessions >= 50 },
-    { id: 'chars1k', label: '1k characters', reached: chars >= 1_000 },
-    { id: 'chars10k', label: '10k characters', reached: chars >= 10_000 },
-  ]
-}
-
-function newlyReachedMilestones(before: RunResult[], after: RunResult[]): Unlock[] {
-  const oldReached = new Set(unlockedMilestones(before).filter((item) => item.reached).map((item) => item.id))
-  return unlockedMilestones(after).filter((item) => item.reached && !oldReached.has(item.id))
-}
-
-function sourceBreakdown(runs: RunResult[]): { source: SourceName; count: number; avg: number }[] {
-  const grouped = new Map<SourceName, { count: number; total: number }>()
-  for (const run of runs) {
-    const current = grouped.get(run.source) ?? { count: 0, total: 0 }
-    current.count += 1
-    current.total += runWpm(run)
-    grouped.set(run.source, current)
-  }
-  return [...grouped.entries()]
-    .map(([source, data]) => ({ source, count: data.count, avg: Math.round(data.total / data.count) }))
-    .sort((a, b) => b.count - a.count)
-}
-
-function dailyCounts(runs: RunResult[]): Map<string, number> {
-  const counts = new Map<string, number>()
-  for (const run of runs) {
-    const key = dayKey(run.date)
-    counts.set(key, (counts.get(key) ?? 0) + 1)
-  }
-  return counts
-}
-
-function recentDayKeys(count: number): string[] {
-  return Array.from({ length: count }, (_, index) => {
-    const date = new Date()
-    date.setDate(date.getDate() - (count - 1 - index))
-    return date.toISOString().slice(0, 10)
-  })
-}
-
-function mergeTimingStats(runs: RunResult[], field: 'keyStats' | 'bigramStats') {
-  const merged = new Map<string, TimingStat>()
-  for (const run of runs) {
-    const stats = run[field] ?? {}
-    for (const [key, stat] of Object.entries(stats)) {
-      const current = merged.get(key) ?? { attempts: 0, misses: 0, totalMs: 0 }
-      current.attempts += stat.attempts
-      current.misses += stat.misses
-      current.totalMs += stat.totalMs
-      merged.set(key, current)
-    }
-  }
-
-  const aggregated = new Map<string, AggregatedTimingStat>()
-  for (const [key, stat] of merged) {
-    aggregated.set(key, {
-      ...stat,
-      avgMs: stat.attempts > 0 ? stat.totalMs / stat.attempts : 0,
-      errorRate: stat.attempts > 0 ? stat.misses / stat.attempts : 0,
-    })
-  }
-  return aggregated
-}
-
-function topTimingStats(stats: Map<string, AggregatedTimingStat>, limit: number) {
-  return [...stats.entries()]
-    .filter(([, stat]) => stat.attempts >= 2)
-    .sort((a, b) => b[1].avgMs + b[1].errorRate * 500 - (a[1].avgMs + a[1].errorRate * 500))
-    .slice(0, limit)
-}
-
-function streakStats(runs: RunResult[]): { current: number; longest: number } {
-  const days = [...new Set(runs.map((run) => dayKey(run.date)))].sort()
-  if (days.length === 0) return { current: 0, longest: 0 }
-
-  let longest = 1
-  let runLength = 1
-  for (let index = 1; index < days.length; index += 1) {
-    const prev = new Date(`${days[index - 1]}T00:00:00`)
-    prev.setDate(prev.getDate() + 1)
-    if (prev.toISOString().slice(0, 10) === days[index]) {
-      runLength += 1
-      longest = Math.max(longest, runLength)
-    } else {
-      runLength = 1
-    }
-  }
-
-  const daySet = new Set(days)
-  const cursor = new Date()
-  if (!daySet.has(cursor.toISOString().slice(0, 10))) {
-    cursor.setDate(cursor.getDate() - 1)
-  }
-  let current = 0
-  while (daySet.has(cursor.toISOString().slice(0, 10))) {
-    current += 1
-    cursor.setDate(cursor.getDate() - 1)
-  }
-  return { current, longest }
-}
-
-function wpmDistribution(runs: RunResult[]): { label: string; count: number }[] {
-  const bins = [
-    { label: '0-20', min: 0, max: 20, count: 0 },
-    { label: '20-40', min: 20, max: 40, count: 0 },
-    { label: '40-60', min: 40, max: 60, count: 0 },
-    { label: '60-80', min: 60, max: 80, count: 0 },
-    { label: '80+', min: 80, max: Number.POSITIVE_INFINITY, count: 0 },
-  ]
-  for (const run of runs) {
-    const wpm = runWpm(run)
-    const bin = bins.find((candidate) => wpm >= candidate.min && wpm < candidate.max)
-    if (bin) bin.count += 1
-  }
-  return bins
-}
-
 function App() {
   const [route, setRoute] = createSignal<RouteName>(routeFromHash())
-  const [settings, setSettings] = createSignal<Settings>(
-    readJson<Settings>(SETTINGS_KEY, { paragraphItems: 8 }),
-  )
-  const [runs, setRuns] = createSignal<RunResult[]>(readJson<RunResult[]>(RUNS_KEY, []))
-  const [missMap, setMissMap] = createSignal<Record<string, number>>(
-    readJson<Record<string, number>>(MISSES_KEY, {}),
-  )
-  const [confusionMap, setConfusionMap] = createSignal<Record<string, number>>(
-    readJson<Record<string, number>>(CONFUSIONS_KEY, {}),
-  )
-  const [library, setLibrary] = createSignal<TextItem[]>(readJson<TextItem[]>(LIBRARY_KEY, []))
+  const [settings, setSettings] = createSignal<Settings>(readSettings())
+  const [runs, setRuns] = createSignal<RunResult[]>(readRuns())
+  const [missMap, setMissMap] = createSignal<Record<string, number>>(readMissMap())
+  const [confusionMap, setConfusionMap] = createSignal<Record<string, number>>(readConfusionMap())
+  const [library, setLibrary] = createSignal<TextItem[]>(readLibrary())
   const [source, setSource] = createSignal<SourceName>('auto')
   const [lesson, setLesson] = createSignal<Lesson>(
     generateLesson('auto', settings(), missMap(), library()),
   )
-  const [pos, setPos] = createSignal(0)
-  const [statuses, setStatuses] = createSignal<CharStatus[]>([])
-  const [mistakes, setMistakes] = createSignal(0)
-  const [startedAt, setStartedAt] = createSignal<number | null>(null)
-  const [finishedAt, setFinishedAt] = createSignal<number | null>(null)
+  const [session, setSession] = createSignal<SessionState>(emptySession())
   const [tick, setTick] = createSignal(Date.now())
-  const [runKeyStats, setRunKeyStats] = createSignal<Record<string, TimingStat>>({})
-  const [runBigramStats, setRunBigramStats] = createSignal<Record<string, TimingStat>>({})
-  const [intervals, setIntervals] = createSignal<number[]>([])
   const [pressedKeys, setPressedKeys] = createSignal<ReadonlySet<string>>(new Set())
-  const [showKeyboard, setShowKeyboard] = createSignal(
-    localStorage.getItem(SHOW_KEYBOARD_KEY) !== '0',
-  )
+  const [showKeyboard, setShowKeyboard] = createSignal(readShowKeyboard())
   const [customText, setCustomText] = createSignal('')
   const [lastRun, setLastRun] = createSignal<RunResult | null>(runs()[0] ?? null)
   const [resultUnlocks, setResultUnlocks] = createSignal<Unlock[]>([])
 
   let hiddenInput: HTMLInputElement | undefined
   let savedCurrentRun = false
-  let lastCorrectAt: number | null = null
 
   const expected = createMemo(() => lesson().romaji)
   const kanaParts = createMemo(() => lesson().kana.split(' '))
@@ -523,38 +148,11 @@ function App() {
       return { start, end }
     })
   })
-  const isComplete = createMemo(() => pos() === expected().length)
-  const elapsedSeconds = createMemo(() => {
-    tick()
-    const start = startedAt()
-    if (!start) return 0
-    return ((finishedAt() ?? Date.now()) - start) / 1000
-  })
-  const accuracy = createMemo(() => {
-    const hits = statuses().filter((status) => status === 'correct').length
-    const attempts = hits + mistakes()
-    if (attempts === 0) return 100
-    return Math.max(0, Math.round((hits / attempts) * 100))
-  })
-  const speed = createMemo(() => {
-    const elapsed = elapsedSeconds()
-    if (elapsed <= 0) return 0
-    return Math.round(((pos() / 5) / elapsed) * 60)
-  })
-  const rawSpeed = createMemo(() => {
-    const elapsed = elapsedSeconds()
-    if (elapsed <= 0) return 0
-    return Math.round((((pos() + mistakes()) / 5) / elapsed) * 60)
-  })
-  const consistency = createMemo(() => {
-    const samples = intervals().filter((interval) => interval > 0)
-    if (samples.length < 3) return 100
-    const avg = samples.reduce((sum, interval) => sum + interval, 0) / samples.length
-    const variance =
-      samples.reduce((sum, interval) => sum + (interval - avg) ** 2, 0) / samples.length
-    const deviation = Math.sqrt(variance)
-    return Math.max(0, Math.min(100, Math.round(100 - (deviation / avg) * 100)))
-  })
+  const isComplete = createMemo(() => session().pos === expected().length)
+  const metrics = createMemo(() => computeMetrics(session(), tick()))
+  const accuracy = () => metrics().accuracy
+  const speed = () => metrics().wpm
+
   const topConfusions = createMemo(() =>
     Object.entries(confusionMap())
       .sort((a, b) => b[1] - a[1])
@@ -587,15 +185,7 @@ function App() {
 
   const resetRunState = () => {
     savedCurrentRun = false
-    setPos(0)
-    setStatuses([])
-    setMistakes(0)
-    setStartedAt(null)
-    setFinishedAt(null)
-    setRunKeyStats({})
-    setRunBigramStats({})
-    setIntervals([])
-    lastCorrectAt = null
+    setSession(emptySession())
   }
 
   const freshText = () => {
@@ -612,153 +202,58 @@ function App() {
   }
 
   const saveCurrentRun = () => {
-    const start = startedAt()
-    const finish = finishedAt()
-    if (savedCurrentRun || !start || !finish) return null
+    if (savedCurrentRun) return null
     savedCurrentRun = true
-    const run: RunResult = {
-      source: lesson().source,
-      chars: expected().length,
-      mistakes: mistakes(),
-      accuracy: accuracy(),
-      wpm: speed(),
-      rawWpm: rawSpeed(),
-      consistency: consistency(),
-      elapsedMs: finish - start,
-      date: new Date().toISOString(),
-      keyStats: runKeyStats(),
-      bigramStats: runBigramStats(),
-    }
+    const currentSession = session()
+    const currentLesson = lesson()
+    const currentMetrics = computeMetrics(currentSession, Date.now())
+    const run = buildRunResult(currentSession, currentLesson, currentMetrics)
     setLastRun(run)
     const previous = runs()
     const nextRuns = [run, ...previous].slice(0, 100)
     setResultUnlocks(newlyReachedMilestones(previous, nextRuns))
-    setRuns((current) => {
-      const next = [run, ...current].slice(0, 100)
-      writeJson(RUNS_KEY, next)
-      return next
+    setRuns(() => {
+      writeJson(RUNS_KEY, nextRuns)
+      return nextRuns
     })
     return run
   }
 
   const typeChar = (rawChar: string) => {
     if (isComplete() || route() !== 'practice') return
-
-    const char = rawChar.toLowerCase()
-    const currentPos = pos()
-    const target = expected()[currentPos]
-    const now = Date.now()
-
-    if (!startedAt()) setStartedAt(now)
-
-    if (char === target) {
-      const interval = lastCorrectAt === null ? 0 : Math.min(3000, now - lastCorrectAt)
-      if (interval > 0) {
-        setIntervals((current) => [...current, interval])
-      }
-      setRunKeyStats((current) => {
-        const stat = current[target] ?? { attempts: 0, misses: 0, totalMs: 0 }
-        return {
-          ...current,
-          [target]: {
-            attempts: stat.attempts + 1,
-            misses: stat.misses,
-            totalMs: stat.totalMs + interval,
-          },
-        }
-      })
-      if (currentPos > 0) {
-        const bigram = expected().slice(currentPos - 1, currentPos + 1)
-        setRunBigramStats((current) => {
-          const stat = current[bigram] ?? { attempts: 0, misses: 0, totalMs: 0 }
-          return {
-            ...current,
-            [bigram]: {
-              attempts: stat.attempts + 1,
-              misses: stat.misses,
-              totalMs: stat.totalMs + interval,
-            },
-          }
-        })
-      }
-      lastCorrectAt = now
-      setStatuses((current) => {
-        const next = [...current]
-        next[currentPos] = 'correct'
+    const result = applyTypeChar(session(), rawChar, expected(), Date.now())
+    setSession(result.session)
+    if (result.missed) {
+      const { target, typed } = result.missed
+      setMissMap((current) => {
+        const key = target === ' ' ? 'space' : target
+        const next = { ...current, [key]: (current[key] ?? 0) + 1 }
+        writeJson(MISSES_KEY, next)
         return next
       })
-      const nextPos = currentPos + 1
-      setPos(nextPos)
-      if (nextPos === expected().length) {
-        setFinishedAt(now)
-        setTimeout(() => {
-          saveCurrentRun()
-          navigate('result')
-        }, 0)
-      }
-      return
-    }
-
-    setStatuses((current) => {
-      const next = [...current]
-      next[currentPos] = 'incorrect'
-      return next
-    })
-    setMistakes((count) => count + 1)
-    setRunKeyStats((current) => {
-      const stat = current[target] ?? { attempts: 0, misses: 0, totalMs: 0 }
-      return {
-        ...current,
-        [target]: {
-          attempts: stat.attempts + 1,
-          misses: stat.misses + 1,
-          totalMs: stat.totalMs,
-        },
-      }
-    })
-    if (currentPos > 0) {
-      const bigram = expected().slice(currentPos - 1, currentPos + 1)
-      setRunBigramStats((current) => {
-        const stat = current[bigram] ?? { attempts: 0, misses: 0, totalMs: 0 }
-        return {
-          ...current,
-          [bigram]: {
-            attempts: stat.attempts + 1,
-            misses: stat.misses + 1,
-            totalMs: stat.totalMs,
-          },
-        }
+      setConfusionMap((current) => {
+        const expectedKey = target === ' ' ? 'space' : target
+        const typedKey = typed === ' ' ? 'space' : typed
+        const pair = `${expectedKey} → ${typedKey}`
+        const next = { ...current, [pair]: (current[pair] ?? 0) + 1 }
+        writeJson(CONFUSIONS_KEY, next)
+        return next
       })
     }
-    setMissMap((current) => {
-      const key = target === ' ' ? 'space' : target
-      const next = { ...current, [key]: (current[key] ?? 0) + 1 }
-      writeJson(MISSES_KEY, next)
-      return next
-    })
-    setConfusionMap((current) => {
-      const expectedKey = target === ' ' ? 'space' : target
-      const typedKey = char === ' ' ? 'space' : char
-      const pair = `${expectedKey} → ${typedKey}`
-      const next = { ...current, [pair]: (current[pair] ?? 0) + 1 }
-      writeJson(CONFUSIONS_KEY, next)
-      return next
-    })
+    if (result.completed) {
+      setTimeout(() => {
+        saveCurrentRun()
+        navigate('result')
+      }, 0)
+    }
   }
 
   const backspace = () => {
-    if (pos() === 0 || isComplete()) return
-    const nextPos = pos() - 1
-    setPos(nextPos)
-    setStatuses((current) => {
-      const next = [...current]
-      next[nextPos] = 'pending'
-      return next
-    })
+    setSession(applyBackspace)
   }
 
   const setKeyboardVisible = (visible: boolean) => {
-    localStorage.setItem(SHOW_KEYBOARD_KEY, visible ? '1' : '0')
+    writeJson(SHOW_KEYBOARD_KEY, visible)
     setShowKeyboard(visible)
   }
 
@@ -865,7 +360,7 @@ function App() {
           <b>{accuracy()}</b>% acc
         </span>
         <span>
-          <b>{mistakes()}</b> miss
+          <b>{session().mistakes}</b> miss
         </span>
       </aside>
 
@@ -925,8 +420,8 @@ function App() {
                   const state = () => {
                     const current = range()
                     if (!current) return 'pending'
-                    if (pos() >= current.end) return 'done'
-                    if (pos() >= current.start && pos() <= current.end) return 'current'
+                    if (session().pos >= current.end) return 'done'
+                    if (session().pos >= current.start && session().pos <= current.end) return 'current'
                     return 'pending'
                   }
                   return (
@@ -949,9 +444,9 @@ function App() {
                   <span
                     classList={{
                       char: true,
-                      'char--correct': statuses()[index()] === 'correct',
-                      'char--incorrect': statuses()[index()] === 'incorrect',
-                      'char--current': index() === pos(),
+                      'char--correct': session().statuses[index()] === 'correct',
+                      'char--incorrect': session().statuses[index()] === 'incorrect',
+                      'char--current': index() === session().pos,
                     }}
                   >
                     {char}
