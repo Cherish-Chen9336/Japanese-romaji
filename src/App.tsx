@@ -8,6 +8,7 @@ import {
   mergeTimingStats,
   newlyReachedMilestones,
   recentDayKeys,
+  recordRunInLifetimeStats,
   runRawWpm,
   runWpm,
   sourceBreakdown,
@@ -16,16 +17,18 @@ import {
   unlockedMilestones,
   wpmDistribution,
 } from './engine/stats'
-import type { Lesson, RunResult, Settings, SourceName, TextItem, Unlock } from './engine/types'
+import type { Lesson, LifetimeStats, RunResult, Settings, SourceName, TextItem, Unlock } from './engine/types'
 import {
   CONFUSIONS_KEY,
   LIBRARY_KEY,
+  LIFETIME_KEY,
   MISSES_KEY,
   RUNS_KEY,
   SETTINGS_KEY,
   SHOW_KEYBOARD_KEY,
   readConfusionMap,
   readLibrary,
+  readLifetimeStats,
   readMissMap,
   readRuns,
   readSettings,
@@ -118,6 +121,7 @@ function App() {
   const [route, setRoute] = createSignal<RouteName>(routeFromHash())
   const [settings, setSettings] = createSignal<Settings>(readSettings())
   const [runs, setRuns] = createSignal<RunResult[]>(readRuns())
+  const [lifetimeStats, setLifetimeStats] = createSignal<LifetimeStats>(readLifetimeStats())
   const [missMap, setMissMap] = createSignal<Record<string, number>>(readMissMap())
   const [confusionMap, setConfusionMap] = createSignal<Record<string, number>>(readConfusionMap())
   const [library, setLibrary] = createSignal<TextItem[]>(readLibrary())
@@ -163,11 +167,10 @@ function App() {
     if (history.length === 0) return 0
     return Math.round(history.reduce((sum, run) => sum + runWpm(run), 0) / history.length)
   })
-  const bestWpm = createMemo(() => Math.max(0, ...runs().map((run) => runWpm(run))))
-  const milestones = createMemo(() => unlockedMilestones(runs()))
-  const totalMinutes = createMemo(() =>
-    Math.round(runs().reduce((sum, run) => sum + run.elapsedMs, 0) / 60_000),
-  )
+  const bestWpm = createMemo(() => lifetimeStats().bestWpm)
+  const milestones = createMemo(() => unlockedMilestones(lifetimeStats()))
+  const totalMinutes = createMemo(() => Math.round(lifetimeStats().totalElapsedMs / 60_000))
+  const totalSessions = createMemo(() => lifetimeStats().totalSessions)
   const sourceStats = createMemo(() => sourceBreakdown(runs()))
   const dayStats = createMemo(() => dailyCounts(runs()))
   const resultRun = createMemo(() => lastRun() ?? runs()[0] ?? null)
@@ -175,7 +178,7 @@ function App() {
   const bigramStats = createMemo(() => mergeTimingStats(runs(), 'bigramStats'))
   const slowKeys = createMemo(() => topTimingStats(keyStats(), 12))
   const slowBigrams = createMemo(() => topTimingStats(bigramStats(), 8))
-  const streaks = createMemo(() => streakStats(runs()))
+  const streaks = createMemo(() => streakStats(lifetimeStats().streakDays))
   const distribution = createMemo(() => wpmDistribution(runs()))
 
   const navigate = (next: RouteName) => {
@@ -209,9 +212,14 @@ function App() {
     const currentMetrics = computeMetrics(currentSession, Date.now())
     const run = buildRunResult(currentSession, currentLesson, currentMetrics)
     setLastRun(run)
-    const previous = runs()
-    const nextRuns = [run, ...previous].slice(0, 100)
-    setResultUnlocks(newlyReachedMilestones(previous, nextRuns))
+    const previousLifetime = lifetimeStats()
+    const nextLifetime = recordRunInLifetimeStats(previousLifetime, run)
+    setResultUnlocks(newlyReachedMilestones(previousLifetime, nextLifetime))
+    setLifetimeStats(() => {
+      writeJson(LIFETIME_KEY, nextLifetime)
+      return nextLifetime
+    })
+    const nextRuns = [run, ...runs()].slice(0, 100)
     setRuns(() => {
       writeJson(RUNS_KEY, nextRuns)
       return nextRuns
@@ -626,7 +634,7 @@ function App() {
             <div>
               <h1>your statistics</h1>
               <p class="muted">
-                {runs().length} sessions · {totalMinutes()} min typing
+                {totalSessions()} sessions · {totalMinutes()} min typing
               </p>
             </div>
           </div>

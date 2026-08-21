@@ -2,9 +2,12 @@ import { describe, expect, it } from 'vitest'
 import {
   dailyCounts,
   dayKey,
+  emptyLifetimeStats,
+  lifetimeStatsFromRuns,
   mergeTimingStats,
   newlyReachedMilestones,
   recentDayKeys,
+  recordRunInLifetimeStats,
   runRawWpm,
   runWpm,
   sourceBreakdown,
@@ -13,7 +16,7 @@ import {
   unlockedMilestones,
   wpmDistribution,
 } from './stats'
-import type { RunResult, StoredRunResult, TimingStat } from './types'
+import type { LifetimeStats, RunResult, StoredRunResult, TimingStat } from './types'
 
 function run(overrides: Partial<RunResult> = {}): RunResult {
   return {
@@ -52,35 +55,78 @@ describe('runWpm / runRawWpm', () => {
   })
 })
 
+function lifetime(overrides: Partial<LifetimeStats> = {}): LifetimeStats {
+  return { ...emptyLifetimeStats(), ...overrides }
+}
+
 describe('unlockedMilestones / newlyReachedMilestones', () => {
-  it('reaches "first" only once there is at least one run', () => {
-    expect(unlockedMilestones([]).find((m) => m.id === 'first')?.reached).toBe(false)
-    expect(unlockedMilestones([run()]).find((m) => m.id === 'first')?.reached).toBe(true)
+  it('reaches "first" only once there is at least one session', () => {
+    expect(unlockedMilestones(lifetime()).find((m) => m.id === 'first')?.reached).toBe(false)
+    expect(unlockedMilestones(lifetime({ totalSessions: 1 })).find((m) => m.id === 'first')?.reached).toBe(true)
   })
 
-  it('gates wpm milestones on the best run, not the latest', () => {
-    const runs = [run({ wpm: 10 }), run({ wpm: 35 })]
-    const milestones = unlockedMilestones(runs)
+  it('gates wpm milestones on the best-ever wpm', () => {
+    const milestones = unlockedMilestones(lifetime({ bestWpm: 35 }))
     expect(milestones.find((m) => m.id === 'wpm30')?.reached).toBe(true)
     expect(milestones.find((m) => m.id === 'wpm50')?.reached).toBe(false)
   })
 
-  it('gates chars1k on the summed characters across all runs', () => {
-    const runs = [run({ chars: 600 }), run({ chars: 500 })]
-    expect(unlockedMilestones(runs).find((m) => m.id === 'chars1k')?.reached).toBe(true)
+  it('gates chars1k on total-ever characters', () => {
+    expect(unlockedMilestones(lifetime({ totalChars: 1_100 })).find((m) => m.id === 'chars1k')?.reached).toBe(true)
   })
 
   it('newlyReachedMilestones only reports milestones that flipped from unreached to reached', () => {
-    const before = [run({ wpm: 20 })]
-    const after = [...before, run({ wpm: 35 })]
+    const before = lifetime({ totalSessions: 1, bestWpm: 20 })
+    const after = lifetime({ totalSessions: 2, bestWpm: 35 })
     const newly = newlyReachedMilestones(before, after)
     expect(newly.map((m) => m.id)).toContain('wpm30')
     expect(newly.map((m) => m.id)).not.toContain('first') // already reached in `before`
   })
 
   it('returns nothing new when before and after are equivalent', () => {
-    const runs = [run()]
-    expect(newlyReachedMilestones(runs, runs)).toEqual([])
+    const state = lifetime({ totalSessions: 1 })
+    expect(newlyReachedMilestones(state, state)).toEqual([])
+  })
+})
+
+describe('recordRunInLifetimeStats / lifetimeStatsFromRuns', () => {
+  it('accumulates bestWpm, totalSessions, totalChars, and totalElapsedMs across runs', () => {
+    const runs = [run({ wpm: 20, chars: 10, elapsedMs: 5_000 }), run({ wpm: 45, chars: 15, elapsedMs: 8_000 })]
+    const result = runs.reduce(recordRunInLifetimeStats, emptyLifetimeStats())
+    expect(result).toEqual({
+      bestWpm: 45,
+      totalSessions: 2,
+      totalChars: 25,
+      totalElapsedMs: 13_000,
+      streakDays: ['2026-08-01'],
+    })
+  })
+
+  it('does not let bestWpm regress when a later run is slower', () => {
+    const runs = [run({ wpm: 50 }), run({ wpm: 20 })]
+    const result = runs.reduce(recordRunInLifetimeStats, emptyLifetimeStats())
+    expect(result.bestWpm).toBe(50)
+  })
+
+  it('adds each distinct calendar day once, sorted', () => {
+    const runs = [
+      run({ date: '2026-08-03T01:00:00.000Z' }),
+      run({ date: '2026-08-01T01:00:00.000Z' }),
+      run({ date: '2026-08-01T20:00:00.000Z' }), // same day as the previous run
+    ]
+    const result = lifetimeStatsFromRuns(runs)
+    expect(result.streakDays).toEqual(['2026-08-01', '2026-08-03'])
+  })
+
+  it('lifetimeStatsFromRuns of an empty list is the empty state', () => {
+    expect(lifetimeStatsFromRuns([])).toEqual(emptyLifetimeStats())
+  })
+
+  it('bootstraps the same totals regardless of run order (migration is order-independent)', () => {
+    const runs = [run({ wpm: 20, chars: 10 }), run({ wpm: 45, chars: 15 })]
+    const forward = lifetimeStatsFromRuns(runs)
+    const reversed = lifetimeStatsFromRuns([...runs].reverse())
+    expect(reversed).toEqual(forward)
   })
 })
 
@@ -167,33 +213,34 @@ describe('topTimingStats', () => {
 describe('streakStats', () => {
   it('counts a run of consecutive days ending today as the current streak', () => {
     const now = new Date('2026-08-18T12:00:00.000Z')
+    const days = ['2026-08-16', '2026-08-17', '2026-08-18']
+    expect(streakStats(days, now)).toEqual({ current: 3, longest: 3 })
+  })
+
+  it('breaks the current streak on a gap before today, but keeps the longest', () => {
+    const now = new Date('2026-08-18T12:00:00.000Z')
+    const days = ['2026-08-15', '2026-08-16', /* 08-17 missing */ '2026-08-18']
+    expect(streakStats(days, now)).toEqual({ current: 1, longest: 2 })
+  })
+
+  it('current streak is 0 when there was no activity today or yesterday', () => {
+    const now = new Date('2026-08-18T12:00:00.000Z')
+    expect(streakStats(['2026-08-10'], now).current).toBe(0)
+  })
+
+  it('returns zeros for no days', () => {
+    expect(streakStats([], new Date())).toEqual({ current: 0, longest: 0 })
+  })
+
+  it('accepts the day-key list produced by lifetimeStatsFromRuns end to end', () => {
+    const now = new Date('2026-08-18T12:00:00.000Z')
     const runs = [
       run({ date: '2026-08-16T01:00:00.000Z' }),
       run({ date: '2026-08-17T01:00:00.000Z' }),
       run({ date: '2026-08-18T01:00:00.000Z' }),
     ]
-    expect(streakStats(runs, now)).toEqual({ current: 3, longest: 3 })
-  })
-
-  it('breaks the current streak on a gap before today, but keeps the longest', () => {
-    const now = new Date('2026-08-18T12:00:00.000Z')
-    const runs = [
-      run({ date: '2026-08-15T01:00:00.000Z' }),
-      run({ date: '2026-08-16T01:00:00.000Z' }),
-      // 08-17 missing
-      run({ date: '2026-08-18T01:00:00.000Z' }),
-    ]
-    expect(streakStats(runs, now)).toEqual({ current: 1, longest: 2 })
-  })
-
-  it('current streak is 0 when there was no run today or yesterday', () => {
-    const now = new Date('2026-08-18T12:00:00.000Z')
-    const runs = [run({ date: '2026-08-10T01:00:00.000Z' })]
-    expect(streakStats(runs, now).current).toBe(0)
-  })
-
-  it('returns zeros for no runs', () => {
-    expect(streakStats([], new Date())).toEqual({ current: 0, longest: 0 })
+    const lifetime = lifetimeStatsFromRuns(runs)
+    expect(streakStats(lifetime.streakDays, now)).toEqual({ current: 3, longest: 3 })
   })
 })
 

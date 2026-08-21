@@ -1,4 +1,5 @@
-import type { RunResult, Settings, SourceName, TextItem } from '../engine/types'
+import { lifetimeStatsFromRuns } from '../engine/stats'
+import type { LifetimeStats, RunResult, Settings, SourceName, TextItem } from '../engine/types'
 import { readJson } from './storage'
 
 export const RUNS_KEY = 'japanese-romaji:runs'
@@ -7,6 +8,7 @@ export const LIBRARY_KEY = 'japanese-romaji:library'
 export const MISSES_KEY = 'japanese-romaji:misses'
 export const CONFUSIONS_KEY = 'japanese-romaji:confusions'
 export const SHOW_KEYBOARD_KEY = 'japanese-romaji:show-keyboard'
+export const LIFETIME_KEY = 'japanese-romaji:lifetime'
 
 const VALID_SOURCES = new Set<string>(['auto', 'drills', 'difficult', 'quotes', 'words', 'library'])
 
@@ -111,6 +113,45 @@ export function readConfusionMap(): Record<string, number> {
     if (isNum(value)) result[key] = value
   }
   return result
+}
+
+function isValidLifetimeStats(item: unknown): boolean {
+  if (!item || typeof item !== 'object' || Array.isArray(item)) return false
+  const r = item as Record<string, unknown>
+  return (
+    isNum(r.bestWpm) &&
+    r.bestWpm >= 0 &&
+    isNum(r.totalSessions) &&
+    r.totalSessions >= 0 &&
+    isNum(r.totalChars) &&
+    r.totalChars >= 0 &&
+    isNum(r.totalElapsedMs) &&
+    r.totalElapsedMs >= 0 &&
+    Array.isArray(r.streakDays) &&
+    r.streakDays.every(isStr)
+  )
+}
+
+/**
+ * Reads persisted lifetime stats, bootstrapping them from stored run
+ * history on first read for existing users who don't have this key yet —
+ * a one-time migration, not a live recomputation (see
+ * lifetimeStatsFromRuns's doc comment on why it can't recover history the
+ * old run-list cap already dropped).
+ */
+export function readLifetimeStats(): LifetimeStats {
+  const raw = readJson<unknown>(LIFETIME_KEY, null)
+  if (isValidLifetimeStats(raw)) {
+    const r = raw as Record<string, unknown>
+    return {
+      bestWpm: r.bestWpm as number,
+      totalSessions: r.totalSessions as number,
+      totalChars: r.totalChars as number,
+      totalElapsedMs: r.totalElapsedMs as number,
+      streakDays: [...(r.streakDays as string[])],
+    }
+  }
+  return lifetimeStatsFromRuns(readRuns())
 }
 
 export function readShowKeyboard(): boolean {

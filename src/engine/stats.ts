@@ -1,4 +1,4 @@
-import type { AggregatedTimingStat, RunResult, SourceName, TimingStat, Unlock } from './types'
+import type { AggregatedTimingStat, LifetimeStats, RunResult, SourceName, TimingStat, Unlock } from './types'
 
 export function dayKey(dateString: string): string {
   return new Date(dateString).toISOString().slice(0, 10)
@@ -12,10 +12,8 @@ export function runRawWpm(run: RunResult): number {
   return run.rawWpm ?? Math.round((run.rawCpm ?? run.cpm ?? 0) / 5)
 }
 
-export function unlockedMilestones(runs: RunResult[]): Unlock[] {
-  const best = Math.max(0, ...runs.map((run) => runWpm(run)))
-  const sessions = runs.length
-  const chars = runs.reduce((sum, run) => sum + run.chars, 0)
+export function unlockedMilestones(lifetime: LifetimeStats): Unlock[] {
+  const { bestWpm: best, totalSessions: sessions, totalChars: chars } = lifetime
   return [
     { id: 'first', label: 'first run', reached: sessions >= 1 },
     { id: 'wpm30', label: '30 wpm · difficult unlocked', reached: best >= 30 },
@@ -29,9 +27,36 @@ export function unlockedMilestones(runs: RunResult[]): Unlock[] {
   ]
 }
 
-export function newlyReachedMilestones(before: RunResult[], after: RunResult[]): Unlock[] {
+export function newlyReachedMilestones(before: LifetimeStats, after: LifetimeStats): Unlock[] {
   const oldReached = new Set(unlockedMilestones(before).filter((item) => item.reached).map((item) => item.id))
   return unlockedMilestones(after).filter((item) => item.reached && !oldReached.has(item.id))
+}
+
+export function emptyLifetimeStats(): LifetimeStats {
+  return { bestWpm: 0, totalSessions: 0, totalChars: 0, totalElapsedMs: 0, streakDays: [] }
+}
+
+export function recordRunInLifetimeStats(current: LifetimeStats, run: RunResult): LifetimeStats {
+  const day = dayKey(run.date)
+  const streakDays = current.streakDays.includes(day) ? current.streakDays : [...current.streakDays, day].sort()
+  return {
+    bestWpm: Math.max(current.bestWpm, runWpm(run)),
+    totalSessions: current.totalSessions + 1,
+    totalChars: current.totalChars + run.chars,
+    totalElapsedMs: current.totalElapsedMs + run.elapsedMs,
+    streakDays,
+  }
+}
+
+/**
+ * One-time bootstrap for existing users: derives lifetime aggregates from
+ * whatever run history is currently stored. If that history was already
+ * truncated by the old cap before this existed, the bootstrap can only
+ * reflect what's still there — it can't recover already-lost data, but it
+ * stops any further loss going forward.
+ */
+export function lifetimeStatsFromRuns(runs: RunResult[]): LifetimeStats {
+  return runs.reduce(recordRunInLifetimeStats, emptyLifetimeStats())
 }
 
 export function sourceBreakdown(runs: RunResult[]): { source: SourceName; count: number; avg: number }[] {
@@ -101,8 +126,8 @@ export function topTimingStats(
     .slice(0, limit)
 }
 
-export function streakStats(runs: RunResult[], now: Date = new Date()): { current: number; longest: number } {
-  const days = [...new Set(runs.map((run) => dayKey(run.date)))].sort()
+export function streakStats(dayKeys: string[], now: Date = new Date()): { current: number; longest: number } {
+  const days = [...new Set(dayKeys)].sort()
   if (days.length === 0) return { current: 0, longest: 0 }
 
   let longest = 1

@@ -38,6 +38,22 @@ export type Settings = {
   paragraphItems: number
 }
 
+/**
+ * All-time aggregates, maintained incrementally on every completed run —
+ * deliberately separate from the (capped, most-recent-N) stored run list so
+ * personal bests, milestones, and streaks can't regress once the run log
+ * gets truncated. `streakDays` holds distinct calendar day-keys only (one
+ * entry per active day, not per run), so it stays compact even over years
+ * of daily use.
+ */
+export type LifetimeStats = {
+  bestWpm: number
+  totalSessions: number
+  totalChars: number
+  totalElapsedMs: number
+  streakDays: string[]
+}
+
 export type TimingStat = {
   attempts: number
   misses: number

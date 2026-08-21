@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import {
   readConfusionMap,
   readLibrary,
+  readLifetimeStats,
   readMissMap,
   readRuns,
   readSettings,
@@ -15,6 +16,7 @@ const LIBRARY_KEY = 'japanese-romaji:library'
 const MISSES_KEY = 'japanese-romaji:misses'
 const CONFUSIONS_KEY = 'japanese-romaji:confusions'
 const SHOW_KB_KEY = 'japanese-romaji:show-keyboard'
+const LIFETIME_KEY = 'japanese-romaji:lifetime'
 
 beforeEach(() => {
   localStorage.clear()
@@ -212,6 +214,68 @@ describe('readConfusionMap', () => {
   it('returns the stored object when valid', () => {
     localStorage.setItem(CONFUSIONS_KEY, JSON.stringify({ 'a → s': 2 }))
     expect(readConfusionMap()).toEqual({ 'a → s': 2 })
+  })
+})
+
+describe('readLifetimeStats', () => {
+  it('bootstraps from stored run history when the key is absent', () => {
+    const runs = [
+      {
+        source: 'words',
+        chars: 10,
+        mistakes: 0,
+        accuracy: 100,
+        wpm: 30,
+        elapsedMs: 20_000,
+        date: '2026-08-01T00:00:00.000Z',
+      },
+      {
+        source: 'words',
+        chars: 15,
+        mistakes: 0,
+        accuracy: 100,
+        wpm: 45,
+        elapsedMs: 20_000,
+        date: '2026-08-02T00:00:00.000Z',
+      },
+    ]
+    localStorage.setItem(RUNS_KEY, JSON.stringify(runs))
+    expect(readLifetimeStats()).toEqual({
+      bestWpm: 45,
+      totalSessions: 2,
+      totalChars: 25,
+      totalElapsedMs: 40_000,
+      streakDays: ['2026-08-01', '2026-08-02'],
+    })
+  })
+
+  it('bootstraps the empty state when there is no run history either', () => {
+    expect(readLifetimeStats()).toEqual({
+      bestWpm: 0,
+      totalSessions: 0,
+      totalChars: 0,
+      totalElapsedMs: 0,
+      streakDays: [],
+    })
+  })
+
+  it('returns the stored value once persisted, without re-deriving from runs', () => {
+    const stored = { bestWpm: 99, totalSessions: 500, totalChars: 50_000, totalElapsedMs: 9_000_000, streakDays: ['2026-01-01'] }
+    localStorage.setItem(LIFETIME_KEY, JSON.stringify(stored))
+    // Even with contradictory run history present, the persisted lifetime record wins.
+    localStorage.setItem(RUNS_KEY, JSON.stringify([]))
+    expect(readLifetimeStats()).toEqual(stored)
+  })
+
+  it('falls back to bootstrapping when the stored value is malformed', () => {
+    localStorage.setItem(LIFETIME_KEY, JSON.stringify({ bestWpm: 'not a number' }))
+    expect(readLifetimeStats()).toEqual({
+      bestWpm: 0,
+      totalSessions: 0,
+      totalChars: 0,
+      totalElapsedMs: 0,
+      streakDays: [],
+    })
   })
 })
 
