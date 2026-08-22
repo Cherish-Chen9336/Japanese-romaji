@@ -8,7 +8,9 @@ import {
   generateLesson,
   gojuonBank,
   kanaRows,
+  sourceOptions,
   parseLibraryText,
+  quoteBank,
   sourceUnlockAt,
   sourceUnlocked,
   wordBank,
@@ -315,5 +317,55 @@ describe('parseLibraryText — rejected pairs', () => {
   // An astral character compiles to a token no single keypress can produce.
   it('drops a pair whose romaji cannot be typed one key at a time', () => {
     expect(parseLibraryText('えき|ek😀i')).toEqual([])
+  })
+})
+
+describe('kanji is reachable, not just present', () => {
+  const hasKanji = (text: string) => /\p{Script=Han}/u.test(text)
+
+  /*
+   * The bug this guards against: kanji existed only in `quoteBank`, which is
+   * gated at 50 wpm, so nobody starting out ever saw a single character of it.
+   * Every correctness test passed, because they all reached the content by
+   * force-unlocking the source first.
+   */
+  it('appears in a source available from zero wpm', () => {
+    const openAtZero = sourceOptions
+      .filter((option) => option.unlockAt === 0 && option.value !== 'auto')
+      .map((option) => option.value)
+
+    const banks: Partial<Record<string, TextItem[]>> = {
+      kana: gojuonBank,
+      drills: drillFallbackBank,
+      words: wordBank,
+    }
+    const reachable = openAtZero.flatMap((source) => banks[source] ?? [])
+    expect(reachable.some((item) => hasKanji(item.kana))).toBe(true)
+  })
+
+  it('is what `auto` serves a brand-new user some of the time', () => {
+    const settings: Settings = { paragraphItems: 8 }
+    const seen = new Set<string>()
+    const rng = mulberry32(11)
+    for (let i = 0; i < 30; i++) {
+      for (const item of generateLesson('auto', settings, {}, [], 0, rng).items) {
+        if (hasKanji(item.kana)) seen.add(item.kana)
+      }
+    }
+    expect(seen.size).toBeGreaterThan(0)
+  })
+
+  // Display only — the keystrokes are always the reading.
+  it('never asks anyone to type a kanji character', () => {
+    const everything = [...wordBank, ...difficultBank, ...quoteBank]
+    const typeable = everything.filter((item) => !hasKanji(item.romaji))
+    expect(typeable).toHaveLength(everything.length)
+  })
+
+  it('gives every kanji item a reading to type and to print above it', () => {
+    const missing = [...wordBank, ...difficultBank, ...quoteBank]
+      .filter((item) => hasKanji(item.kana) && item.reading === undefined)
+      .map((item) => item.kana)
+    expect(missing).toEqual([])
   })
 })

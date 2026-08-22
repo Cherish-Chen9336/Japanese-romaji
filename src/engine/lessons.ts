@@ -14,50 +14,61 @@ export const sourceOptions: { value: SourceName; label: string; unlockAt: number
   { value: 'library', label: 'library', unlockAt: 70 },
 ]
 
+/**
+ * Everyday vocabulary, written the way it is actually written. Words normally
+ * set in kanji carry a `reading`; the greetings stay kana because that is how
+ * they are written, not because they are easier.
+ *
+ * The kanji is display only — you still type the reading, and the furigana above
+ * it means a beginner can read the word without knowing the characters. Which is
+ * the point: this is the source someone meets first, so it is where kanji has to
+ * appear if it is going to appear at all.
+ */
 export const wordBank: TextItem[] = [
   { kana: 'おはよう', romaji: 'ohayou' },
   // は here is the topic particle, read `wa`. Displayed as written, typed as spoken.
   { kana: 'こんにちは', romaji: 'konnichiwa', reading: 'こんにちわ' },
   { kana: 'ありがとう', romaji: 'arigatou' },
   { kana: 'すみません', romaji: 'sumimasen' },
-  { kana: 'ともだち', romaji: 'tomodachi' },
-  { kana: 'せんせい', romaji: 'sensei' },
-  { kana: 'がくせい', romaji: 'gakusei' },
-  { kana: 'でんしゃ', romaji: 'densha' },
-  { kana: 'じかん', romaji: 'jikan' },
-  { kana: 'にほんご', romaji: 'nihongo' },
-  { kana: 'たべもの', romaji: 'tabemono' },
-  { kana: 'のみもの', romaji: 'nomimono' },
-  { kana: 'あした', romaji: 'ashita' },
-  { kana: 'きょう', romaji: 'kyou' },
-  { kana: 'きのう', romaji: 'kinou' },
-  { kana: 'えき', romaji: 'eki' },
-  { kana: 'まち', romaji: 'machi' },
-  { kana: 'ほん', romaji: 'hon' },
-  { kana: 'ひこうき', romaji: 'hikouki' },
-  { kana: 'かいしゃ', romaji: 'kaisha' },
-  { kana: 'しゃしん', romaji: 'shashin' },
-  { kana: 'りょうり', romaji: 'ryouri' },
-  { kana: 'えいが', romaji: 'eiga' },
-  { kana: 'てがみ', romaji: 'tegami' },
+  { kana: '友達', reading: 'ともだち', romaji: 'tomodachi' },
+  { kana: '先生', reading: 'せんせい', romaji: 'sensei' },
+  { kana: '学生', reading: 'がくせい', romaji: 'gakusei' },
+  { kana: '電車', reading: 'でんしゃ', romaji: 'densha' },
+  { kana: '時間', reading: 'じかん', romaji: 'jikan' },
+  { kana: '日本語', reading: 'にほんご', romaji: 'nihongo' },
+  { kana: '食べ物', reading: 'たべもの', romaji: 'tabemono' },
+  { kana: '飲み物', reading: 'のみもの', romaji: 'nomimono' },
+  { kana: '明日', reading: 'あした', romaji: 'ashita' },
+  { kana: '今日', reading: 'きょう', romaji: 'kyou' },
+  { kana: '昨日', reading: 'きのう', romaji: 'kinou' },
+  { kana: '駅', reading: 'えき', romaji: 'eki' },
+  { kana: '町', reading: 'まち', romaji: 'machi' },
+  { kana: '本', reading: 'ほん', romaji: 'hon' },
+  { kana: '飛行機', reading: 'ひこうき', romaji: 'hikouki' },
+  { kana: '会社', reading: 'かいしゃ', romaji: 'kaisha' },
+  { kana: '写真', reading: 'しゃしん', romaji: 'shashin' },
+  { kana: '料理', reading: 'りょうり', romaji: 'ryouri' },
+  { kana: '映画', reading: 'えいが', romaji: 'eiga' },
+  { kana: '手紙', reading: 'てがみ', romaji: 'tegami' },
 ]
 
+/** Words chosen for the typing, not the reading: sokuon and yōon throughout. */
 export const difficultBank: TextItem[] = [
-  { kana: 'がっこう', romaji: 'gakkou' },
-  { kana: 'きって', romaji: 'kitte' },
-  { kana: 'ざっし', romaji: 'zasshi' },
-  { kana: 'しゅくだい', romaji: 'shukudai' },
-  { kana: 'じゅぎょう', romaji: 'jugyou' },
-  { kana: 'びょういん', romaji: 'byouin' },
-  { kana: 'りょこう', romaji: 'ryokou' },
-  { kana: 'きゃく', romaji: 'kyaku' },
+  { kana: '学校', reading: 'がっこう', romaji: 'gakkou' },
+  { kana: '切手', reading: 'きって', romaji: 'kitte' },
+  { kana: '雑誌', reading: 'ざっし', romaji: 'zasshi' },
+  { kana: '宿題', reading: 'しゅくだい', romaji: 'shukudai' },
+  { kana: '授業', reading: 'じゅぎょう', romaji: 'jugyou' },
+  { kana: '病院', reading: 'びょういん', romaji: 'byouin' },
+  { kana: '旅行', reading: 'りょこう', romaji: 'ryokou' },
+  { kana: '客', reading: 'きゃく', romaji: 'kyaku' },
   { kana: 'ちょっと', romaji: 'chotto' },
-  { kana: 'しんぶん', romaji: 'shinbun' },
-  { kana: 'ほんや', romaji: 'honya' },
-  { kana: 'こんや', romaji: 'konya' },
-  { kana: 'ちゃわん', romaji: 'chawan' },
-  { kana: 'ちゅうしゃ', romaji: 'chuusha' },
-  { kana: 'ちょきん', romaji: 'chokin' },
+  { kana: '新聞', reading: 'しんぶん', romaji: 'shinbun' },
+  { kana: '本屋', reading: 'ほんや', romaji: 'honya' },
+  { kana: '今夜', reading: 'こんや', romaji: 'konya' },
+  { kana: '茶碗', reading: 'ちゃわん', romaji: 'chawan' },
+  { kana: '注射', reading: 'ちゅうしゃ', romaji: 'chuusha' },
+  { kana: '貯金', reading: 'ちょきん', romaji: 'chokin' },
 ]
 
 /**
