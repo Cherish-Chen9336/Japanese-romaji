@@ -11,7 +11,7 @@ import type {
   TimingStat,
 } from '../engine/types'
 import type { RecordName, RecordStore } from './records'
-import { readJson } from './storage'
+import { readJson, writeJson } from './storage'
 
 export const RUNS_KEY = 'japanese-romaji:runs'
 export const SETTINGS_KEY = 'japanese-romaji:settings'
@@ -124,15 +124,18 @@ export function readRuns(): RunResult[] {
   return parseRuns(readJson<unknown>(RUNS_KEY, []))
 }
 
+const DEFAULT_PARAGRAPH_ITEMS = 8
+
+function clampParagraphItems(value: unknown): number {
+  return isNum(value)
+    ? Math.max(3, Math.min(30, Math.round(value)))
+    : DEFAULT_PARAGRAPH_ITEMS
+}
+
 export function readSettings(): Settings {
-  const DEFAULT: Settings = { paragraphItems: 8 }
   const raw = readJson<unknown>(SETTINGS_KEY, null)
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return DEFAULT
-  const r = raw as Record<string, unknown>
-  const items = isNum(r.paragraphItems)
-    ? Math.max(3, Math.min(30, Math.round(r.paragraphItems)))
-    : DEFAULT.paragraphItems
-  return { paragraphItems: items }
+  if (!isRecord(raw)) return { paragraphItems: DEFAULT_PARAGRAPH_ITEMS }
+  return { paragraphItems: clampParagraphItems((raw as Record<string, unknown>).paragraphItems) }
 }
 
 /**
@@ -355,5 +358,88 @@ export async function loadProfile(store: RecordStore): Promise<StoredProfile> {
     lifetime: parseLifetimeStats(raw.lifetime, runs),
     misses: parseCountMap(raw.misses),
     confusions: parseCountMap(raw.confusions),
+  }
+}
+
+/* ---- preferences as a group ------------------------------------------------
+ *
+ * Individually these are read at startup; as a set they are what a backup has
+ * to carry, so that restoring on a new machine brings the keyboard layout and
+ * the chosen source across too, not just the history.
+ */
+
+export type Preferences = {
+  settings: Settings
+  showKeyboard: boolean
+  keyboardLayout: KeyboardLayoutName
+  kanaGroup: KanaGroup
+  source: SourceName
+}
+
+export function readPreferences(): Preferences {
+  return {
+    settings: readSettings(),
+    showKeyboard: readShowKeyboard(),
+    keyboardLayout: readKeyboardLayout(),
+    kanaGroup: readKanaGroup(),
+    source: readSource(),
+  }
+}
+
+/** Returns false if any write was refused, so the caller can say so. */
+export function writePreferences(preferences: Preferences): boolean {
+  const writes = [
+    writeJson(SETTINGS_KEY, preferences.settings),
+    writeJson(SHOW_KEYBOARD_KEY, preferences.showKeyboard),
+    writeJson(KEYBOARD_LAYOUT_KEY, preferences.keyboardLayout),
+    writeJson(KANA_GROUP_KEY, preferences.kanaGroup),
+    writeJson(SOURCE_KEY, preferences.source),
+  ]
+  return writes.every(Boolean)
+}
+
+/**
+ * Validates preferences arriving from a file. Each field falls back to its own
+ * default rather than rejecting the whole set — a backup with one unrecognised
+ * value should still restore the other four.
+ */
+export function parsePreferences(raw: unknown): Preferences {
+  const r = isRecord(raw) ? (raw as Record<string, unknown>) : {}
+  const settings = isRecord(r.settings)
+    ? { paragraphItems: clampParagraphItems((r.settings as Record<string, unknown>).paragraphItems) }
+    : { paragraphItems: DEFAULT_PARAGRAPH_ITEMS }
+  return {
+    settings,
+    showKeyboard: typeof r.showKeyboard === 'boolean' ? r.showKeyboard : true,
+    keyboardLayout: isKeyboardLayoutName(r.keyboardLayout) ? r.keyboardLayout : 'windows',
+    kanaGroup: isKanaGroup(r.kanaGroup) ? r.kanaGroup : 'all',
+    source: isStr(r.source) && VALID_SOURCES.has(r.source) ? (r.source as SourceName) : 'auto',
+  }
+}
+
+/** Every localStorage key this app owns. Reset removes exactly these. */
+export const ALL_PREFERENCE_KEYS: readonly string[] = [
+  SETTINGS_KEY,
+  SHOW_KEYBOARD_KEY,
+  KEYBOARD_LAYOUT_KEY,
+  KANA_GROUP_KEY,
+  SOURCE_KEY,
+  // The pre-IndexedDB record keys. Still present after migration, since they
+  // were the only copy until the first write landed — a reset has to take them
+  // too, or the next load migrates the old profile straight back in.
+  RUNS_KEY,
+  LIBRARY_KEY,
+  LIFETIME_KEY,
+  MISSES_KEY,
+  CONFUSIONS_KEY,
+]
+
+export function clearPreferences(): void {
+  for (const key of ALL_PREFERENCE_KEYS) {
+    try {
+      localStorage.removeItem(key)
+    } catch {
+      // A storage that refuses removal is one we never wrote to either.
+    }
   }
 }

@@ -39,7 +39,12 @@ split: `engine/` pure logic → `io/` browser adapters → `ui/` SolidJS.
   parsed by the same validators the localStorage path used, so hardening applies
   to both. `migrateLocalStorage` copies an older profile across once, and only
   into an empty store — otherwise clearing your history would resurrect it from
-  the stale copy on the next load.
+  the stale copy on the next load. `io/backup.ts` exports, imports and resets the
+  whole profile. The file carries a format marker and a version, and an
+  unrecognised version is **refused** rather than read as best it can be —
+  guessing at a newer release's fields would corrupt a profile instead of
+  declining to touch it. Import replaces rather than merges: merging two
+  histories double-counts runs and invents streak days that never happened.
   Test files here open with `// @vitest-environment jsdom` at line 1 (must
   be the first line of the file; it sets the environment for the whole
   file, not a per-block override).

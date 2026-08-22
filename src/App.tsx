@@ -38,6 +38,13 @@ import type {
   Unlock,
 } from './engine/types'
 import {
+  backupFilename,
+  downloadText,
+  exportBackup,
+  importBackup,
+  resetProfile,
+} from './io/backup'
+import {
   KANA_GROUP_KEY,
   KEYBOARD_LAYOUT_KEY,
   SETTINGS_KEY,
@@ -51,6 +58,8 @@ import {
   readSettings,
   readShowKeyboard,
   readSource,
+  type Preferences,
+  type StoredProfile,
 } from './io/persistence'
 import { createRecordStore, type RecordName } from './io/records'
 import { writeJson } from './io/storage'
@@ -101,6 +110,8 @@ function App() {
   const [lastRun, setLastRun] = createSignal<RunResult | null>(runs()[0] ?? null)
   const [resultUnlocks, setResultUnlocks] = createSignal<Unlock[]>([])
   const [saveFailed, setSaveFailed] = createSignal(false)
+  const [dataMessage, setDataMessage] = createSignal('')
+  const [resetArmed, setResetArmed] = createSignal(false)
 
   let hiddenInput: HTMLInputElement | undefined
   let savedCurrentRun = false
@@ -165,6 +176,68 @@ function App() {
    */
   const persistRecord = (name: RecordName, value: unknown): void => {
     void recordStore.write(name, value).catch(() => setSaveFailed(true))
+  }
+
+  /** Puts a loaded profile into the signals. Shared by boot, import and reset. */
+  const adoptProfile = (profile: StoredProfile) => {
+    setRuns(profile.runs)
+    setLifetimeStats(profile.lifetime)
+    setMissMap(profile.misses)
+    setConfusionMap(profile.confusions)
+    setLibrary(profile.library)
+    setLastRun(profile.runs[0] ?? null)
+  }
+
+  const exportData = async () => {
+    try {
+      downloadText(backupFilename(), await exportBackup(recordStore))
+      setDataMessage('Exported.')
+    } catch {
+      setDataMessage("Couldn't read your data to export it.")
+    }
+  }
+
+  const IMPORT_ERRORS: Record<string, string> = {
+    unreadable: "That file isn't readable JSON.",
+    'not-a-backup': "That doesn't look like a Kana Type export.",
+    'unsupported-version':
+      'That export came from a newer version. Update first — reading it now could damage your profile.',
+  }
+
+  const importData = async (file: File) => {
+    const result = await importBackup(recordStore, await file.text())
+    if (!result.ok) {
+      setDataMessage(IMPORT_ERRORS[result.reason])
+      return
+    }
+    adoptProfile(result.profile as StoredProfile)
+    const preferences = result.preferences as Preferences
+    setSettings(preferences.settings)
+    setShowKeyboard(preferences.showKeyboard)
+    setKeyboardLayout(preferences.keyboardLayout)
+    setKanaGroup(preferences.kanaGroup)
+    setSource(preferences.source)
+    setLesson(nextLesson(preferences.source, preferences.settings))
+    resetRunState()
+    setDataMessage(`Imported ${result.profile?.runs.length ?? 0} runs.`)
+  }
+
+  const resetData = async () => {
+    if (!resetArmed()) {
+      setResetArmed(true)
+      setDataMessage('This erases every run, your library and your settings.')
+      return
+    }
+    setResetArmed(false)
+    adoptProfile(await resetProfile(recordStore))
+    setSettings(readSettings())
+    setShowKeyboard(readShowKeyboard())
+    setKeyboardLayout(readKeyboardLayout())
+    setKanaGroup(readKanaGroup())
+    setSource(readSource())
+    setLesson(nextLesson(readSource()))
+    resetRunState()
+    setDataMessage('Erased.')
   }
 
   const navigate = (next: RouteName) => {
@@ -320,13 +393,7 @@ function App() {
   onMount(async () => {
     try {
       await migrateLocalStorage(recordStore)
-      const profile = await loadProfile(recordStore)
-      setRuns(profile.runs)
-      setLifetimeStats(profile.lifetime)
-      setMissMap(profile.misses)
-      setConfusionMap(profile.confusions)
-      setLibrary(profile.library)
-      setLastRun(profile.runs[0] ?? null)
+      adoptProfile(await loadProfile(recordStore))
       setLesson(nextLesson(source()))
     } catch {
       setSaveFailed(true)
@@ -982,6 +1049,45 @@ function App() {
                 </For>
               </div>
             </div>
+
+            <h2>your data</h2>
+            <p class="muted">
+              Everything is stored in this browser and never leaves it. Export to
+              keep a copy or move to another machine.
+            </p>
+            <div class="action-row">
+              <button type="button" class="secondary" onClick={() => void exportData()}>
+                export
+              </button>
+              <label class="file-button secondary">
+                import
+                <input
+                  type="file"
+                  accept=".json,application/json"
+                  onChange={(event) => {
+                    const file = event.currentTarget.files?.[0]
+                    if (file) void importData(file)
+                    event.currentTarget.value = ''
+                  }}
+                />
+              </label>
+              {/* Two-step rather than a confirm dialog: destructive, and a
+                  mis-click on a single button would take the whole history. */}
+              <button
+                type="button"
+                classList={{ secondary: !resetArmed(), primary: resetArmed() }}
+                onClick={() => void resetData()}
+              >
+                {resetArmed() ? 'really erase everything?' : 'reset'}
+              </button>
+            </div>
+            <Show when={dataMessage()}>
+              {(message) => (
+                <p class="muted" role="status" aria-live="polite">
+                  {message()}
+                </p>
+              )}
+            </Show>
           </section>
         </Show>
 
