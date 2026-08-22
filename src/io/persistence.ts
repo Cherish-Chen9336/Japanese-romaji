@@ -134,8 +134,12 @@ function clampParagraphItems(value: unknown): number {
 
 export function readSettings(): Settings {
   const raw = readJson<unknown>(SETTINGS_KEY, null)
-  if (!isRecord(raw)) return { paragraphItems: DEFAULT_PARAGRAPH_ITEMS }
-  return { paragraphItems: clampParagraphItems((raw as Record<string, unknown>).paragraphItems) }
+  if (!isRecord(raw)) return { paragraphItems: DEFAULT_PARAGRAPH_ITEMS, stopOnError: true }
+  const r = raw as Record<string, unknown>
+  return {
+    paragraphItems: clampParagraphItems(r.paragraphItems),
+    stopOnError: typeof r.stopOnError === 'boolean' ? r.stopOnError : true,
+  }
 }
 
 /**
@@ -405,9 +409,11 @@ export function writePreferences(preferences: Preferences): boolean {
  */
 export function parsePreferences(raw: unknown): Preferences {
   const r = isRecord(raw) ? (raw as Record<string, unknown>) : {}
-  const settings = isRecord(r.settings)
-    ? { paragraphItems: clampParagraphItems((r.settings as Record<string, unknown>).paragraphItems) }
-    : { paragraphItems: DEFAULT_PARAGRAPH_ITEMS }
+  const stored = isRecord(r.settings) ? (r.settings as Record<string, unknown>) : {}
+  const settings: Settings = {
+    paragraphItems: clampParagraphItems(stored.paragraphItems),
+    stopOnError: typeof stored.stopOnError === 'boolean' ? stored.stopOnError : true,
+  }
   return {
     settings,
     showKeyboard: typeof r.showKeyboard === 'boolean' ? r.showKeyboard : true,

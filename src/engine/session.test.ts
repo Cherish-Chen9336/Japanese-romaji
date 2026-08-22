@@ -20,15 +20,29 @@ function session(overrides: Partial<SessionState> = {}): SessionState {
   return { ...emptySession(), ...overrides }
 }
 
-/** Types a whole string, returning the final state. */
-function type(tokens: ReturnType<typeof tokenizeKana>, text: string, start = emptySession()) {
+/**
+ * Types a whole string. `stopOnError` defaults to false here so the existing
+ * cases read as written; the production default is the opposite, and the
+ * stop-on-error block below covers it explicitly.
+ */
+function type(
+  tokens: ReturnType<typeof tokenizeKana>,
+  text: string,
+  start = emptySession(),
+  stopOnError = false,
+) {
   let state = start
   let at = T0
   for (const char of text) {
     at += 100
-    state = applyTypeChar(state, char, tokens, at).session
+    state = applyTypeChar(state, char, tokens, at, stopOnError).session
   }
   return state
+}
+
+/** Same, refusing wrong keys — the production default. */
+function typeStrict(tokens: ReturnType<typeof tokenizeKana>, text: string, start = emptySession()) {
+  return type(tokens, text, start, true)
 }
 
 /** The characters on screen, `!` marking the ones typed wrong. */
@@ -117,9 +131,9 @@ describe('applyTypeChar — accepted spellings', () => {
   })
 })
 
-describe('applyTypeChar — wrong keystrokes', () => {
+describe('applyTypeChar — wrong keystrokes, advance-on-error', () => {
   it('advances past a wrong key instead of blocking on it', () => {
-    const result = applyTypeChar(emptySession(), 'x', ABC, T0)
+    const result = applyTypeChar(emptySession(), 'x', ABC, T0, false)
     expect(result.session.keys).toEqual([{ char: 'x', correct: false }])
     expect(result.session.mistakes).toBe(1)
     expect(result.completed).toBe(false)
@@ -143,13 +157,13 @@ describe('applyTypeChar — wrong keystrokes', () => {
   })
 
   it('reports every character that would have been accepted', () => {
-    const afterS = applyTypeChar(emptySession(), 's', tokenizeKana('し'), T0).session
-    const result = applyTypeChar(afterS, 'x', tokenizeKana('し'), T0 + 100)
+    const afterS = applyTypeChar(emptySession(), 's', tokenizeKana('し'), T0, false).session
+    const result = applyTypeChar(afterS, 'x', tokenizeKana('し'), T0 + 100, false)
     expect(result.missed).toEqual({ legal: ['h', 'i'], typed: 'x' })
   })
 
   it('reports a single expected character when only one was legal', () => {
-    const result = applyTypeChar(emptySession(), 'x', ABC, T0)
+    const result = applyTypeChar(emptySession(), 'x', ABC, T0, false)
     expect(result.missed).toEqual({ legal: ['a'], typed: 'x' })
   })
 
@@ -161,7 +175,7 @@ describe('applyTypeChar — wrong keystrokes', () => {
 
   it('ignores further input once finished', () => {
     const done = type(ABC, 'aiu')
-    expect(applyTypeChar(done, 'a', ABC, T0 + 9999).session).toBe(done)
+    expect(applyTypeChar(done, 'a', ABC, T0 + 9999, false).session).toBe(done)
   })
 
   it('is case-insensitive', () => {
@@ -359,5 +373,70 @@ describe('buildRunResult timestamps', () => {
     const run = buildRunResult(state, lesson, computeMetrics(state, T0))
     expect(Date.parse(run.date)).toBeGreaterThanOrEqual(before)
     expect(Date.parse(run.date)).toBeLessThanOrEqual(Date.now())
+  })
+})
+
+/*
+ * The default. Every Japanese typing site refuses a wrong key rather than
+ * substituting for it, and the reason is that romaji input is compositional —
+ * you are assembling a kana, not filling a slot in a fixed grid. A key that
+ * half-assembles nothing would leave the typist mid-mora with no way to see
+ * what state they were in.
+ */
+describe('applyTypeChar — wrong keystrokes, stop-on-error', () => {
+  it('refuses the key and holds the cursor', () => {
+    const result = applyTypeChar(emptySession(), 'x', ABC, T0, true)
+    expect(result.session.keys).toEqual([])
+    expect(result.session.match).toEqual(emptySession().match)
+    expect(result.completed).toBe(false)
+  })
+
+  it('still counts the attempt and the mistake', () => {
+    const result = applyTypeChar(emptySession(), 'x', ABC, T0, true)
+    expect(result.session.attempts).toBe(1)
+    expect(result.session.mistakes).toBe(1)
+    expect(result.missed).toEqual({ legal: ['a'], typed: 'x' })
+  })
+
+  // Nothing was consumed, so there is no red character in the line to mark.
+  // The character being waited on carries the signal instead.
+  it('marks the refused key so the display can show it', () => {
+    expect(applyTypeChar(emptySession(), 'x', ABC, T0, true).session.rejected).toBe('x')
+  })
+
+  it('clears the mark as soon as a legal key arrives', () => {
+    const refused = applyTypeChar(emptySession(), 'x', ABC, T0, true).session
+    expect(applyTypeChar(refused, 'a', ABC, T0 + 100, true).session.rejected).toBeNull()
+  })
+
+  // The practical point: recovering costs one keypress, not a backspace.
+  it('carries on from the right key with no correction needed', () => {
+    const state = typeStrict(ABC, 'axiu')
+    expect(state.finishedAt).not.toBeNull()
+    expect(state.mistakes).toBe(1)
+    expect(state.keys.map((k) => k.char).join('')).toBe('aiu')
+  })
+
+  it('never leaves a wrong character standing in the line', () => {
+    const state = typeStrict(ABC, 'xxxaiu')
+    expect(state.keys.every((k) => k.correct)).toBe(true)
+    expect(state.mistakes).toBe(3)
+  })
+
+  it('cannot finish a run on a wrong key', () => {
+    const state = typeStrict(ABC, 'aix')
+    expect(state.finishedAt).toBeNull()
+    expect(typeStrict(ABC, 'u', state).finishedAt).not.toBeNull()
+  })
+
+  it('accepts every alternate spelling exactly as before', () => {
+    expect(typeStrict(tokenizeKana('しゃしん'), 'syasin').mistakes).toBe(0)
+    expect(typeStrict(tokenizeKana('しゃしん'), 'syasin').finishedAt).not.toBeNull()
+  })
+
+  it('clears the mark on backspace', () => {
+    const refused = applyTypeChar(typeStrict(ABC, 'a'), 'x', ABC, T0 + 200, true).session
+    expect(refused.rejected).toBe('x')
+    expect(applyBackspace(refused, ABC).rejected).toBeNull()
   })
 })

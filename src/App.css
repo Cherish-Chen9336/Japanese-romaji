@@ -180,13 +180,13 @@ ruby {
 }
 
 rt {
-  color: var(--color-dim);
-  font-size: 0.42em;
-  font-weight: 400;
+  color: var(--color-muted);
+  font-size: 0.5em;
+  font-weight: var(--fw-medium);
   letter-spacing: 0.02em;
   line-height: 1.1;
   /* Annotations sit close to the character they gloss, not floating above it. */
-  transform: translateY(0.35em);
+  transform: translateY(0.3em);
   user-select: none;
 }
 
@@ -979,4 +979,16 @@ meter::-webkit-meter-optimum-value {
   font-family: var(--font-mono);
   font-size: var(--fs-13);
   justify-content: center;
+}
+
+/* Stop-on-error refuses the keystroke, so there is no wrong character in the
+ * line to colour. The signal goes on the character still being waited for: it
+ * turns red and the caret beside it follows, which reads as "not this one, that
+ * one" rather than as a character you typed. */
+.char--rejected {
+  color: var(--color-error);
+}
+
+.char--rejected::after {
+  background: var(--color-error);
 }

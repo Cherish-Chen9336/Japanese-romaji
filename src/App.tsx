@@ -261,6 +261,13 @@ function App() {
       kanaGroup(),
     )
 
+  const setStopOnError = (stopOnError: boolean) => {
+    const next = { ...settings(), stopOnError }
+    setSettings(next)
+    persist(SETTINGS_KEY, next)
+    resetRunState()
+  }
+
   const changeKanaGroup = (group: KanaGroup) => {
     persist(KANA_GROUP_KEY, group)
     setKanaGroup(group)
@@ -311,7 +318,7 @@ function App() {
 
   const typeChar = (rawChar: string) => {
     if (isComplete() || route() !== 'practice') return
-    const result = applyTypeChar(session(), rawChar, tokens(), Date.now())
+    const result = applyTypeChar(session(), rawChar, tokens(), Date.now(), settings().stopOnError)
     setSession(result.session)
     if (result.missed) {
       const { legal, typed } = result.missed
@@ -357,7 +364,7 @@ function App() {
   }
 
   const updateParagraphLength = (length: number) => {
-    const next = { paragraphItems: Math.max(3, Math.min(30, length)) }
+    const next = { ...settings(), paragraphItems: Math.max(3, Math.min(30, length)) }
     setSettings(next)
     persist(SETTINGS_KEY, next)
     setLesson(nextLesson(source(), next))
@@ -577,7 +584,18 @@ function App() {
                 </For>
                 <For each={remaining().split('')}>
                   {(char, index) => (
-                    <span classList={{ char: true, 'char--current': index() === 0 }}>{char}</span>
+                    <span
+                      classList={{
+                        char: true,
+                        'char--current': index() === 0,
+                        // Stop-on-error consumes nothing, so there is no wrong
+                        // character to colour. The signal goes on the one still
+                        // being waited for.
+                        'char--rejected': index() === 0 && session().rejected !== null,
+                      }}
+                    >
+                      {char}
+                    </span>
                   )}
                 </For>
               </p>
@@ -1022,6 +1040,14 @@ function App() {
                 onInput={(event) => updateParagraphLength(Number(event.currentTarget.value))}
               />
               <b>{settings().paragraphItems} items per run</b>
+            </label>
+            <label class="check-row">
+              <input
+                type="checkbox"
+                checked={settings().stopOnError}
+                onChange={(event) => setStopOnError(event.currentTarget.checked)}
+              />
+              <span>stop on error — refuse a wrong key instead of typing it</span>
             </label>
             <label class="check-row">
               <input

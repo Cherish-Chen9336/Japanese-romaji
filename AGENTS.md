@@ -68,7 +68,13 @@ spelling that types it); `engine/session.ts` drives that with `stepWithRecovery`
 
 Three properties this has to keep, each with tests that fail loudly if it breaks:
 
-- **A wrong key is an ordinary key.** It's drawn red and the cursor moves on,
+- **Wrong keys have two treatments, and `stopOnError` picks between them.**
+  The default refuses the key: nothing is consumed, the cursor holds, and the
+  character still being waited for turns red. Every Japanese typing site does
+  this, because romaji input assembles a kana rather than filling a slot — a key
+  that half-assembles nothing leaves the typist mid-mora with no way to see what
+  state they are in. Recovery costs one keypress, not a backspace.
+  With it off, a wrong key is an ordinary key: drawn red, cursor moves on,
   consuming one edge in *every* direction that was legal — a substitution, not
   an insertion. The tempting cheap version (leave the matcher put, just paint
   the key red) reads as forgiving but is not: the typist still owes the matcher

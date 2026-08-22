@@ -60,6 +60,12 @@ export type StoredRunResult = Omit<RunResult, 'wpm'> & { wpm?: number }
 
 export type Settings = {
   paragraphItems: number
+  /**
+   * Refuse a wrong keystroke rather than letting it stand in for the right one.
+   * On by default: it is what every Japanese typing site does, because romaji
+   * input assembles a kana rather than filling a slot.
+   */
+  stopOnError: boolean
 }
 
 /**

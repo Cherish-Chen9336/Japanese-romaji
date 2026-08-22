@@ -141,12 +141,12 @@ describe('readRuns', () => {
 
 describe('readSettings', () => {
   it('returns the default when the key is absent', () => {
-    expect(readSettings()).toEqual({ paragraphItems: 8 })
+    expect(readSettings()).toEqual({ paragraphItems: 8, stopOnError: true })
   })
 
   it('returns the stored value when valid', () => {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify({ paragraphItems: 12 }))
-    expect(readSettings()).toEqual({ paragraphItems: 12 })
+    expect(readSettings()).toEqual({ paragraphItems: 12, stopOnError: true })
   })
 
   it('clamps paragraphItems below 3 back to 3', () => {
@@ -161,9 +161,9 @@ describe('readSettings', () => {
 
   it('falls back to the default for corrupt or non-object values', () => {
     localStorage.setItem(SETTINGS_KEY, 'null')
-    expect(readSettings()).toEqual({ paragraphItems: 8 })
+    expect(readSettings()).toEqual({ paragraphItems: 8, stopOnError: true })
     localStorage.setItem(SETTINGS_KEY, '"string"')
-    expect(readSettings()).toEqual({ paragraphItems: 8 })
+    expect(readSettings()).toEqual({ paragraphItems: 8, stopOnError: true })
   })
 })
 

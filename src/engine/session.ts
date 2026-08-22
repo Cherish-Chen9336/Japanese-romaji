@@ -1,7 +1,10 @@
 import {
   initMatch,
+  legalNext,
+  stepMatch,
   stepWithRecovery,
   type MatchState,
+  type RecoveryStep,
   type RomajiToken,
 } from './romanization'
 import type { Lesson, RunResult, TimingStat } from './types'
@@ -31,6 +34,12 @@ export type SessionState = {
   intervals: number[]
   /** Timestamp of the last committed keystroke, right or wrong. */
   lastKeyAt: number | null
+  /**
+   * The key that was just refused, in stop-on-error mode. Cleared by the next
+   * accepted keystroke. Nothing was consumed, so there is no red character in
+   * the line to mark — the character being waited on is marked instead.
+   */
+  rejected: string | null
 }
 
 export type TypeResult = {
@@ -71,6 +80,7 @@ export function emptySession(): SessionState {
     bigramStats: {},
     intervals: [],
     lastKeyAt: null,
+    rejected: null,
   }
 }
 
@@ -84,6 +94,29 @@ function updateStat(
   return {
     ...stats,
     [key]: { attempts: stat.attempts + 1, misses: stat.misses + (miss ? 1 : 0), totalMs: stat.totalMs + ms },
+  }
+}
+
+/**
+ * A step that refuses a wrong key instead of substituting for it. Shaped like a
+ * `RecoveryStep` so the rest of `applyTypeChar` doesn't care which mode it is
+ * in; `consumed` is what separates them.
+ */
+function rejectingStep(
+  tokens: RomajiToken[],
+  match: MatchState,
+  char: string,
+): RecoveryStep & { consumed: boolean } {
+  const exact = stepMatch(tokens, match, char)
+  if (exact.ok) {
+    return { state: exact.state, correct: true, legal: [], done: exact.done, consumed: true }
+  }
+  return {
+    state: match,
+    correct: false,
+    legal: legalNext(tokens, match),
+    done: false,
+    consumed: false,
   }
 }
 
@@ -102,21 +135,34 @@ function scoredKey(char: string, correct: boolean, legal: string[]): string | nu
 /**
  * Commits one keystroke.
  *
- * A wrong keystroke is an ordinary keystroke: it's drawn red and the cursor
- * moves on, consuming one edge in every direction that was legal (see
- * `stepWithRecovery`). It is not a wall to clear before typing can continue.
+ * Two ways to treat a wrong one, and the choice is the typist's:
+ *
+ * **stop-on-error** (default) refuses the key. Nothing is consumed, the cursor
+ * holds, and the character being waited on is marked until a legal key arrives.
+ * This is what every Japanese typing site does, and the reason is that romaji
+ * input is compositional — you are assembling a kana, not filling a slot. A key
+ * that half-assembles nothing leaves the typist mid-mora with no way to see what
+ * state they are in.
+ *
+ * **advance-on-error** treats it as an ordinary keystroke: drawn red, cursor
+ * moves on, consuming one edge in every direction that was legal. Familiar from
+ * English typing tests, where a wrong letter substitutes cleanly for a right one
+ * because the text is a fixed grid of characters.
  */
 export function applyTypeChar(
   state: SessionState,
   rawChar: string,
   tokens: RomajiToken[],
   now: number,
+  stopOnError = true,
 ): TypeResult {
   if (state.finishedAt !== null) return { session: state, completed: false }
   if (rawChar.length !== 1 || tokens.length === 0) return { session: state, completed: false }
 
   const char = rawChar.toLowerCase()
-  const step = stepWithRecovery(tokens, state.match, char)
+  const step = stopOnError
+    ? rejectingStep(tokens, state.match, char)
+    : { ...stepWithRecovery(tokens, state.match, char), consumed: true }
   const startedAt = state.startedAt ?? now
   // Clamped at both ends. The upper bound is the pause cap; the lower bound
   // matters because `now` comes from a wall clock that can step backwards (an
@@ -141,7 +187,10 @@ export function applyTypeChar(
 
   const session: SessionState = {
     ...state,
-    keys: [...state.keys, { char, correct: step.correct }],
+    // A refused key is not part of the line — nothing was consumed, so there is
+    // nothing to draw and nothing for backspace to take back.
+    keys: step.consumed ? [...state.keys, { char, correct: step.correct }] : state.keys,
+    rejected: step.consumed ? null : char,
     match: step.state,
     attempts: state.attempts + 1,
     mistakes: step.correct ? state.mistakes : state.mistakes + 1,
@@ -169,6 +218,9 @@ export function applyTypeChar(
 export function matchFor(tokens: RomajiToken[], keys: readonly TypedKey[]): MatchState {
   let match = initMatch()
   for (const key of keys) {
+    // Only consumed keys are in the log, and a consumed wrong key is by
+    // definition a substitution — so replaying through the recovery step is
+    // right in both modes.
     match = stepWithRecovery(tokens, match, key.char).state
   }
   return match
@@ -181,7 +233,7 @@ export function applyBackspace(state: SessionState, tokens: RomajiToken[]): Sess
   // it timed the next key against one the edit removed: typing a, x, backspace,
   // i recorded an "ai" pair whose label came from the surviving keys and whose
   // duration came from x→i — a measurement of neither sequence.
-  return { ...state, keys, match: matchFor(tokens, keys), lastKeyAt: null }
+  return { ...state, keys, match: matchFor(tokens, keys), lastKeyAt: null, rejected: null }
 }
 
 export function computeMetrics(state: SessionState, now: number): SessionMetrics {
