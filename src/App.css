@@ -160,16 +160,20 @@
   font-size: clamp(1.35rem, 3.8vw, 2.65rem);
   font-weight: var(--fw-medium);
   letter-spacing: 0.04em;
-  /* Loose enough that a furigana annotation on one line clears the line above. */
-  line-height: 1.7;
+  /* Leading has to carry the furigana, not just the kana. Blink grows the line
+   * box to fit a ruby annotation; Gecko doesn't, so the reading eats into the
+   * gap above it — measured at 1.7 it cleared the previous row by 12.6px in
+   * Chromium but only 7.6px in Firefox, and the JP fallback font differs per
+   * machine (Hiragino, Yu Gothic, Noto), so that margin could go to nothing. */
+  line-height: 2;
   margin: 0 0 var(--space-5);
   overflow-wrap: anywhere;
 }
 
-/* Furigana — the reading printed over its kanji. `ruby-position: over` is the
- * default everywhere but old WebKit, which defaults to `under` for some locales.
- * The line-height reset stops the annotation inheriting the display line's
- * leading and pushing the rows apart. */
+/* Furigana — the reading printed over its kanji. `ruby-position` is stated
+ * rather than left to the default, which has varied by engine and locale.
+ * Verified in Chromium and Firefox; WebKit is untested here (its Playwright
+ * build won't run on this machine). */
 ruby {
   ruby-align: center;
   ruby-position: over;
