@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { initMatch, stepMatch, tokenizeKana } from './romanization'
-import { difficultBank, drillFallbackBank, quoteBank, wordBank } from './lessons'
+import {
+  MAPPED_KANA,
+  initMatch,
+  legalNext,
+  projectMatch,
+  stepMatch,
+  stepWithRecovery,
+  tokenizeKana,
+} from './romanization'
 
 function typeAll(kana: string, input: string) {
   const tokens = tokenizeKana(kana)
@@ -115,57 +122,39 @@ describe('tokenizeKana', () => {
     expect(tokenizeKana('あっ').at(-1)?.candidates).toEqual(['xtsu', 'ltsu', 'xtu', 'ltu'])
   })
 
-  // Grammatical exceptions a per-kana mechanical table can't capture: the
-  // topic-marker は is pronounced "wa", not the "ha" it romanizes to
-  // everywhere else. There's no context-free fix — こんにちは is the only
-  // static-bank item that hits it today.
-  const NON_MECHANICAL_ITEMS = new Set(['こんにちは'])
-
-  it('every existing static bank item is fully typeable via stepMatch using its canonical spelling', () => {
-    const allItems = [...wordBank, ...difficultBank, ...drillFallbackBank, ...quoteBank]
-    for (const item of allItems) {
-      if (NON_MECHANICAL_ITEMS.has(item.kana)) continue
-      const kanaWords = item.kana.split(' ')
-      const romajiWords = item.romaji.split(' ')
-      expect(kanaWords.length, `${item.kana} | ${item.romaji}`).toBe(romajiWords.length)
-      for (let i = 0; i < kanaWords.length; i++) {
-        expect(
-          completes(kanaWords[i], romajiWords[i]),
-          `${kanaWords[i]} could not be typed as "${romajiWords[i]}"`,
-        ).toBe(true)
-      }
-    }
-  })
-
-  it('every existing static bank item is fully typeable as one space-joined phrase', () => {
-    const allItems = [...wordBank, ...difficultBank, ...drillFallbackBank, ...quoteBank]
-    for (const item of allItems) {
-      if (NON_MECHANICAL_ITEMS.has(item.kana)) continue
-      expect(completes(item.kana, item.romaji), `"${item.kana}" as "${item.romaji}"`).toBe(true)
-    }
-  })
+  // Whether every bundled bank item is actually typeable is checked in
+  // prompt.test.ts, which runs items through `compileItem` — the layer that
+  // knows about particle readings and the literal-romaji fallback. Checking it
+  // here against the raw tokeniser forced こんにちは to be excluded, which hid a
+  // real violation behind a passing test.
 
   it('every ROMAJI_MAP entry is internally walkable via each of its own candidates', () => {
-    // Sweeps every base + youon kana entry in the table, not just the words
-    // that happen to appear in a bank — most of these rows (p-row, most
-    // youon groups) have no other coverage.
-    const singleKana = Array.from(
-      'あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわを' +
-        'がぎぐげござじずぜぞだぢづでどばびぶべぼぱぴぷぺぽ',
-    )
-    const digraphKana = [
-      'きゃ', 'きゅ', 'きょ', 'しゃ', 'しゅ', 'しょ', 'ちゃ', 'ちゅ', 'ちょ',
-      'にゃ', 'にゅ', 'にょ', 'ひゃ', 'ひゅ', 'ひょ', 'みゃ', 'みゅ', 'みょ',
-      'りゃ', 'りゅ', 'りょ', 'ぎゃ', 'ぎゅ', 'ぎょ', 'じゃ', 'じゅ', 'じょ',
-      'びゃ', 'びゅ', 'びょ', 'ぴゃ', 'ぴゅ', 'ぴょ',
-    ]
-    for (const kana of [...singleKana, ...digraphKana]) {
+    // Driven off the table's own keys rather than a hand-maintained list, so a
+    // row added to the map without being added here can't slip through
+    // unexercised. Most of these rows (p-row, most youon groups) have no other
+    // coverage.
+    for (const kana of MAPPED_KANA) {
       const tokens = tokenizeKana(kana)
       expect(tokens, kana).toHaveLength(1)
       for (const candidate of tokens[0].candidates) {
         expect(completes(kana, candidate), `${kana} via "${candidate}"`).toBe(true)
       }
     }
+  })
+
+  it('covers the whole gojūon plus dakuten and youon rows', () => {
+    // Guards the other direction: MAPPED_KANA driving the sweep above is only
+    // meaningful if the map itself hasn't lost rows.
+    const mapped = new Set(MAPPED_KANA)
+    const expected = [
+      ...Array.from(
+        'あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわを' +
+          'がぎぐげござじずぜぞだぢづでどばびぶべぼぱぴぷぺぽ',
+      ),
+      'きゃ', 'しゃ', 'ちゃ', 'にゃ', 'ひゃ', 'みゃ', 'りゃ',
+      'ぎゃ', 'じゃ', 'ぢゃ', 'びゃ', 'ぴゃ',
+    ]
+    expect(expected.filter((kana) => !mapped.has(kana))).toEqual([])
   })
 })
 
@@ -229,5 +218,187 @@ describe('stepMatch', () => {
     }
     const extra = stepMatch(tokens, state, 'x')
     expect(extra.ok).toBe(false)
+  })
+})
+
+/** Walks `input` through the recovery matcher, returning the final state and misses. */
+function recover(kana: string, input: string) {
+  const tokens = tokenizeKana(kana)
+  let state = initMatch()
+  const wrong: string[] = []
+  let done = false
+  for (const char of input) {
+    const step = stepWithRecovery(tokens, state, char)
+    if (!step.correct) wrong.push(char)
+    state = step.state
+    done = step.done
+  }
+  return { tokens, state, wrong, done }
+}
+
+describe('legalNext', () => {
+  it('lists the characters that open a token', () => {
+    expect(legalNext(tokenizeKana('し'), initMatch())).toEqual(['c', 's'])
+  })
+
+  it('narrows as a token is typed into', () => {
+    const tokens = tokenizeKana('し')
+    const afterS = stepMatch(tokens, initMatch(), 's')
+    expect(afterS.ok && legalNext(tokens, afterS.state)).toEqual(['h', 'i'])
+  })
+
+  // Once ん is satisfied by `n`, both "keep going for nn" and "start な" are open.
+  it('includes the next token once the current one is complete', () => {
+    const tokens = tokenizeKana('んな')
+    const afterN = stepMatch(tokens, initMatch(), 'n')
+    expect(afterN.ok && legalNext(tokens, afterN.state)).toEqual(["'", 'n'])
+  })
+
+  it('is empty at the end of the text', () => {
+    const tokens = tokenizeKana('あ')
+    const done = stepMatch(tokens, initMatch(), 'a')
+    expect(done.ok && legalNext(tokens, done.state)).toEqual([])
+  })
+})
+
+describe('stepWithRecovery', () => {
+  it('passes a correct keystroke straight through', () => {
+    const tokens = tokenizeKana('し')
+    const step = stepWithRecovery(tokens, initMatch(), 's')
+    expect(step.correct).toBe(true)
+    expect(step.legal).toEqual([])
+  })
+
+  // The property that makes a wrong key behave like an ordinary key: it costs
+  // one keystroke, rather than leaving the mora still owed in full.
+  it('consumes one edge on a wrong keystroke', () => {
+    const { done, wrong } = recover('し', 'xhi')
+    expect(wrong).toEqual(['x'])
+    expect(done).toBe(true)
+  })
+
+  it('reports what would have been accepted', () => {
+    const tokens = tokenizeKana('し')
+    const afterS = stepWithRecovery(tokens, initMatch(), 's')
+    const step = stepWithRecovery(tokens, afterS.state, 'q')
+    expect(step.correct).toBe(false)
+    expect(step.legal).toEqual(['h', 'i'])
+  })
+
+  it('keeps every branch that was legal alive after a substitution', () => {
+    // `x` stands in for either `s` (→ shi/si) or `c` (→ ci), so both `h` and
+    // `i` must still be reachable afterwards.
+    expect(recover('し', 'xhi').done).toBe(true)
+    expect(recover('し', 'xi').done).toBe(true)
+  })
+
+  // If a substitution were preferred over an exact match, the third `n` here
+  // would be scored as an error against `a` instead of legitimately opening な.
+  it('prefers an exact transition over a substitution', () => {
+    expect(recover('んな', 'nnna').wrong).toEqual([])
+    expect(recover('んな', 'nnna').done).toBe(true)
+  })
+
+  it('holds rather than inventing a transition past the end', () => {
+    const tokens = tokenizeKana('あ')
+    const done = stepWithRecovery(tokens, initMatch(), 'a')
+    const past = stepWithRecovery(tokens, done.state, 'x')
+    expect(past.correct).toBe(false)
+    expect(past.state).toBe(done.state)
+  })
+})
+
+describe('projectMatch', () => {
+  it('points at the first token with the full spelling ahead of it', () => {
+    const tokens = tokenizeKana('しゃしん')
+    expect(projectMatch(tokens, initMatch())).toEqual({
+      tokenIndex: 0,
+      hint: 'sha',
+      rest: 'shin',
+    })
+  })
+
+  it('shrinks the hint as the current token is typed', () => {
+    const tokens = tokenizeKana('しゃしん')
+    const afterS = stepMatch(tokens, initMatch(), 's')
+    expect(afterS.ok && projectMatch(tokens, afterS.state).hint).toBe('ha')
+  })
+
+  // Committing to `sy` must switch the hint to that spelling rather than
+  // stubbornly showing the canonical one the typist has already left behind.
+  it('follows the spelling the typist actually chose', () => {
+    const tokens = tokenizeKana('しゃ')
+    let state = initMatch()
+    for (const char of 'sy') {
+      const step = stepMatch(tokens, state, char)
+      if (step.ok) state = step.state
+    }
+    expect(projectMatch(tokens, state).hint).toBe('a')
+  })
+
+  it('advances to the next token and drops it from the rest', () => {
+    const tokens = tokenizeKana('あい')
+    const afterA = stepMatch(tokens, initMatch(), 'a')
+    expect(afterA.ok && projectMatch(tokens, afterA.state)).toEqual({
+      tokenIndex: 1,
+      hint: 'i',
+      rest: '',
+    })
+  })
+
+  /*
+   * The hint must never name a continuation the matcher would reject, nor omit
+   * one it would accept as the *next* thing. After a wrong key on し both the
+   * `s` branch (shi/si) and the `c` branch (ci) survive; picking the `c` witness
+   * displayed a remaining `i` while `h` was also accepted, so pressing `h` was
+   * marked correct and the hint didn't shrink.
+   */
+  it('shows a hint whose first character the matcher will accept', () => {
+    const tokens = tokenizeKana('し')
+    const recovered = stepWithRecovery(tokens, initMatch(), 'x')
+    const view = projectMatch(tokens, recovered.state)
+    expect(legalNext(tokens, recovered.state)).toContain(view.hint[0])
+  })
+
+  it('shrinks the hint when the shown continuation is typed', () => {
+    const tokens = tokenizeKana('し')
+    const recovered = stepWithRecovery(tokens, initMatch(), 'x')
+    const before = projectMatch(tokens, recovered.state)
+    const next = stepWithRecovery(tokens, recovered.state, before.hint[0])
+    expect(next.correct).toBe(true)
+    expect(projectMatch(tokens, next.state).hint.length).toBe(before.hint.length - 1)
+  })
+
+  it('takes the furthest-along reading while a boundary is ambiguous', () => {
+    const tokens = tokenizeKana('んな')
+    let state = initMatch()
+    for (const char of 'nn') {
+      const step = stepMatch(tokens, state, char)
+      if (step.ok) state = step.state
+    }
+    // Both "ん spelled nn" and "ん spelled n, な started" are live; showing the
+    // one further through the text keeps the cursor from jumping backwards.
+    expect(projectMatch(tokens, state).tokenIndex).toBe(1)
+    expect(projectMatch(tokens, state).hint).toBe('a')
+  })
+})
+
+describe('matcher input guards', () => {
+  it('rejects a step against no tokens at all', () => {
+    expect(stepMatch([], initMatch(), 'a').ok).toBe(false)
+  })
+
+  // One keystroke per call: a multi-character string would be compared against
+  // candidate prefixes wholesale and could match by accident.
+  it('rejects anything that is not a single character', () => {
+    const tokens = tokenizeKana('し')
+    expect(stepMatch(tokens, initMatch(), 'sh').ok).toBe(false)
+    expect(stepMatch(tokens, initMatch(), '').ok).toBe(false)
+  })
+
+  it('ignores a position pointing past the end of the tokens', () => {
+    const tokens = tokenizeKana('し')
+    const bogus = { positions: [{ tokenIndex: 9, typedInToken: '' }] }
+    expect(legalNext(tokens, bogus)).toEqual([])
   })
 })

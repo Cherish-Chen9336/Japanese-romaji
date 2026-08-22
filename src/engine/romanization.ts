@@ -16,6 +16,30 @@ export type MatchStep =
   | { ok: true; done: boolean; state: MatchState }
   | { ok: false }
 
+export type RecoveryStep = {
+  state: MatchState
+  /** False when the keystroke extended no candidate — shown red, still advances. */
+  correct: boolean
+  /**
+   * The characters that would have been accepted. Empty on a correct step.
+   * Kept as a set rather than a single character because after `s` on し the
+   * legal continuations are genuinely both `h` and `i`; picking one to blame
+   * would make the stats depend on display policy rather than on typing.
+   */
+  legal: string[]
+  done: boolean
+}
+
+/** What the display needs from a live match: where the cursor is, and what's left. */
+export type MatchProjection = {
+  /** Index of the token the cursor sits in. */
+  tokenIndex: number
+  /** Remaining letters of the current token, for the spelling the typist is on. */
+  hint: string
+  /** Canonical spellings of every token after the current one. */
+  rest: string
+}
+
 /**
  * Covers hiragana seion/dakuten/handakuten, youon, sokuon, and ん — the
  * full range used by the current word banks. Not yet covered: katakana
@@ -60,9 +84,16 @@ const ROMAJI_MAP: Record<string, string[]> = {
   りゃ: ['rya'], りゅ: ['ryu'], りょ: ['ryo'],
   ぎゃ: ['gya'], ぎゅ: ['gyu'], ぎょ: ['gyo'],
   じゃ: ['ja', 'zya', 'jya'], じゅ: ['ju', 'zyu', 'jyu'], じょ: ['jo', 'zyo', 'jyo'],
+  ぢゃ: ['ja', 'dya', 'zya'], ぢゅ: ['ju', 'dyu', 'zyu'], ぢょ: ['jo', 'dyo', 'zyo'],
   びゃ: ['bya'], びゅ: ['byu'], びょ: ['byo'],
   ぴゃ: ['pya'], ぴゅ: ['pyu'], ぴょ: ['pyo'],
 }
+
+/**
+ * Every kana the table knows. Exported so tests can sweep the real contents
+ * rather than a parallel list that silently falls behind the map.
+ */
+export const MAPPED_KANA: readonly string[] = Object.keys(ROMAJI_MAP)
 
 const VOWEL_INITIAL = /^[aiueo]/
 
@@ -187,6 +218,9 @@ export function initMatch(): MatchState {
  */
 export function stepMatch(tokens: RomajiToken[], state: MatchState, rawChar: string): MatchStep {
   if (tokens.length === 0) return { ok: false }
+  // One keystroke per call. A multi-character string would be compared against
+  // candidate prefixes wholesale and could match by accident.
+  if (rawChar.length !== 1) return { ok: false }
 
   const char = rawChar.toLowerCase()
   const next = new Map<string, Position>()
@@ -211,9 +245,143 @@ export function stepMatch(tokens: RomajiToken[], state: MatchState, rawChar: str
   if (next.size === 0) return { ok: false }
 
   const positions = [...next.values()]
-  const done = positions.some(
+
+  return { ok: true, done: isDone(tokens, positions), state: { positions } }
+}
+
+function isDone(tokens: RomajiToken[], positions: Position[]): boolean {
+  return positions.some(
     (p) => p.tokenIndex === tokens.length - 1 && tokens[p.tokenIndex].candidates.includes(p.typedInToken),
   )
+}
 
-  return { ok: true, done, state: { positions } }
+/**
+ * Every character that would be accepted next, across all live positions —
+ * the outgoing edge set of the current matcher configuration.
+ *
+ * Two sources, mirroring stepMatch: characters that extend the current token,
+ * and (when what's typed already completes the current token) characters that
+ * open the following one.
+ */
+export function legalNext(tokens: RomajiToken[], state: MatchState): string[] {
+  const chars = new Set<string>()
+  for (const pos of state.positions) {
+    // Positions always index a real token when the state came from this module;
+    // the check is for callers passing one in from elsewhere.
+    const token = tokens[pos.tokenIndex]
+    if (token === undefined) continue
+
+    for (const candidate of token.candidates) {
+      if (candidate.length > pos.typedInToken.length && candidate.startsWith(pos.typedInToken)) {
+        chars.add(candidate[pos.typedInToken.length])
+      }
+    }
+
+    const hasNextToken = pos.tokenIndex < tokens.length - 1
+    if (hasNextToken && token.candidates.includes(pos.typedInToken)) {
+      for (const candidate of tokens[pos.tokenIndex + 1].candidates) {
+        if (candidate.length > 0) chars.add(candidate[0])
+      }
+    }
+  }
+  return [...chars].sort()
+}
+
+/**
+ * A keystroke that tolerates errors: correct keys advance as usual, and a wrong
+ * key advances too — consuming one edge in every direction that was legal, and
+ * letting later keystrokes kill the branches that turn out dead.
+ *
+ * This is what makes a mistyped key behave like an ordinary key rather than a
+ * wall. The naive alternative — leave the matcher where it is and just draw the
+ * wrong key in red — reads as tolerant but isn't: the typist still owes the
+ * matcher every character of the mora they fumbled, so `x` before し costs four
+ * keystrokes instead of three. Consuming an edge makes it a substitution, which
+ * is what a character-grid matcher does and what people expect.
+ *
+ * Exact transitions win outright when any exist: for んな typed `n`,`n`,`n`,`a`
+ * the third `n` legitimately opens な on the `nn` branch, so it must not be
+ * scored as a substitution on the `n`+`na` branch.
+ */
+export function stepWithRecovery(
+  tokens: RomajiToken[],
+  state: MatchState,
+  rawChar: string,
+): RecoveryStep {
+  const exact = stepMatch(tokens, state, rawChar)
+  if (exact.ok) return { state: exact.state, correct: true, legal: [], done: exact.done }
+
+  const legal = legalNext(tokens, state)
+  const merged = new Map<string, Position>()
+  for (const char of legal) {
+    // Every character in `legal` was derived from these same positions, so the
+    // step always succeeds — the check is what narrows the union.
+    const step = stepMatch(tokens, state, char)
+    if (step.ok) {
+      for (const pos of step.state.positions) {
+        merged.set(`${pos.tokenIndex}:${pos.typedInToken}`, pos)
+      }
+    }
+  }
+
+  // No outgoing edges at all — the text is already fully typed. Hold rather
+  // than inventing a transition; the session finishes on `done` anyway.
+  if (merged.size === 0) return { state, correct: false, legal, done: false }
+
+  const positions = [...merged.values()]
+  return { state: { positions }, correct: false, legal, done: isDone(tokens, positions) }
+}
+
+/**
+ * Picks the furthest-along live position as the one to draw from. Ambiguity is
+ * real while it lasts (んな after two `n`s is genuinely both "ん done, な
+ * started" and "ん spelled nn"), and showing the reading that is further
+ * through the text is the one that doesn't jump backwards when it resolves.
+ */
+export function projectMatch(tokens: RomajiToken[], state: MatchState): MatchProjection {
+  // Rank of the best candidate a position is still on track for. Breaking ties
+  // by this rather than by whichever branch happened to be inserted first is
+  // what stops the hint contradicting the matcher: after a wrong key on し, both
+  // the `s` branch (shi/si) and the `c` branch (ci) survive, and picking `c`
+  // displayed a remaining `i` while `h` was also accepted — so pressing `h` was
+  // marked correct without the hint shrinking.
+  const rank = (pos: Position): number => {
+    const candidates = tokens[pos.tokenIndex]?.candidates ?? []
+    const index = candidates.findIndex((candidate) => candidate.startsWith(pos.typedInToken))
+    return index === -1 ? candidates.length : index
+  }
+
+  const best = state.positions.reduce((winner, pos) => {
+    if (pos.tokenIndex !== winner.tokenIndex) return pos.tokenIndex > winner.tokenIndex ? pos : winner
+    if (pos.typedInToken.length !== winner.typedInToken.length) {
+      return pos.typedInToken.length > winner.typedInToken.length ? pos : winner
+    }
+    return rank(pos) < rank(winner) ? pos : winner
+  }, state.positions[0] ?? { tokenIndex: 0, typedInToken: '' })
+
+  // stepMatch stays inside a finished mora until the next keystroke arrives —
+  // it can't step out earlier without guessing which token that keystroke
+  // belongs to. For display there's no such doubt: a mora that has been spelled
+  // in full is done, so move the cursor onto the next one instead of leaving
+  // the finished kana highlighted as current.
+  const settled = tokens[best.tokenIndex]?.candidates.includes(best.typedInToken) ?? false
+  const witness =
+    settled && best.tokenIndex < tokens.length - 1
+      ? { tokenIndex: best.tokenIndex + 1, typedInToken: '' }
+      : best
+
+  const token = tokens[witness.tokenIndex]
+  const spelling =
+    token?.candidates.find((candidate) => candidate.startsWith(witness.typedInToken)) ??
+    token?.candidates[0] ??
+    ''
+
+  return {
+    tokenIndex: witness.tokenIndex,
+    hint: spelling.slice(witness.typedInToken.length),
+    rest: tokens
+      .slice(witness.tokenIndex + 1)
+      .map((next) => next.candidates[0] ?? '')
+      .join(''),
+  }
 }
