@@ -1,18 +1,79 @@
+/* The whole page is one centred column. The top bar's brand and live stats sit
+ * at the two ends of THIS column rather than at the viewport edges — pinned to
+ * the viewport they drifted absurdly far apart on a wide monitor. */
 .app {
-  min-height: 100svh;
-  padding: var(--space-4) var(--gutter) var(--space-8);
-}
-
-.topnav {
   display: flex;
-  gap: var(--space-4);
-  left: var(--space-5);
-  position: fixed;
-  top: var(--space-5);
-  z-index: 3;
+  flex-direction: column;
+  margin: 0 auto;
+  max-width: var(--container-max);
+  min-height: 100svh;
+  padding: var(--space-5) var(--gutter) var(--space-6);
 }
 
-.topnav button,
+.topbar {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  justify-content: space-between;
+}
+
+.logo {
+  align-items: baseline;
+  background: none;
+  border: none;
+  color: var(--color-dim);
+  cursor: pointer;
+  display: inline-flex;
+  font-family: var(--font-mono);
+  font-size: var(--fs-16);
+  font-weight: var(--fw-medium);
+  letter-spacing: -0.02em;
+  padding: 0;
+}
+
+.logo b {
+  color: var(--color-accent);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.logo small {
+  font-size: 0.85em;
+}
+
+.logo:hover b {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+/* Brand mark — inherits the accent colour via `currentColor`. `align-self:
+ * center` sits the rectangle optically on the cap-height of the wordmark
+ * instead of on its baseline, where `align-items: baseline` would dump it. */
+.logo__mark {
+  align-self: center;
+  color: var(--color-accent);
+  flex: none;
+  /* Gap lives here rather than on `.logo` so the wordmark and its suffix stay
+   * tight against each other and read as one word. */
+  margin-right: 7px;
+}
+
+.live {
+  align-items: baseline;
+  color: var(--color-muted);
+  display: flex;
+  font-family: var(--font-mono);
+  font-size: var(--fs-13);
+  font-variant-numeric: tabular-nums;
+  gap: var(--space-5);
+}
+
+.live b {
+  color: var(--color-accent);
+  font-weight: var(--fw-medium);
+}
+
 .source-button,
 .hint-button {
   background: none;
@@ -24,43 +85,60 @@
   padding: 0;
 }
 
-.topnav button.active,
-.topnav button:hover,
 .source-button.active,
 .source-button:hover,
 .hint-button:hover {
   color: var(--color-accent);
 }
 
+/* Primary navigation — minimal text links flowing in below the stage, so the
+ * top-left corner belongs to the wordmark alone. Deliberately not chrome: no
+ * bar, no border, no pills. */
+.subnav {
+  column-gap: var(--space-6);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  padding-top: var(--space-6);
+  row-gap: var(--space-2);
+}
+
+.subnav__item {
+  background: transparent;
+  border: none;
+  color: var(--color-muted);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: var(--fs-13);
+  letter-spacing: 0.04em;
+  padding: 0;
+  transition: color var(--dur-fast) var(--ease-out);
+}
+
+.subnav__item:hover {
+  color: var(--color-text);
+}
+
+.subnav__item--active {
+  color: var(--color-accent);
+}
+
+/* Grows to fill the viewport so the nav below it lands at the bottom of the
+ * page rather than floating mid-screen. */
 .stage {
   display: flex;
+  flex: 1;
   flex-direction: column;
-  gap: var(--space-5);
+  gap: var(--space-6);
   justify-content: flex-start;
-  min-height: calc(100svh - var(--space-8));
-  padding: clamp(52px, 9vh, 96px) 0 0;
+  padding: clamp(32px, 6vh, 76px) 0 var(--space-3);
   position: relative;
 }
 
-.live-stats {
-  align-items: center;
-  color: var(--color-muted);
-  display: flex;
-  flex-direction: row;
-  font-family: var(--font-mono);
-  font-size: var(--fs-12);
-  gap: var(--space-4);
-  position: fixed;
-  right: var(--space-5);
-  top: var(--space-5);
-  z-index: 2;
-}
-
-.live-stats b {
-  color: var(--color-accent);
-  font-weight: var(--fw-medium);
-}
-
+/* One left-aligned reading column, centred in the stage. Both lines inside it
+ * share the same left edge, so the caret starts where the kana starts — the
+ * layout type.review uses. Centring the lines instead made the two rows drift
+ * relative to each other as the text length changed. */
 .typing-area {
   color: var(--color-dim);
   font-family: var(--font-mono);
@@ -69,8 +147,9 @@
   letter-spacing: 0;
   line-height: var(--lh-loose);
   margin: 0 auto;
-  max-width: 72ch;
+  max-width: var(--content-max);
   min-height: calc(1em * var(--lh-loose) * 5);
+  text-align: left;
   user-select: none;
   width: 100%;
 }
@@ -81,10 +160,35 @@
   font-size: clamp(1.35rem, 3.8vw, 2.65rem);
   font-weight: var(--fw-medium);
   letter-spacing: 0.04em;
-  line-height: 1.2;
-  margin: 0 0 var(--space-6);
+  /* Loose enough that a furigana annotation on one line clears the line above. */
+  line-height: 1.7;
+  margin: 0 0 var(--space-5);
   overflow-wrap: anywhere;
-  text-align: center;
+}
+
+/* Furigana — the reading printed over its kanji. `ruby-position: over` is the
+ * default everywhere but old WebKit, which defaults to `under` for some locales.
+ * The line-height reset stops the annotation inheriting the display line's
+ * leading and pushing the rows apart. */
+ruby {
+  ruby-align: center;
+  ruby-position: over;
+}
+
+rt {
+  color: var(--color-dim);
+  font-size: 0.42em;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+  /* Annotations sit close to the character they gloss, not floating above it. */
+  transform: translateY(0.35em);
+  user-select: none;
+}
+
+.kana-token--current rt {
+  color: var(--color-accent);
+  opacity: 0.75;
 }
 
 .kana-token {
@@ -106,9 +210,8 @@
 }
 
 .romaji-line {
-  font-size: var(--fs-22);
-  margin: 0 auto;
-  max-width: 48ch;
+  font-size: var(--fs-practice);
+  margin: 0;
   overflow-wrap: anywhere;
 }
 
@@ -125,15 +228,29 @@
   color: var(--color-error);
 }
 
+/* Current character (the next one to type) — a vertical accent bar at its left
+ * edge, sized to the glyph rather than to the line box.
+ *
+ * Height is deliberately NOT `calc(var(--lh-loose) * 1em - …)`: with loose
+ * leading that spans the whole 1.75em line box and the caret towers over the
+ * characters it points at. `.char` is an inline box, so its abs-pos containing
+ * block is the font's content area (roughly ascent + descent) — a ~1em bar
+ * anchored at its top lands on the glyph itself.
+ *
+ * Fixed height rather than `bottom`-anchored: a space at a soft-wrap boundary
+ * fragments its inline box across two line boxes, and Blink/WebKit then size
+ * this containing block to the union of both — a bottom-anchored bar would
+ * stretch across both lines. */
 .char--current::after {
   animation: caret-blink 1.1s steps(1, end) infinite;
   background: var(--color-accent);
+  border-radius: 1px;
   content: "";
-  height: calc(var(--lh-loose) * 1em - 0.3em);
+  height: 1.05em;
   left: -1px;
   pointer-events: none;
   position: absolute;
-  top: 0.15em;
+  top: 0.02em;
   width: 2px;
 }
 
@@ -148,10 +265,35 @@
   }
 }
 
+/* ---- on-screen keyboard (full ANSI) ---------------------------------------
+ * One CSS variable `--u` sets the whole keyboard's scale; each cap picks its
+ * width via `--w`. Default styling targets the Mac variant — chiclet caps with
+ * a prominent corner radius and a slim bottom edge. The Windows overrides at
+ * the end sharpen the corners and thicken the bottom edge to evoke sculpted
+ * OEM caps. */
+
+/* Scale-to-fit wrapper. The keyboard inside has a FIXED pixel width; this
+ * wrapper takes the available width and carries the on-screen footprint, its
+ * height set by JS in OnScreenKeyboard.tsx to the scaled keyboard's real height
+ * so following content stacks tightly.
+ *
+ * No `overflow: hidden` — the rounded corners and box-shadow extend a few px
+ * past the scaled bounds, and clipping them leaves visible shadow stubs at the
+ * bottom corners. */
+.kb-scale {
+  position: relative;
+  width: 100%;
+}
+
 .kb {
-  --u: 34px;
+  /* FIXED unit size — does not respond to the viewport. Apparent size is varied
+   * only by `transform: scale`, set through `--kb-scale` by the JS. Every
+   * CSS-only sizing attempt (max-content, fit-content, min-width on rows) hits
+   * a WebKit intrinsic-sizing bug where the frame shrinks below its own rows;
+   * a hard pixel width bypasses intrinsic sizing entirely and every browser
+   * then scales it identically. */
+  --u: 22px;
   --kb-gap: max(3px, calc(var(--u) * 0.1));
-  align-self: center;
   background: var(--color-surface);
   border: var(--bw-1) solid var(--color-border);
   border-radius: calc(var(--u) * 0.35);
@@ -159,9 +301,17 @@
   display: flex;
   flex-direction: column;
   gap: var(--kb-gap);
-  max-width: 100%;
-  overflow-x: auto;
   padding: calc(var(--u) * 0.35);
+  /* Matches NATURAL_WIDTH in OnScreenKeyboard.tsx: 15u + 13×3px gap +
+   * 2×0.35u padding + 2px border at --u=22, rounded up for headroom. */
+  width: 388px;
+  /* Absolutely positioned inside the wrapper so the unscaled 388px box doesn't
+   * push following content sideways via its layout width. */
+  left: 50%;
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%) scale(var(--kb-scale, 1));
+  transform-origin: top center;
 }
 
 .kb__row {
@@ -179,11 +329,15 @@
   color: var(--color-text);
   display: flex;
   flex: 0 0 calc(var(--w, 1) * var(--u) + (var(--w, 1) - 1) * var(--kb-gap));
+  flex-direction: column;
   font-family: var(--font-mono);
   font-size: calc(var(--u) * 0.34);
+  gap: calc(var(--u) * 0.04);
   height: 100%;
   justify-content: center;
   line-height: 1;
+  /* Without min-width: 0 the spelled-out modifier names push the cap past its
+   * flex-basis. Hard cap and clip. */
   max-width: calc(var(--w, 1) * var(--u) + (var(--w, 1) - 1) * var(--kb-gap));
   min-width: 0;
   overflow: hidden;
@@ -201,6 +355,16 @@
   font-size: calc(var(--u) * 0.3);
 }
 
+/* Mac modifier caps hug the outer edge of the cluster, mirroring real Apple
+ * keycaps. Centred is the default for everything else. */
+.kb__key--align-start {
+  align-items: flex-start;
+}
+
+.kb__key--align-end {
+  align-items: flex-end;
+}
+
 .kb__key--space {
   background: var(--color-bg);
 }
@@ -208,6 +372,65 @@
 .kb__key--pressed {
   background: color-mix(in oklch, var(--color-accent) 22%, var(--color-bg));
   transform: translateY(1px);
+}
+
+.kb__key__label {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kb__key__sub {
+  /* Sans for the spelled-out modifier names — narrow enough that "control" /
+   * "command" fit a 1u cap, where mono would trigger the ellipsis. */
+  font-family: var(--font-sans);
+  font-size: calc(var(--u) * 0.18);
+  letter-spacing: 0;
+  margin-top: -1px;
+  max-width: 100%;
+  opacity: 0.55;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Shifted glyph on dual-character caps — `!` above `1`, `<` above `,`. Dimmer
+ * and smaller so the primary unshifted glyph still leads. */
+.kb__key__shifted {
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: calc(var(--u) * 0.26);
+  line-height: 1;
+  opacity: 0.75;
+}
+
+.kb__key--dual {
+  gap: calc(var(--u) * 0.05);
+  justify-content: center;
+}
+
+/* Touch ID — outlined circle at ~66% of the cap, dimmed so it reads as a
+ * hardware accent rather than a label. An SVG guarantees geometric centring,
+ * unlike a unicode circle glyph whose baseline placement varies by font. */
+.kb__key__icon--touch-id {
+  height: calc(var(--u) * 0.666);
+  opacity: 0.55;
+  width: calc(var(--u) * 0.666);
+}
+
+/* Windows variant — near-square caps with a more pronounced bottom edge,
+ * against the Mac variant's rounded low-profile chiclets. */
+.kb--windows {
+  border-radius: calc(var(--u) * 0.18);
+}
+
+.kb--windows .kb__key {
+  border-bottom-width: 3px;
+  border-radius: calc(var(--u) * 0.05);
 }
 
 .practice-hints {
@@ -231,6 +454,13 @@
 
 .hint {
   margin: 0;
+}
+
+/* "source" reads as the row's heading, not as another option in it. */
+.hint-label {
+  color: var(--color-dim);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .hint-button {
@@ -264,11 +494,12 @@
 
 .page {
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: var(--space-5);
   margin: 0 auto;
   max-width: 760px;
-  padding-top: clamp(72px, 11vh, 120px);
+  padding-top: clamp(32px, 6vh, 76px);
   width: 100%;
 }
 
@@ -399,9 +630,20 @@ input[type='range'] {
   border: var(--bw-1) solid var(--color-border);
   border-radius: 999px;
   color: var(--color-text);
+  cursor: pointer;
   font-family: var(--font-mono);
   font-size: var(--fs-12);
-  padding: 5px 10px;
+  padding: 5px 12px;
+}
+
+.pill:hover {
+  border-color: var(--color-accent);
+}
+
+.pill.active {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-accent-fg);
 }
 
 .profile-id {
@@ -686,23 +928,17 @@ meter::-webkit-meter-optimum-value {
     padding-top: var(--space-3);
   }
 
-  .topnav {
+  .topbar {
     justify-content: center;
-    position: static;
   }
 
   .stage {
     gap: var(--space-5);
-    padding-top: var(--space-7);
+    padding-top: var(--space-6);
   }
 
-  .kb {
-    --u: 22px;
-  }
-
-  .live-stats {
-    position: static;
-    justify-content: center;
+  .live {
+    gap: var(--space-4);
   }
 
   .stat-grid,
@@ -714,4 +950,18 @@ meter::-webkit-meter-optimum-value {
     align-items: flex-start;
     flex-direction: column;
   }
+}
+
+/* Storage-failure notice. Sits under the top bar so it's seen without stealing
+ * the typing surface; muted rather than alarming, since the app keeps working —
+ * it just won't remember. */
+.alert {
+  background: color-mix(in srgb, var(--color-error) 8%, var(--color-surface));
+  border: var(--bw-1) solid color-mix(in srgb, var(--color-error) 35%, var(--color-border));
+  border-radius: 8px;
+  color: var(--color-text);
+  font-size: var(--fs-13);
+  margin: var(--space-4) auto 0;
+  max-width: var(--content-max);
+  padding: var(--space-3) var(--space-4);
 }

@@ -1,5 +1,15 @@
 import { lifetimeStatsFromRuns } from '../engine/stats'
-import type { LifetimeStats, RunResult, Settings, SourceName, TextItem } from '../engine/types'
+import { isKanaGroup, isKeyboardLayoutName } from '../engine/types'
+import type {
+  KanaGroup,
+  KeyboardLayoutName,
+  LifetimeStats,
+  RunResult,
+  Settings,
+  SourceName,
+  TextItem,
+  TimingStat,
+} from '../engine/types'
 import { readJson } from './storage'
 
 export const RUNS_KEY = 'japanese-romaji:runs'
@@ -9,8 +19,21 @@ export const MISSES_KEY = 'japanese-romaji:misses'
 export const CONFUSIONS_KEY = 'japanese-romaji:confusions'
 export const SHOW_KEYBOARD_KEY = 'japanese-romaji:show-keyboard'
 export const LIFETIME_KEY = 'japanese-romaji:lifetime'
+export const KEYBOARD_LAYOUT_KEY = 'japanese-romaji:keyboard-layout'
+export const KANA_GROUP_KEY = 'japanese-romaji:kana-group'
+export const SOURCE_KEY = 'japanese-romaji:source'
 
-const VALID_SOURCES = new Set<string>(['auto', 'drills', 'difficult', 'quotes', 'words', 'library'])
+// Additive: runs stored before `kana` existed still carry one of the older
+// names, so nothing needs migrating.
+const VALID_SOURCES = new Set<string>([
+  'auto',
+  'kana',
+  'drills',
+  'difficult',
+  'quotes',
+  'words',
+  'library',
+])
 
 function isNum(v: unknown): v is number {
   return typeof v === 'number' && isFinite(v)
@@ -56,13 +79,39 @@ function normalizeRun(item: unknown): RunResult {
     consistency: isNum(r.consistency) ? r.consistency : undefined,
     elapsedMs: r.elapsedMs as number,
     date: r.date as string,
-    keyStats: isRecord(r.keyStats) ? (r.keyStats as RunResult['keyStats']) : undefined,
-    bigramStats: isRecord(r.bigramStats) ? (r.bigramStats as RunResult['bigramStats']) : undefined,
+    keyStats: readTimingStats(r.keyStats),
+    bigramStats: readTimingStats(r.bigramStats),
   }
 }
 
 function isRecord(v: unknown): boolean {
   return !!v && typeof v === 'object' && !Array.isArray(v)
+}
+
+/**
+ * Stored timing tables, entry by entry. Checking only that the container is an
+ * object let `{ a: null }` through, and the null then threw the first time the
+ * stats page tried to add up `stat.attempts` — a corrupt key taking down the
+ * whole page rather than being dropped.
+ */
+function readTimingStats(raw: unknown): Record<string, TimingStat> | undefined {
+  if (!isRecord(raw)) return undefined
+  const out: Record<string, TimingStat> = {}
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (!isRecord(value)) continue
+    const stat = value as Record<string, unknown>
+    if (!isNum(stat.attempts) || !isNum(stat.misses) || !isNum(stat.totalMs)) continue
+    if (stat.attempts < 0 || stat.misses < 0 || stat.totalMs < 0) continue
+    out[key] = { attempts: stat.attempts, misses: stat.misses, totalMs: stat.totalMs }
+  }
+  return out
+}
+
+/** A day key as `dayKey` writes them. Anything else makes `new Date` throw. */
+const DAY_KEY = /^\d{4}-\d{2}-\d{2}$/
+
+function isDayKey(value: unknown): value is string {
+  return isStr(value) && DAY_KEY.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`))
 }
 
 export function readRuns(): RunResult[] {
@@ -82,17 +131,44 @@ export function readSettings(): Settings {
   return { paragraphItems: items }
 }
 
+/**
+ * Longest stored item accepted. Compilation walks one token per character, so an
+ * unbounded item is unbounded recursion; this is far longer than any real
+ * practice line and short enough to stay on the stack.
+ */
+const MAX_ITEM_CHARS = 400
+
+/**
+ * Rebuilds each stored item field by field rather than passing the object
+ * through. Filtering only checked `kana` and `romaji` and returned whatever else
+ * was on the object, so a stored `reading: 7` reached `reading.split(' ')` and
+ * threw before the first lesson could render.
+ */
 export function readLibrary(): TextItem[] {
   const raw = readJson<unknown>(LIBRARY_KEY, [])
   if (!Array.isArray(raw)) return []
-  return raw.filter(
-    (item): item is TextItem =>
-      !!item &&
-      typeof item === 'object' &&
-      !Array.isArray(item) &&
-      isStr((item as Record<string, unknown>).kana) &&
-      isStr((item as Record<string, unknown>).romaji),
-  )
+
+  const items: TextItem[] = []
+  for (const entry of raw) {
+    if (!isRecord(entry)) continue
+    const r = entry as Record<string, unknown>
+    if (!isStr(r.kana) || !isStr(r.romaji)) continue
+    if (r.kana.length === 0 || r.romaji.length === 0) continue
+    if (r.kana.length > MAX_ITEM_CHARS || r.romaji.length > MAX_ITEM_CHARS) continue
+    // Same rules the upload parser applies, since stored data can predate them
+    // or be hand-edited: word breaks must agree, and every romaji character must
+    // be reachable by one keypress (an astral character compiles to a token
+    // `applyTypeChar` can never accept, stranding the lesson).
+    if (r.kana.split(' ').length !== r.romaji.split(' ').length) continue
+    if (r.romaji.length !== [...r.romaji].length) continue
+    if (isStr(r.reading) && r.reading.split(' ').length !== r.kana.split(' ').length) continue
+    items.push({
+      kana: r.kana,
+      romaji: r.romaji,
+      ...(isStr(r.reading) && r.reading.length <= MAX_ITEM_CHARS ? { reading: r.reading } : {}),
+    })
+  }
+  return items
 }
 
 export function readMissMap(): Record<string, number> {
@@ -127,8 +203,7 @@ function isValidLifetimeStats(item: unknown): boolean {
     r.totalChars >= 0 &&
     isNum(r.totalElapsedMs) &&
     r.totalElapsedMs >= 0 &&
-    Array.isArray(r.streakDays) &&
-    r.streakDays.every(isStr)
+    Array.isArray(r.streakDays)
   )
 }
 
@@ -148,10 +223,38 @@ export function readLifetimeStats(): LifetimeStats {
       totalSessions: r.totalSessions as number,
       totalChars: r.totalChars as number,
       totalElapsedMs: r.totalElapsedMs as number,
-      streakDays: [...(r.streakDays as string[])],
+      // Filtered rather than trusted: a stray string here reached `new Date`
+      // and threw `RangeError: Invalid time value` before the app could render.
+      streakDays: (r.streakDays as unknown[]).filter(isDayKey),
     }
   }
   return lifetimeStatsFromRuns(readRuns())
+}
+
+/**
+ * Which on-screen keyboard to draw. Defaults to `windows` — the ANSI bottom row
+ * (ctrl / super / alt / space) matches Linux and Windows machines, which is what
+ * most visitors are on; mac users can switch in settings.
+ */
+export function readKeyboardLayout(): KeyboardLayoutName {
+  const raw = readJson<unknown>(KEYBOARD_LAYOUT_KEY, null)
+  return isKeyboardLayoutName(raw) ? raw : 'windows'
+}
+
+/**
+ * The last-picked source. Persisted so someone working through the syllabary
+ * comes back to it, rather than being dropped on `auto` every reload — which
+ * also hid the chart-group row that only shows while `kana` is selected.
+ */
+export function readSource(): SourceName {
+  const raw = readJson<unknown>(SOURCE_KEY, null)
+  return typeof raw === 'string' && VALID_SOURCES.has(raw) ? (raw as SourceName) : 'auto'
+}
+
+/** Which part of the 五十音図 the kana source drills. Defaults to the whole chart. */
+export function readKanaGroup(): KanaGroup {
+  const raw = readJson<unknown>(KANA_GROUP_KEY, null)
+  return isKanaGroup(raw) ? raw : 'all'
 }
 
 export function readShowKeyboard(): boolean {

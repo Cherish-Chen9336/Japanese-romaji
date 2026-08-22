@@ -2,12 +2,15 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
   readConfusionMap,
+  readKeyboardLayout,
   readLibrary,
   readLifetimeStats,
   readMissMap,
   readRuns,
   readSettings,
+  readKanaGroup,
   readShowKeyboard,
+  readSource,
 } from './persistence'
 
 const RUNS_KEY = 'japanese-romaji:runs'
@@ -17,6 +20,9 @@ const MISSES_KEY = 'japanese-romaji:misses'
 const CONFUSIONS_KEY = 'japanese-romaji:confusions'
 const SHOW_KB_KEY = 'japanese-romaji:show-keyboard'
 const LIFETIME_KEY = 'japanese-romaji:lifetime'
+const KB_LAYOUT_KEY = 'japanese-romaji:keyboard-layout'
+const KANA_GROUP_KEY = 'japanese-romaji:kana-group'
+const SOURCE_KEY = 'japanese-romaji:source'
 
 beforeEach(() => {
   localStorage.clear()
@@ -302,5 +308,153 @@ describe('readShowKeyboard', () => {
   it('returns false when the key stores JSON false', () => {
     localStorage.setItem(SHOW_KB_KEY, 'false')
     expect(readShowKeyboard()).toBe(false)
+  })
+})
+
+describe('readKeyboardLayout', () => {
+  it('defaults to windows when the key is absent', () => {
+    expect(readKeyboardLayout()).toBe('windows')
+  })
+
+  it('returns a stored layout name', () => {
+    localStorage.setItem(KB_LAYOUT_KEY, JSON.stringify('mac'))
+    expect(readKeyboardLayout()).toBe('mac')
+  })
+
+  it('falls back to windows for an unknown layout name', () => {
+    localStorage.setItem(KB_LAYOUT_KEY, JSON.stringify('ergodox'))
+    expect(readKeyboardLayout()).toBe('windows')
+  })
+
+  it('falls back to windows for corrupt JSON', () => {
+    localStorage.setItem(KB_LAYOUT_KEY, '{not json')
+    expect(readKeyboardLayout()).toBe('windows')
+  })
+})
+
+describe('readSource', () => {
+  it('defaults to auto', () => {
+    expect(readSource()).toBe('auto')
+  })
+
+  it('returns a stored source', () => {
+    localStorage.setItem(SOURCE_KEY, JSON.stringify('kana'))
+    expect(readSource()).toBe('kana')
+  })
+
+  it('falls back to auto for an unknown source', () => {
+    localStorage.setItem(SOURCE_KEY, JSON.stringify('katakana'))
+    expect(readSource()).toBe('auto')
+  })
+
+  it('falls back to auto for corrupt JSON', () => {
+    localStorage.setItem(SOURCE_KEY, '{nope')
+    expect(readSource()).toBe('auto')
+  })
+})
+
+describe('readKanaGroup', () => {
+  it('defaults to the whole chart', () => {
+    expect(readKanaGroup()).toBe('all')
+  })
+
+  it('returns a stored group', () => {
+    localStorage.setItem(KANA_GROUP_KEY, JSON.stringify('yoon'))
+    expect(readKanaGroup()).toBe('yoon')
+  })
+
+  it('falls back to all for an unknown group', () => {
+    localStorage.setItem(KANA_GROUP_KEY, JSON.stringify('handakuten'))
+    expect(readKanaGroup()).toBe('all')
+  })
+})
+
+// The `kana` source was added after runs were already being stored, so old
+// records must survive and new ones must be accepted.
+describe('kana runs round-trip', () => {
+  it('keeps a stored kana run', () => {
+    localStorage.setItem(
+      RUNS_KEY,
+      JSON.stringify([
+        { source: 'kana', chars: 20, mistakes: 0, accuracy: 100, wpm: 40, elapsedMs: 3000, date: '2026-08-22T00:00:00.000Z' },
+      ]),
+    )
+    expect(readRuns()).toHaveLength(1)
+    expect(readRuns()[0].source).toBe('kana')
+  })
+})
+
+/*
+ * Corrupt stored data must be dropped, not handed to the engine. Each of these
+ * previously passed validation and then threw on the way to the first render —
+ * a hand-edited or half-written localStorage taking the whole app down.
+ */
+describe('corrupt stored data cannot crash the app', () => {
+  it('drops a library entry whose reading is not a string', () => {
+    localStorage.setItem(
+      LIBRARY_KEY,
+      JSON.stringify([{ kana: '学校', romaji: 'gakkou', reading: 7 }]),
+    )
+    // Previously returned the object as-is, and `reading.split(' ')` threw.
+    expect(readLibrary()).toEqual([{ kana: '学校', romaji: 'gakkou' }])
+  })
+
+  it('keeps a library entry whose reading is a string', () => {
+    localStorage.setItem(
+      LIBRARY_KEY,
+      JSON.stringify([{ kana: '学校', romaji: 'gakkou', reading: 'がっこう' }]),
+    )
+    expect(readLibrary()).toEqual([{ kana: '学校', romaji: 'gakkou', reading: 'がっこう' }])
+  })
+
+  it('drops a library entry whose word breaks disagree', () => {
+    localStorage.setItem(
+      LIBRARY_KEY,
+      JSON.stringify([{ kana: 'ひとつ ふたつ', romaji: 'hitotsufutatsu' }]),
+    )
+    expect(readLibrary()).toEqual([])
+  })
+
+  it('drops an absurdly long library entry', () => {
+    localStorage.setItem(
+      LIBRARY_KEY,
+      JSON.stringify([{ kana: 'あ'.repeat(5000), romaji: 'a'.repeat(5000) }]),
+    )
+    expect(readLibrary()).toEqual([])
+  })
+
+  it('drops a null entry inside a stored timing table', () => {
+    localStorage.setItem(
+      RUNS_KEY,
+      JSON.stringify([
+        {
+          source: 'words',
+          chars: 10,
+          mistakes: 0,
+          accuracy: 100,
+          wpm: 30,
+          elapsedMs: 5000,
+          date: '2026-08-01T00:00:00.000Z',
+          keyStats: { a: null, b: { attempts: 1, misses: 0, totalMs: 10 } },
+        },
+      ]),
+    )
+    // Previously kept the null and threw adding up `stat.attempts`.
+    expect(readRuns()[0].keyStats).toEqual({ b: { attempts: 1, misses: 0, totalMs: 10 } })
+  })
+
+  it('drops a streak day that is not a real date', () => {
+    localStorage.setItem(
+      LIFETIME_KEY,
+      JSON.stringify({
+        bestWpm: 10,
+        totalSessions: 1,
+        totalChars: 1,
+        totalElapsedMs: 1000,
+        streakDays: ['2026-08-01', 'bad', '2026-13-45', ''],
+      }),
+    )
+    // Previously passed validation, then threw RangeError: Invalid time value.
+    expect(readLifetimeStats().streakDays).toEqual(['2026-08-01'])
   })
 })

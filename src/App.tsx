@@ -1,6 +1,14 @@
 import { For, Show, createMemo, createSignal, onCleanup, onMount } from 'solid-js'
 import './App.css'
-import { generateLesson, parseLibraryText, sourceOptions, sourceUnlocked } from './engine/lessons'
+import {
+  generateLesson,
+  kanaRows,
+  parseLibraryText,
+  sourceOptions,
+  sourceUnlocked,
+} from './engine/lessons'
+import { compilePrompt, wordIndexForToken } from './engine/prompt'
+import { projectMatch } from './engine/romanization'
 import { applyBackspace, applyTypeChar, buildRunResult, computeMetrics, emptySession } from './engine/session'
 import type { SessionState } from './engine/session'
 import {
@@ -17,142 +25,108 @@ import {
   unlockedMilestones,
   wpmDistribution,
 } from './engine/stats'
-import type { Lesson, LifetimeStats, RunResult, Settings, SourceName, TextItem, Unlock } from './engine/types'
+import { KANA_GROUPS, KEYBOARD_LAYOUT_NAMES } from './engine/types'
+import type {
+  KanaGroup,
+  KeyboardLayoutName,
+  Lesson,
+  LifetimeStats,
+  RunResult,
+  Settings,
+  SourceName,
+  TextItem,
+  Unlock,
+} from './engine/types'
 import {
   CONFUSIONS_KEY,
+  KANA_GROUP_KEY,
+  KEYBOARD_LAYOUT_KEY,
   LIBRARY_KEY,
   LIFETIME_KEY,
   MISSES_KEY,
   RUNS_KEY,
   SETTINGS_KEY,
   SHOW_KEYBOARD_KEY,
+  SOURCE_KEY,
   readConfusionMap,
+  readKanaGroup,
+  readKeyboardLayout,
   readLibrary,
   readLifetimeStats,
   readMissMap,
   readRuns,
   readSettings,
   readShowKeyboard,
+  readSource,
 } from './io/persistence'
 import { writeJson } from './io/storage'
+import { BottomNav } from './ui/BottomNav'
+import { OnScreenKeyboard } from './ui/OnScreenKeyboard'
+import { Topbar } from './ui/Topbar'
 import { routeFromHash, type RouteName } from './ui/router'
 
-type KeyDef = {
-  code: string
-  label: string
-  width?: number
-  variant?: 'mod' | 'space'
+/** Chart groups, labelled the way a learner would name them. */
+const KANA_GROUP_LABELS: Record<KanaGroup, string> = {
+  all: 'all',
+  seion: 'seion',
+  dakuten: 'dakuten',
+  yoon: 'yōon',
 }
-
-const keyboardRows: KeyDef[][] = [
-  [
-    { code: 'Backquote', label: '`' },
-    { code: 'Digit1', label: '1' },
-    { code: 'Digit2', label: '2' },
-    { code: 'Digit3', label: '3' },
-    { code: 'Digit4', label: '4' },
-    { code: 'Digit5', label: '5' },
-    { code: 'Digit6', label: '6' },
-    { code: 'Digit7', label: '7' },
-    { code: 'Digit8', label: '8' },
-    { code: 'Digit9', label: '9' },
-    { code: 'Digit0', label: '0' },
-    { code: 'Minus', label: '-' },
-    { code: 'Equal', label: '=' },
-    { code: 'Backspace', label: '⌫', width: 2, variant: 'mod' },
-  ],
-  [
-    { code: 'Tab', label: 'tab', width: 1.5, variant: 'mod' },
-    { code: 'KeyQ', label: 'q' },
-    { code: 'KeyW', label: 'w' },
-    { code: 'KeyE', label: 'e' },
-    { code: 'KeyR', label: 'r' },
-    { code: 'KeyT', label: 't' },
-    { code: 'KeyY', label: 'y' },
-    { code: 'KeyU', label: 'u' },
-    { code: 'KeyI', label: 'i' },
-    { code: 'KeyO', label: 'o' },
-    { code: 'KeyP', label: 'p' },
-    { code: 'BracketLeft', label: '[' },
-    { code: 'BracketRight', label: ']' },
-    { code: 'Backslash', label: '\\', width: 1.5 },
-  ],
-  [
-    { code: 'CapsLock', label: 'caps', width: 1.75, variant: 'mod' },
-    { code: 'KeyA', label: 'a' },
-    { code: 'KeyS', label: 's' },
-    { code: 'KeyD', label: 'd' },
-    { code: 'KeyF', label: 'f' },
-    { code: 'KeyG', label: 'g' },
-    { code: 'KeyH', label: 'h' },
-    { code: 'KeyJ', label: 'j' },
-    { code: 'KeyK', label: 'k' },
-    { code: 'KeyL', label: 'l' },
-    { code: 'Semicolon', label: ';' },
-    { code: 'Quote', label: "'" },
-    { code: 'Enter', label: 'enter', width: 2.25, variant: 'mod' },
-  ],
-  [
-    { code: 'ShiftLeft', label: 'shift', width: 2.25, variant: 'mod' },
-    { code: 'KeyZ', label: 'z' },
-    { code: 'KeyX', label: 'x' },
-    { code: 'KeyC', label: 'c' },
-    { code: 'KeyV', label: 'v' },
-    { code: 'KeyB', label: 'b' },
-    { code: 'KeyN', label: 'n' },
-    { code: 'KeyM', label: 'm' },
-    { code: 'Comma', label: ',' },
-    { code: 'Period', label: '.' },
-    { code: 'Slash', label: '/' },
-    { code: 'ShiftRight', label: 'shift', width: 2.75, variant: 'mod' },
-  ],
-  [
-    { code: 'ControlLeft', label: 'ctrl', width: 1.25, variant: 'mod' },
-    { code: 'MetaLeft', label: 'cmd', width: 1.25, variant: 'mod' },
-    { code: 'AltLeft', label: 'alt', width: 1.25, variant: 'mod' },
-    { code: 'Space', label: '', width: 6.25, variant: 'space' },
-    { code: 'AltRight', label: 'alt', width: 1.25, variant: 'mod' },
-    { code: 'MetaRight', label: 'cmd', width: 1.25, variant: 'mod' },
-    { code: 'ControlRight', label: 'ctrl', width: 1.25, variant: 'mod' },
-  ],
-]
 
 function App() {
   const [route, setRoute] = createSignal<RouteName>(routeFromHash())
   const [settings, setSettings] = createSignal<Settings>(readSettings())
   const [runs, setRuns] = createSignal<RunResult[]>(readRuns())
-  const [lifetimeStats, setLifetimeStats] = createSignal<LifetimeStats>(readLifetimeStats())
+  const initialLifetime = readLifetimeStats()
+  const [lifetimeStats, setLifetimeStats] = createSignal<LifetimeStats>(initialLifetime)
   const [missMap, setMissMap] = createSignal<Record<string, number>>(readMissMap())
   const [confusionMap, setConfusionMap] = createSignal<Record<string, number>>(readConfusionMap())
   const [library, setLibrary] = createSignal<TextItem[]>(readLibrary())
-  const [source, setSource] = createSignal<SourceName>('auto')
+  const [source, setSource] = createSignal<SourceName>(readSource())
   const [lesson, setLesson] = createSignal<Lesson>(
-    generateLesson('auto', settings(), missMap(), library()),
+    // The stored best matters here: with 0 a persisted `quotes` or `library`
+    // source reads as locked, so the first lesson came from `words` while the
+    // picker showed the real source as selected.
+    generateLesson(
+      readSource(),
+      settings(),
+      readMissMap(),
+      readLibrary(),
+      initialLifetime.bestWpm,
+      Math.random,
+      readKanaGroup(),
+    ),
   )
   const [session, setSession] = createSignal<SessionState>(emptySession())
   const [tick, setTick] = createSignal(Date.now())
   const [pressedKeys, setPressedKeys] = createSignal<ReadonlySet<string>>(new Set())
   const [showKeyboard, setShowKeyboard] = createSignal(readShowKeyboard())
+  const [keyboardLayout, setKeyboardLayout] = createSignal<KeyboardLayoutName>(readKeyboardLayout())
+  const [kanaGroup, setKanaGroup] = createSignal<KanaGroup>(readKanaGroup())
   const [customText, setCustomText] = createSignal('')
   const [lastRun, setLastRun] = createSignal<RunResult | null>(runs()[0] ?? null)
   const [resultUnlocks, setResultUnlocks] = createSignal<Unlock[]>([])
+  const [saveFailed, setSaveFailed] = createSignal(false)
 
   let hiddenInput: HTMLInputElement | undefined
   let savedCurrentRun = false
 
-  const expected = createMemo(() => lesson().romaji)
-  const kanaParts = createMemo(() => lesson().kana.split(' '))
-  const romajiParts = createMemo(() => expected().split(' '))
-  const tokenRanges = createMemo(() => {
-    let cursor = 0
-    return romajiParts().map((part) => {
-      const start = cursor
-      const end = start + part.length
-      cursor = end + 1
-      return { start, end }
-    })
-  })
-  const isComplete = createMemo(() => session().pos === expected().length)
+  /**
+   * The lesson as the matcher and the screen both see it: one token per mora,
+   * each carrying every spelling that types it, plus the display words already
+   * split into the runs that take a reading above them. Compiled together so the
+   * cursor's word index can't address a word the display doesn't have.
+   */
+  const prompt = createMemo(() => compilePrompt(lesson().items))
+  const tokens = createMemo(() => prompt().tokens)
+  const tokenWords = createMemo(() => wordIndexForToken(tokens()))
+  const displayWords = createMemo(() => prompt().words)
+  const projection = createMemo(() => projectMatch(tokens(), session().match))
+  /** Which word the cursor is in, for highlighting the display line. */
+  const currentWord = createMemo(() => tokenWords()[projection().tokenIndex] ?? displayWords().length)
+  /** What is still to be typed: the rest of this mora, then everything after it. */
+  const remaining = createMemo(() => projection().hint + projection().rest)
+  const isComplete = createMemo(() => session().finishedAt !== null)
   const metrics = createMemo(() => computeMetrics(session(), tick()))
   const accuracy = () => metrics().accuracy
   const speed = () => metrics().wpm
@@ -181,6 +155,16 @@ function App() {
   const streaks = createMemo(() => streakStats(lifetimeStats().streakDays))
   const distribution = createMemo(() => wpmDistribution(runs()))
 
+  /**
+   * Every write goes through here so a failure is visible. `writeJson` already
+   * reported one and every call site dropped it, which made a full quota or a
+   * private-browsing block look exactly like a successful save — right up until
+   * the next reload, when the run history turned out not to be there.
+   */
+  const persist = <T,>(key: string, value: T): void => {
+    if (!writeJson(key, value)) setSaveFailed(true)
+  }
+
   const navigate = (next: RouteName) => {
     window.location.hash = next === 'practice' ? '#/practice' : `#/${next}`
     setRoute(next)
@@ -191,16 +175,37 @@ function App() {
     setSession(emptySession())
   }
 
+  const nextLesson = (nextSource: SourceName, nextSettings: Settings = settings()) =>
+    generateLesson(
+      nextSource,
+      nextSettings,
+      missMap(),
+      library(),
+      bestWpm(),
+      Math.random,
+      kanaGroup(),
+    )
+
+  const changeKanaGroup = (group: KanaGroup) => {
+    persist(KANA_GROUP_KEY, group)
+    setKanaGroup(group)
+    if (source() === 'kana') {
+      setLesson(nextLesson('kana'))
+      resetRunState()
+    }
+  }
+
   const freshText = () => {
-    setLesson(generateLesson(source(), settings(), missMap(), library(), bestWpm()))
+    setLesson(nextLesson(source()))
     resetRunState()
     navigate('practice')
   }
 
   const changeSource = (nextSource: SourceName) => {
     if (!sourceUnlocked(nextSource, bestWpm())) return
+    persist(SOURCE_KEY, nextSource)
     setSource(nextSource)
-    setLesson(generateLesson(nextSource, settings(), missMap(), library(), bestWpm()))
+    setLesson(nextLesson(nextSource))
     resetRunState()
   }
 
@@ -216,12 +221,12 @@ function App() {
     const nextLifetime = recordRunInLifetimeStats(previousLifetime, run)
     setResultUnlocks(newlyReachedMilestones(previousLifetime, nextLifetime))
     setLifetimeStats(() => {
-      writeJson(LIFETIME_KEY, nextLifetime)
+      persist(LIFETIME_KEY, nextLifetime)
       return nextLifetime
     })
     const nextRuns = [run, ...runs()].slice(0, 100)
     setRuns(() => {
-      writeJson(RUNS_KEY, nextRuns)
+      persist(RUNS_KEY, nextRuns)
       return nextRuns
     })
     return run
@@ -229,22 +234,26 @@ function App() {
 
   const typeChar = (rawChar: string) => {
     if (isComplete() || route() !== 'practice') return
-    const result = applyTypeChar(session(), rawChar, expected(), Date.now())
+    const result = applyTypeChar(session(), rawChar, tokens(), Date.now())
     setSession(result.session)
     if (result.missed) {
-      const { target, typed } = result.missed
-      setMissMap((current) => {
-        const key = target === ' ' ? 'space' : target
-        const next = { ...current, [key]: (current[key] ?? 0) + 1 }
-        writeJson(MISSES_KEY, next)
-        return next
-      })
+      const { legal, typed } = result.missed
+      const label = (char: string) => (char === ' ' ? 'space' : char)
+      // Only a single legal continuation names one key to blame. After `s` on
+      // し both `h` and `i` were legal, and charging either would invent a miss
+      // on a key the typist never got wrong.
+      if (legal.length === 1) {
+        setMissMap((current) => {
+          const key = label(legal[0])
+          const next = { ...current, [key]: (current[key] ?? 0) + 1 }
+          persist(MISSES_KEY, next)
+          return next
+        })
+      }
       setConfusionMap((current) => {
-        const expectedKey = target === ' ' ? 'space' : target
-        const typedKey = typed === ' ' ? 'space' : typed
-        const pair = `${expectedKey} → ${typedKey}`
+        const pair = `${legal.map(label).join('/')} → ${label(typed)}`
         const next = { ...current, [pair]: (current[pair] ?? 0) + 1 }
-        writeJson(CONFUSIONS_KEY, next)
+        persist(CONFUSIONS_KEY, next)
         return next
       })
     }
@@ -257,19 +266,24 @@ function App() {
   }
 
   const backspace = () => {
-    setSession(applyBackspace)
+    setSession((current) => applyBackspace(current, tokens()))
   }
 
   const setKeyboardVisible = (visible: boolean) => {
-    writeJson(SHOW_KEYBOARD_KEY, visible)
+    persist(SHOW_KEYBOARD_KEY, visible)
     setShowKeyboard(visible)
+  }
+
+  const changeKeyboardLayout = (layout: KeyboardLayoutName) => {
+    persist(KEYBOARD_LAYOUT_KEY, layout)
+    setKeyboardLayout(layout)
   }
 
   const updateParagraphLength = (length: number) => {
     const next = { paragraphItems: Math.max(3, Math.min(30, length)) }
     setSettings(next)
-    writeJson(SETTINGS_KEY, next)
-    setLesson(generateLesson(source(), next, missMap(), library(), bestWpm()))
+    persist(SETTINGS_KEY, next)
+    setLesson(nextLesson(source(), next))
     resetRunState()
   }
 
@@ -278,7 +292,7 @@ function App() {
     if (parsed.length === 0) return
     setLibrary((current) => {
       const next = [...parsed, ...current].slice(0, 200)
-      writeJson(LIBRARY_KEY, next)
+      persist(LIBRARY_KEY, next)
       return next
     })
     setCustomText('')
@@ -300,9 +314,13 @@ function App() {
     const hashchange = () => setRoute(routeFromHash())
 
     const keydown = (event: KeyboardEvent) => {
+      // Light the cap before any early return, so modifiers (which set their own
+      // ctrl/meta/alt flag on their own keydown) still show as held on the
+      // on-screen keyboard. Purely visual — nothing below this line is skipped.
+      if (!event.repeat) setPressedKeys((current) => new Set(current).add(event.code))
+
       if (event.ctrlKey || event.metaKey || event.altKey) return
       if (event.isComposing || event.keyCode === 229 || event.repeat) return
-      setPressedKeys((current) => new Set(current).add(event.code))
 
       if (route() === 'result' && event.key === 'Enter') {
         event.preventDefault()
@@ -360,35 +378,25 @@ function App() {
 
   return (
     <main class="app" onClick={refocus}>
-      <aside class="live-stats" aria-label="live stats">
-        <span>
-          <b>{speed()}</b> wpm
-        </span>
-        <span>
-          <b>{accuracy()}</b>% acc
-        </span>
-        <span>
-          <b>{session().mistakes}</b> miss
-        </span>
-      </aside>
+      <Topbar
+        wpm={speed()}
+        accuracy={accuracy()}
+        mistakes={session().mistakes}
+        showLive={route() === 'practice'}
+        onHomeClick={() => navigate('practice')}
+      />
 
-      <nav class="topnav" aria-label="main navigation">
-        <button classList={{ active: route() === 'practice' }} onClick={() => navigate('practice')}>
-          practice
-        </button>
-        <button classList={{ active: route() === 'stats' }} onClick={() => navigate('stats')}>
-          stats
-        </button>
-        <button classList={{ active: route() === 'library' }} onClick={() => navigate('library')}>
-          library
-        </button>
-        <button
-          classList={{ active: route() === 'settings' }}
-          onClick={() => navigate('settings')}
-        >
-          settings
-        </button>
-      </nav>
+      {/* Storage can refuse a write — a full quota, or private browsing. Saying
+          so beats letting the session look saved until the next reload proves
+          otherwise. Stays up once raised: the runs already lost don't come back
+          just because a later, smaller write succeeded. */}
+      <Show when={saveFailed()}>
+        <p class="alert" role="status" aria-live="polite">
+          Couldn't save to this browser's storage — your progress this session
+          won't be here after a reload. Private browsing or a full storage quota
+          are the usual causes.
+        </p>
+      </Show>
 
       <Show when={route() === 'practice'}>
         <section class="stage">
@@ -421,100 +429,70 @@ function App() {
           />
 
           <section class="typing-area" aria-label="practice paragraph">
+            {/* Kanji is shown with its reading above it and typed as that
+                reading — display and keystrokes are separate concerns. Words
+                with nothing to gloss render as plain text. */}
             <p class="kana-line">
-              <For each={kanaParts()}>
-                {(part, index) => {
-                  const range = () => tokenRanges()[index()]
-                  const state = () => {
-                    const current = range()
-                    if (!current) return 'pending'
-                    if (session().pos >= current.end) return 'done'
-                    if (session().pos >= current.start && session().pos <= current.end) return 'current'
-                    return 'pending'
-                  }
-                  return (
-                    <span
-                      classList={{
-                        'kana-token': true,
-                        'kana-token--done': state() === 'done',
-                        'kana-token--current': state() === 'current',
-                      }}
-                    >
-                      {part}
-                    </span>
-                  )
-                }}
+              <For each={displayWords()}>
+                {(word, index) => (
+                  <span
+                    classList={{
+                      'kana-token': true,
+                      'kana-token--done': index() < currentWord(),
+                      'kana-token--current': index() === currentWord(),
+                    }}
+                  >
+                    <For each={word.segments}>
+                      {(segment) => (
+                        <Show when={segment.ruby} fallback={segment.text}>
+                          {(ruby) => (
+                            <ruby>
+                              {segment.text}
+                              <rt>{ruby()}</rt>
+                            </ruby>
+                          )}
+                        </Show>
+                      )}
+                    </For>
+                  </span>
+                )}
               </For>
             </p>
+            {/* Everything already pressed, then what's left to press. Wrong keys
+                stand in the line in red exactly where they were typed — the
+                matcher consumed an edge for each, so the two halves always meet
+                at the cursor. */}
             <p class="romaji-line">
-              <For each={expected().split('')}>
-                {(char, index) => (
+              <For each={session().keys}>
+                {(key) => (
                   <span
                     classList={{
                       char: true,
-                      'char--correct': session().statuses[index()] === 'correct',
-                      'char--incorrect': session().statuses[index()] === 'incorrect',
-                      'char--current': index() === session().pos,
+                      'char--correct': key.correct,
+                      'char--incorrect': !key.correct,
                     }}
                   >
-                    {char}
+                    {key.char}
                   </span>
+                )}
+              </For>
+              <For each={remaining().split('')}>
+                {(char, index) => (
+                  <span classList={{ char: true, 'char--current': index() === 0 }}>{char}</span>
                 )}
               </For>
             </p>
           </section>
 
           <Show when={showKeyboard()}>
-            <section class="kb" aria-label="keyboard">
-              <For each={keyboardRows}>
-                {(row) => (
-                  <div class="kb__row">
-                    <For each={row}>
-                      {(key) => (
-                        <div
-                          class="kb__key"
-                          classList={{
-                            'kb__key--mod': key.variant === 'mod',
-                            'kb__key--space': key.variant === 'space',
-                            'kb__key--pressed': pressedKeys().has(key.code),
-                          }}
-                          style={{ '--w': key.width ?? 1 }}
-                          aria-hidden="true"
-                        >
-                          {key.label}
-                        </div>
-                      )}
-                    </For>
-                  </div>
-                )}
-              </For>
-            </section>
+            <OnScreenKeyboard layout={keyboardLayout()} pressed={pressedKeys} />
           </Show>
 
+          {/* Source picker sits directly under the keyboard, keyboard
+              shortcuts below it — the order type.review uses. */}
           <div class="practice-hints">
             <div class="practice-hints__row">
-              <p class="hint">
-                <kbd>Tab</kbd> fresh text
-              </p>
-              <Show when={isComplete()}>
-                <p class="hint">
-                  <kbd>Enter</kbd> next
-                </p>
-              </Show>
-              <button
-                type="button"
-                class="hint-button"
-                aria-pressed={showKeyboard()}
-                onClick={(event) => {
-                  event.stopPropagation()
-                  setKeyboardVisible(!showKeyboard())
-                }}
-              >
-                {showKeyboard() ? 'hide keyboard' : 'show keyboard'}
-              </button>
-            </div>
-            <div class="practice-hints__row">
-              <span>source</span>
+              <span class="hint-label">source</span>
               <For each={sourceOptions}>
                 {(option) => (
                   <button
@@ -543,6 +521,52 @@ function App() {
                 )}
               </For>
               <span class="source-current">picked: {lesson().source}</span>
+            </div>
+
+            {/* Which part of the chart to drill. Only meaningful while the kana
+                source is selected, so it stays out of the way otherwise. */}
+            <Show when={source() === 'kana'}>
+              <div class="practice-hints__row">
+                <span class="hint-label">五十音</span>
+                <For each={KANA_GROUPS}>
+                  {(group) => (
+                    <button
+                      type="button"
+                      class="source-button"
+                      classList={{ active: kanaGroup() === group }}
+                      title={KANA_GROUP_LABELS[group]}
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        changeKanaGroup(group)
+                      }}
+                    >
+                      {KANA_GROUP_LABELS[group]}
+                    </button>
+                  )}
+                </For>
+                <span class="source-current">{kanaRows(kanaGroup()).length} rows</span>
+              </div>
+            </Show>
+            <div class="practice-hints__row">
+              <p class="hint">
+                <kbd>Tab</kbd> fresh text
+              </p>
+              <Show when={isComplete()}>
+                <p class="hint">
+                  <kbd>Enter</kbd> next
+                </p>
+              </Show>
+              <button
+                type="button"
+                class="hint-button"
+                aria-pressed={showKeyboard()}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  setKeyboardVisible(!showKeyboard())
+                }}
+              >
+                {showKeyboard() ? 'hide keyboard' : 'show keyboard'}
+              </button>
             </div>
           </div>
         </section>
@@ -908,8 +932,28 @@ function App() {
             />
             <span>show on-screen keyboard</span>
           </label>
+          <div class="field">
+            <span>keyboard layout</span>
+            <div class="pill-row">
+              <For each={KEYBOARD_LAYOUT_NAMES}>
+                {(layout) => (
+                  <button
+                    type="button"
+                    class="pill"
+                    classList={{ active: keyboardLayout() === layout }}
+                    aria-pressed={keyboardLayout() === layout}
+                    onClick={() => changeKeyboardLayout(layout)}
+                  >
+                    {layout}
+                  </button>
+                )}
+              </For>
+            </div>
+          </div>
         </section>
       </Show>
+
+      <BottomNav active={route()} onNavigate={navigate} />
     </main>
   )
 }

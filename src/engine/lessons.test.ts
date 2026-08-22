@@ -6,29 +6,19 @@ import {
   drillFallbackBank,
   explicitSourcesForBest,
   generateLesson,
+  gojuonBank,
+  kanaRows,
   parseLibraryText,
   sourceUnlockAt,
   sourceUnlocked,
-  stripMarkdown,
   wordBank,
 } from './lessons'
-import type { Settings } from './types'
+import { acceptsSpelling, compileStrict } from './prompt'
+import type { RomajiToken } from './romanization'
+import { mulberry32 } from './rng'
+import type { KanaRow, Settings, TextItem } from './types'
 
 const settings: Settings = { paragraphItems: 3 }
-
-describe('stripMarkdown', () => {
-  it('strips fenced code blocks entirely', () => {
-    expect(stripMarkdown('before ```const x = 1``` after')).toBe('before after')
-  })
-
-  it('strips heading, emphasis, and list punctuation', () => {
-    expect(stripMarkdown('# heading *em* _under_ `code` [link](url) - item ! >')).toBe('heading em under code link url item')
-  })
-
-  it('collapses whitespace and trims', () => {
-    expect(stripMarkdown('  a   b\n\nc  ')).toBe('a b c')
-  })
-})
 
 describe('parseLibraryText', () => {
   it('parses pipe-delimited kana|romaji lines', () => {
@@ -72,7 +62,40 @@ describe('buildParagraph', () => {
       { kana: 'い', romaji: 'i' },
     ]
     const lesson = buildParagraph(items, 'words', 3, () => 0)
-    expect(lesson).toEqual({ kana: 'あ あ あ', romaji: 'a a a', source: 'words' })
+    expect(lesson).toEqual({
+      // Dealt from a shuffled deck, so both items appear before either repeats.
+      kana: 'あ い あ',
+      romaji: 'a i a',
+      source: 'words',
+      // Items are carried through so the lesson can be recompiled into matcher
+      // tokens — a per-item `reading` would be lost by the joined strings alone.
+      items: [items[0], items[1], items[0]],
+    })
+  })
+
+  // Regression: independent draws routinely produced a lesson that was the same
+  // word eight times over while leaving most of the bank unseen.
+  it('shows every item once before repeating any of them', () => {
+    const items = Array.from({ length: 6 }, (_, i) => ({ kana: `k${i}`, romaji: `r${i}` }))
+    const rng = mulberry32(7)
+    for (let trial = 0; trial < 40; trial++) {
+      const picked = buildParagraph(items, 'words', 6, rng).items
+      expect(new Set(picked).size).toBe(items.length)
+    }
+  })
+
+  it('keeps varying past the end of the bank', () => {
+    const items = [
+      { kana: 'あ', romaji: 'a' },
+      { kana: 'い', romaji: 'i' },
+      { kana: 'う', romaji: 'u' },
+    ]
+    const picked = buildParagraph(items, 'words', 9, mulberry32(3)).items
+    expect(picked).toHaveLength(9)
+    // Three full deals — each item exactly three times, in some order.
+    for (const item of items) {
+      expect(picked.filter((entry) => entry === item)).toHaveLength(3)
+    }
   })
 
   it('tags the lesson with the given source', () => {
@@ -193,5 +216,104 @@ describe('generateLesson', () => {
     const lesson = generateLesson('difficult', { paragraphItems: 2 }, {}, [], 30, () => 0)
     expect(lesson.kana.split(' ')).toHaveLength(2)
     expect(difficultBank.map((i) => i.kana)).toContain(lesson.kana.split(' ')[0])
+  })
+})
+
+describe('gojuonBank', () => {
+  const groups = (name: KanaRow['group']) => gojuonBank.filter((row) => row.group === name)
+
+  it('covers the whole chart — 10 seion, 5 voiced, 11 contracted', () => {
+    expect(groups('seion')).toHaveLength(10)
+    expect(groups('dakuten')).toHaveLength(5)
+    expect(groups('yoon')).toHaveLength(11)
+    expect(gojuonBank).toHaveLength(26)
+  })
+
+  it('includes every row the standard chart has', () => {
+    const have = new Set(gojuonBank.map((row) => row.kana))
+    const expected = [
+      'あいうえお', 'かきくけこ', 'さしすせそ', 'たちつてと', 'なにぬねの',
+      'はひふへほ', 'まみむめも', 'やゆよ', 'らりるれろ', 'わをん',
+      'がぎぐげご', 'ざじずぜぞ', 'だぢづでど', 'ばびぶべぼ', 'ぱぴぷぺぽ',
+      'きゃきゅきょ', 'しゃしゅしょ', 'ちゃちゅちょ', 'にゃにゅにょ', 'ひゃひゅひょ',
+      'みゃみゅみょ', 'りゃりゅりょ', 'ぎゃぎゅぎょ', 'じゃじゅじょ', 'びゃびゅびょ',
+      'ぴゃぴゅぴょ',
+    ]
+    expect(expected.filter((kana) => !have.has(kana))).toEqual([])
+  })
+
+  it('lists no row twice', () => {
+    expect(new Set(gojuonBank.map((row) => row.kana)).size).toBe(gojuonBank.length)
+  })
+
+  // ぢ/づ are taught as di/du because ji/zu are the keystrokes that produce じ/ず.
+  it('teaches the da row with the spellings that actually produce it', () => {
+    const da = gojuonBank.find((row) => row.kana === 'だぢづでど')
+    expect(da?.romaji).toBe('dadidudedo')
+    const tokens = compileStrict(da as TextItem)
+    expect(tokens?.map((token) => token.candidates[0])).toEqual(['da', 'di', 'du', 'de', 'do'])
+  })
+
+  it('still accepts the alternate spellings of ぢ and づ', () => {
+    const da = gojuonBank.find((row) => row.kana === 'だぢづでど') as TextItem
+    expect(acceptsSpelling(compileStrict(da) as RomajiToken[], 'dajizudedo')).toBe(true)
+  })
+})
+
+describe('kanaRows', () => {
+  it('returns the whole chart for "all"', () => {
+    expect(kanaRows('all')).toHaveLength(26)
+  })
+
+  it('filters to one group', () => {
+    expect(kanaRows('yoon').every((row) => row.kana.includes('ゃ') || row.kana.includes('ゅ') || row.kana.includes('ょ'))).toBe(true)
+    expect(kanaRows('seion')).toHaveLength(10)
+    expect(kanaRows('dakuten')).toHaveLength(5)
+  })
+})
+
+describe('kana source', () => {
+  const settings: Settings = { paragraphItems: 4 }
+
+  it('builds a lesson from the chart', () => {
+    const lesson = generateLesson('kana', settings, {}, [], 0, mulberry32(1), 'all')
+    expect(lesson.source).toBe('kana')
+    expect(lesson.items.every((item) => gojuonBank.includes(item as KanaRow))).toBe(true)
+  })
+
+  it('honours the requested group', () => {
+    const lesson = generateLesson('kana', settings, {}, [], 0, mulberry32(2), 'yoon')
+    expect(lesson.items.every((item) => (item as KanaRow).group === 'yoon')).toBe(true)
+  })
+
+  // Beginners need the chart most, so gating it behind a speed threshold would
+  // be exactly backwards.
+  it('is available from zero wpm', () => {
+    expect(sourceUnlocked('kana', 0)).toBe(true)
+    expect(generateLesson('kana', settings, {}, [], 0, mulberry32(3), 'all').source).toBe('kana')
+  })
+
+  // The chart is a drill you choose, not something to be handed unasked.
+  it('is never chosen by auto', () => {
+    expect(explicitSourcesForBest(999)).not.toContain('kana')
+  })
+})
+
+describe('parseLibraryText — rejected pairs', () => {
+  // The display splits on the kana's spaces and the cursor counts the romaji's.
+  it('drops a pair whose kana and romaji disagree about word breaks', () => {
+    expect(parseLibraryText('ひとつ ふたつ|hitotsufutatsu')).toEqual([])
+    expect(parseLibraryText('みっつ|mittsu yottsu')).toEqual([])
+  })
+
+  it('keeps a pair whose word breaks agree', () => {
+    expect(parseLibraryText('ひとつ ふたつ|hitotsu futatsu')).toEqual([
+      { kana: 'ひとつ ふたつ', romaji: 'hitotsu futatsu' },
+    ])
+  })
+
+  // An astral character compiles to a token no single keypress can produce.
+  it('drops a pair whose romaji cannot be typed one key at a time', () => {
+    expect(parseLibraryText('えき|ek😀i')).toEqual([])
   })
 })
