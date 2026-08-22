@@ -23,3 +23,40 @@ export function pickRandom<T>(items: readonly T[], rng: RandomSource = Math.rand
   }
   return items[Math.floor(rng() * items.length)]
 }
+
+/** Fisher-Yates, on a copy. */
+function shuffled<T>(items: readonly T[], rng: RandomSource): T[] {
+  const out = [...items]
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1))
+    ;[out[i], out[j]] = [out[j], out[i]]
+  }
+  return out
+}
+
+/**
+ * `count` items, dealt from a shuffled deck rather than drawn independently.
+ *
+ * Independent draws are what a naive `Array.from({length}, pickRandom)` does,
+ * and over a short lesson they cluster badly — an eight-item run routinely came
+ * back as the same word eight times while leaving most of the bank unseen. That
+ * is a poor lesson in general and useless for drilling coverage. Dealing from a
+ * deck guarantees every item appears once before any appears twice; when the
+ * deck runs out it is reshuffled, so runs longer than the bank still vary.
+ */
+export function dealRandom<T>(
+  items: readonly T[],
+  count: number,
+  rng: RandomSource = Math.random,
+): T[] {
+  if (items.length === 0) {
+    throw new Error('dealRandom: items must not be empty')
+  }
+  const out: T[] = []
+  let deck: T[] = []
+  while (out.length < count) {
+    if (deck.length === 0) deck = shuffled(items, rng)
+    out.push(deck.pop() as T)
+  }
+  return out
+}
