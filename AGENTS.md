@@ -30,6 +30,16 @@ split: `engine/` pure logic → `io/` browser adapters → `ui/` SolidJS.
   vitest environment is `node` — this is where nearly all logic should live
   and where new features should be designed test-first.
 - **`src/io/`** — the only layer allowed to touch `localStorage`/`window`.
+  Storage is split on purpose. **Records** — run history, the library, lifetime
+  stats, the miss and confusion tables — live in IndexedDB (`io/records.ts`),
+  because they grow; run history used to be capped at 100 to fit localStorage.
+  **Preferences** — paragraph length, keyboard visibility and layout, kana
+  group, source — stay in localStorage, because reading them synchronously is
+  what lets the first paint happen without awaiting a database. Records are
+  parsed by the same validators the localStorage path used, so hardening applies
+  to both. `migrateLocalStorage` copies an older profile across once, and only
+  into an empty store — otherwise clearing your history would resurrect it from
+  the stale copy on the next load.
   Test files here open with `// @vitest-environment jsdom` at line 1 (must
   be the first line of the file; it sets the environment for the whole
   file, not a per-block override).

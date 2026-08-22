@@ -10,6 +10,7 @@ import type {
   TextItem,
   TimingStat,
 } from '../engine/types'
+import type { RecordName, RecordStore } from './records'
 import { readJson } from './storage'
 
 export const RUNS_KEY = 'japanese-romaji:runs'
@@ -114,10 +115,13 @@ function isDayKey(value: unknown): value is string {
   return isStr(value) && DAY_KEY.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`))
 }
 
-export function readRuns(): RunResult[] {
-  const raw = readJson<unknown>(RUNS_KEY, [])
+export function parseRuns(raw: unknown): RunResult[] {
   if (!Array.isArray(raw)) return []
   return raw.filter(isValidRun).map(normalizeRun)
+}
+
+export function readRuns(): RunResult[] {
+  return parseRuns(readJson<unknown>(RUNS_KEY, []))
 }
 
 export function readSettings(): Settings {
@@ -144,8 +148,7 @@ const MAX_ITEM_CHARS = 400
  * was on the object, so a stored `reading: 7` reached `reading.split(' ')` and
  * threw before the first lesson could render.
  */
-export function readLibrary(): TextItem[] {
-  const raw = readJson<unknown>(LIBRARY_KEY, [])
+export function parseLibrary(raw: unknown): TextItem[] {
   if (!Array.isArray(raw)) return []
 
   const items: TextItem[] = []
@@ -171,9 +174,13 @@ export function readLibrary(): TextItem[] {
   return items
 }
 
-export function readMissMap(): Record<string, number> {
-  const raw = readJson<unknown>(MISSES_KEY, {})
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {}
+export function readLibrary(): TextItem[] {
+  return parseLibrary(readJson<unknown>(LIBRARY_KEY, []))
+}
+
+/** A `key -> count` table, dropping anything that isn't a finite number. */
+export function parseCountMap(raw: unknown): Record<string, number> {
+  if (!isRecord(raw)) return {}
   const result: Record<string, number> = {}
   for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
     if (isNum(value)) result[key] = value
@@ -181,14 +188,12 @@ export function readMissMap(): Record<string, number> {
   return result
 }
 
+export function readMissMap(): Record<string, number> {
+  return parseCountMap(readJson<unknown>(MISSES_KEY, {}))
+}
+
 export function readConfusionMap(): Record<string, number> {
-  const raw = readJson<unknown>(CONFUSIONS_KEY, {})
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {}
-  const result: Record<string, number> = {}
-  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
-    if (isNum(value)) result[key] = value
-  }
-  return result
+  return parseCountMap(readJson<unknown>(CONFUSIONS_KEY, {}))
 }
 
 function isValidLifetimeStats(item: unknown): boolean {
@@ -214,8 +219,7 @@ function isValidLifetimeStats(item: unknown): boolean {
  * lifetimeStatsFromRuns's doc comment on why it can't recover history the
  * old run-list cap already dropped).
  */
-export function readLifetimeStats(): LifetimeStats {
-  const raw = readJson<unknown>(LIFETIME_KEY, null)
+export function parseLifetimeStats(raw: unknown, runs: RunResult[]): LifetimeStats {
   if (isValidLifetimeStats(raw)) {
     const r = raw as Record<string, unknown>
     return {
@@ -228,7 +232,11 @@ export function readLifetimeStats(): LifetimeStats {
       streakDays: (r.streakDays as unknown[]).filter(isDayKey),
     }
   }
-  return lifetimeStatsFromRuns(readRuns())
+  return lifetimeStatsFromRuns(runs)
+}
+
+export function readLifetimeStats(): LifetimeStats {
+  return parseLifetimeStats(readJson<unknown>(LIFETIME_KEY, null), readRuns())
 }
 
 /**
@@ -269,5 +277,83 @@ export function readShowKeyboard(): boolean {
     return parsed !== false && parsed !== 0
   } catch {
     return true
+  }
+}
+
+/* ---- the durable records --------------------------------------------------
+ *
+ * Run history, the library and the derived counters live in IndexedDB; the UI
+ * preferences above stay in localStorage. The split is about the first paint:
+ * preferences are read synchronously so the page can draw, and the records are
+ * awaited because they can grow past what localStorage will hold. That growth
+ * is the point — run history used to be capped at 100 to fit.
+ */
+
+export type StoredProfile = {
+  runs: RunResult[]
+  library: TextItem[]
+  lifetime: LifetimeStats
+  misses: Record<string, number>
+  confusions: Record<string, number>
+}
+
+export function emptyProfile(): StoredProfile {
+  return {
+    runs: [],
+    library: [],
+    lifetime: lifetimeStatsFromRuns([]),
+    misses: {},
+    confusions: {},
+  }
+}
+
+/**
+ * Copies an existing localStorage profile into the store, once.
+ *
+ * Only runs when the store holds nothing at all — otherwise a user who cleared
+ * their history would have it resurrected from the stale localStorage copy on
+ * the next load. The localStorage keys are deliberately left in place: they cost
+ * nothing, and they are the only copy of the data until the first write lands.
+ *
+ * Returns whether anything was carried over.
+ */
+export async function migrateLocalStorage(store: RecordStore): Promise<boolean> {
+  const existing = await store.readAll()
+  if (Object.keys(existing).length > 0) return false
+
+  const runs = readJson<unknown>(RUNS_KEY, null)
+  const library = readJson<unknown>(LIBRARY_KEY, null)
+  const lifetime = readJson<unknown>(LIFETIME_KEY, null)
+  const misses = readJson<unknown>(MISSES_KEY, null)
+  const confusions = readJson<unknown>(CONFUSIONS_KEY, null)
+  if (runs === null && library === null && lifetime === null) return false
+
+  const carry: [RecordName, unknown][] = [
+    ['runs', runs],
+    ['library', library],
+    ['lifetime', lifetime],
+    ['misses', misses],
+    ['confusions', confusions],
+  ]
+  for (const [name, value] of carry) {
+    if (value !== null) await store.write(name, value)
+  }
+  return true
+}
+
+/**
+ * Reads and validates the whole profile. Every value goes through the same
+ * parsers the localStorage path used, so a record corrupted in the database is
+ * dropped exactly as one corrupted in localStorage was.
+ */
+export async function loadProfile(store: RecordStore): Promise<StoredProfile> {
+  const raw = await store.readAll()
+  const runs = parseRuns(raw.runs)
+  return {
+    runs,
+    library: parseLibrary(raw.library),
+    lifetime: parseLifetimeStats(raw.lifetime, runs),
+    misses: parseCountMap(raw.misses),
+    confusions: parseCountMap(raw.confusions),
   }
 }

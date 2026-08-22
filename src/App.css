@@ -969,3 +969,14 @@ meter::-webkit-meter-optimum-value {
   max-width: var(--content-max);
   padding: var(--space-3) var(--space-4);
 }
+
+/* Shown only while the stored profile is loading. Deliberately plain — it is
+ * on screen for a few milliseconds, and anything more elaborate would flash. */
+.app--loading {
+  align-items: center;
+  color: var(--color-dim);
+  display: flex;
+  font-family: var(--font-mono);
+  font-size: var(--fs-13);
+  justify-content: center;
+}

@@ -1,6 +1,10 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from 'vitest'
+import { InMemoryRecordStore } from './records'
 import {
+  emptyProfile,
+  loadProfile,
+  migrateLocalStorage,
   readConfusionMap,
   readKeyboardLayout,
   readLibrary,
@@ -456,5 +460,93 @@ describe('corrupt stored data cannot crash the app', () => {
     )
     // Previously passed validation, then threw RangeError: Invalid time value.
     expect(readLifetimeStats().streakDays).toEqual(['2026-08-01'])
+  })
+})
+
+describe('loadProfile', () => {
+  it('returns empty values for an empty store', async () => {
+    const profile = await loadProfile(new InMemoryRecordStore())
+    expect(profile).toEqual(emptyProfile())
+  })
+
+  it('parses every record through the same validators localStorage used', async () => {
+    const store = new InMemoryRecordStore()
+    await store.write('runs', [
+      { source: 'kana', chars: 10, mistakes: 0, accuracy: 100, wpm: 40, elapsedMs: 3000, date: '2026-08-22T00:00:00.000Z' },
+      { source: 'nonsense', chars: 1 },
+    ])
+    await store.write('library', [{ kana: 'えき', romaji: 'eki' }, { kana: 5 }])
+    await store.write('misses', { a: 3, b: 'lots' })
+    await store.write('confusions', { 'a → b': 2 })
+
+    const profile = await loadProfile(store)
+    expect(profile.runs).toHaveLength(1)
+    expect(profile.library).toEqual([{ kana: 'えき', romaji: 'eki' }])
+    expect(profile.misses).toEqual({ a: 3 })
+    expect(profile.confusions).toEqual({ 'a → b': 2 })
+  })
+
+  it('bootstraps lifetime stats from the runs when the record is absent', async () => {
+    const store = new InMemoryRecordStore()
+    await store.write('runs', [
+      { source: 'words', chars: 10, mistakes: 0, accuracy: 100, wpm: 45, elapsedMs: 20_000, date: '2026-08-01T00:00:00.000Z' },
+    ])
+    expect((await loadProfile(store)).lifetime.bestWpm).toBe(45)
+  })
+
+  it('drops a corrupt record rather than failing the whole load', async () => {
+    const store = new InMemoryRecordStore()
+    await store.write('runs', 'not an array')
+    await store.write('lifetime', { bestWpm: 'fast' })
+    const profile = await loadProfile(store)
+    expect(profile.runs).toEqual([])
+    expect(profile.lifetime).toEqual(emptyProfile().lifetime)
+  })
+})
+
+describe('migrateLocalStorage', () => {
+  const legacyRun = {
+    source: 'words', chars: 10, mistakes: 0, accuracy: 100, wpm: 30,
+    elapsedMs: 5000, date: '2026-08-01T00:00:00.000Z',
+  }
+
+  it('carries an existing localStorage profile into the store', async () => {
+    localStorage.setItem(RUNS_KEY, JSON.stringify([legacyRun]))
+    localStorage.setItem(LIBRARY_KEY, JSON.stringify([{ kana: 'えき', romaji: 'eki' }]))
+    localStorage.setItem(MISSES_KEY, JSON.stringify({ a: 2 }))
+
+    const store = new InMemoryRecordStore()
+    expect(await migrateLocalStorage(store)).toBe(true)
+
+    const profile = await loadProfile(store)
+    expect(profile.runs).toHaveLength(1)
+    expect(profile.library).toEqual([{ kana: 'えき', romaji: 'eki' }])
+    expect(profile.misses).toEqual({ a: 2 })
+  })
+
+  it('does nothing when there is no localStorage profile', async () => {
+    const store = new InMemoryRecordStore()
+    expect(await migrateLocalStorage(store)).toBe(false)
+    expect(await store.readAll()).toEqual({})
+  })
+
+  /*
+   * Only migrates into an empty store. Otherwise someone who cleared their
+   * history would have it resurrected from the stale localStorage copy on the
+   * very next load — the migration would quietly undo a deliberate act.
+   */
+  it('leaves a store that already holds records alone', async () => {
+    localStorage.setItem(RUNS_KEY, JSON.stringify([legacyRun]))
+    const store = new InMemoryRecordStore()
+    await store.write('runs', [])
+
+    expect(await migrateLocalStorage(store)).toBe(false)
+    expect((await loadProfile(store)).runs).toEqual([])
+  })
+
+  it('leaves the localStorage keys in place as the only copy until a write lands', async () => {
+    localStorage.setItem(RUNS_KEY, JSON.stringify([legacyRun]))
+    await migrateLocalStorage(new InMemoryRecordStore())
+    expect(localStorage.getItem(RUNS_KEY)).not.toBeNull()
   })
 })

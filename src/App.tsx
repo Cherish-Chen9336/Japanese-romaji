@@ -38,32 +38,34 @@ import type {
   Unlock,
 } from './engine/types'
 import {
-  CONFUSIONS_KEY,
   KANA_GROUP_KEY,
   KEYBOARD_LAYOUT_KEY,
-  LIBRARY_KEY,
-  LIFETIME_KEY,
-  MISSES_KEY,
-  RUNS_KEY,
   SETTINGS_KEY,
   SHOW_KEYBOARD_KEY,
   SOURCE_KEY,
-  readConfusionMap,
+  emptyProfile,
+  loadProfile,
+  migrateLocalStorage,
   readKanaGroup,
   readKeyboardLayout,
-  readLibrary,
-  readLifetimeStats,
-  readMissMap,
-  readRuns,
   readSettings,
   readShowKeyboard,
   readSource,
 } from './io/persistence'
+import { createRecordStore, type RecordName } from './io/records'
 import { writeJson } from './io/storage'
 import { BottomNav } from './ui/BottomNav'
 import { OnScreenKeyboard } from './ui/OnScreenKeyboard'
 import { Topbar } from './ui/Topbar'
 import { routeFromHash, type RouteName } from './ui/router'
+
+/**
+ * One store for the whole page. `durable` is false when the browser has no
+ * IndexedDB at all — private browsing in some engines, or a locked-down embed —
+ * in which case the session works but nothing survives a reload, and the app
+ * says so rather than pretending it saved.
+ */
+const { store: recordStore, durable: durableStore } = createRecordStore()
 
 /** Chart groups, labelled the way a learner would name them. */
 const KANA_GROUP_LABELS: Record<KanaGroup, string> = {
@@ -76,26 +78,18 @@ const KANA_GROUP_LABELS: Record<KanaGroup, string> = {
 function App() {
   const [route, setRoute] = createSignal<RouteName>(routeFromHash())
   const [settings, setSettings] = createSignal<Settings>(readSettings())
-  const [runs, setRuns] = createSignal<RunResult[]>(readRuns())
-  const initialLifetime = readLifetimeStats()
-  const [lifetimeStats, setLifetimeStats] = createSignal<LifetimeStats>(initialLifetime)
-  const [missMap, setMissMap] = createSignal<Record<string, number>>(readMissMap())
-  const [confusionMap, setConfusionMap] = createSignal<Record<string, number>>(readConfusionMap())
-  const [library, setLibrary] = createSignal<TextItem[]>(readLibrary())
+  // Records live in IndexedDB, which is asynchronous, so these start empty and
+  // are filled by the bootstrap below. The placeholder lesson is never seen —
+  // `ready` gates the render.
+  const [ready, setReady] = createSignal(false)
+  const [runs, setRuns] = createSignal<RunResult[]>([])
+  const [lifetimeStats, setLifetimeStats] = createSignal<LifetimeStats>(emptyProfile().lifetime)
+  const [missMap, setMissMap] = createSignal<Record<string, number>>({})
+  const [confusionMap, setConfusionMap] = createSignal<Record<string, number>>({})
+  const [library, setLibrary] = createSignal<TextItem[]>([])
   const [source, setSource] = createSignal<SourceName>(readSource())
   const [lesson, setLesson] = createSignal<Lesson>(
-    // The stored best matters here: with 0 a persisted `quotes` or `library`
-    // source reads as locked, so the first lesson came from `words` while the
-    // picker showed the real source as selected.
-    generateLesson(
-      readSource(),
-      settings(),
-      readMissMap(),
-      readLibrary(),
-      initialLifetime.bestWpm,
-      Math.random,
-      readKanaGroup(),
-    ),
+    generateLesson('words', readSettings(), {}, [], 0, Math.random, 'all'),
   )
   const [session, setSession] = createSignal<SessionState>(emptySession())
   const [tick, setTick] = createSignal(Date.now())
@@ -165,6 +159,14 @@ function App() {
     if (!writeJson(key, value)) setSaveFailed(true)
   }
 
+  /**
+   * Records go to the database, and the write is not awaited — a keystroke must
+   * never wait on one. Failures surface through the same banner.
+   */
+  const persistRecord = (name: RecordName, value: unknown): void => {
+    void recordStore.write(name, value).catch(() => setSaveFailed(true))
+  }
+
   const navigate = (next: RouteName) => {
     window.location.hash = next === 'practice' ? '#/practice' : `#/${next}`
     setRoute(next)
@@ -221,12 +223,14 @@ function App() {
     const nextLifetime = recordRunInLifetimeStats(previousLifetime, run)
     setResultUnlocks(newlyReachedMilestones(previousLifetime, nextLifetime))
     setLifetimeStats(() => {
-      persist(LIFETIME_KEY, nextLifetime)
+      persistRecord('lifetime', nextLifetime)
       return nextLifetime
     })
-    const nextRuns = [run, ...runs()].slice(0, 100)
+    // No cap. The 100-run limit existed to fit localStorage, and truncating
+    // history is what used to make personal bests and streaks regress.
+    const nextRuns = [run, ...runs()]
     setRuns(() => {
-      persist(RUNS_KEY, nextRuns)
+      persistRecord('runs', nextRuns)
       return nextRuns
     })
     return run
@@ -246,14 +250,14 @@ function App() {
         setMissMap((current) => {
           const key = label(legal[0])
           const next = { ...current, [key]: (current[key] ?? 0) + 1 }
-          persist(MISSES_KEY, next)
+          persistRecord('misses', next)
           return next
         })
       }
       setConfusionMap((current) => {
         const pair = `${legal.map(label).join('/')} → ${label(typed)}`
         const next = { ...current, [pair]: (current[pair] ?? 0) + 1 }
-        persist(CONFUSIONS_KEY, next)
+        persistRecord('confusions', next)
         return next
       })
     }
@@ -292,7 +296,7 @@ function App() {
     if (parsed.length === 0) return
     setLibrary((current) => {
       const next = [...parsed, ...current].slice(0, 200)
-      persist(LIBRARY_KEY, next)
+      persistRecord('library', next)
       return next
     })
     setCustomText('')
@@ -307,6 +311,30 @@ function App() {
   const refocus = () => {
     if (route() === 'practice') hiddenInput?.focus({ preventScroll: true })
   }
+
+  /**
+   * Loads the stored profile, carrying an older localStorage one across on the
+   * first run. A failure is not fatal: the app opens on an empty profile and
+   * says so, which beats refusing to start because history couldn't be read.
+   */
+  onMount(async () => {
+    try {
+      await migrateLocalStorage(recordStore)
+      const profile = await loadProfile(recordStore)
+      setRuns(profile.runs)
+      setLifetimeStats(profile.lifetime)
+      setMissMap(profile.misses)
+      setConfusionMap(profile.confusions)
+      setLibrary(profile.library)
+      setLastRun(profile.runs[0] ?? null)
+      setLesson(nextLesson(source()))
+    } catch {
+      setSaveFailed(true)
+    }
+    if (!durableStore) setSaveFailed(true)
+    setReady(true)
+    refocus()
+  })
 
   onMount(() => {
     refocus()
@@ -376,585 +404,590 @@ function App() {
     })
   })
 
+  // Nothing is drawn until the stored profile has loaded. The alternative —
+  // render an empty profile and swap the lesson out a moment later — puts a
+  // different passage under the typist's fingers after they have started.
   return (
-    <main class="app" onClick={refocus}>
-      <Topbar
-        wpm={speed()}
-        accuracy={accuracy()}
-        mistakes={session().mistakes}
-        showLive={route() === 'practice'}
-        onHomeClick={() => navigate('practice')}
-      />
+    <Show when={ready()} fallback={<main class="app app--loading">loading…</main>}>
+      <main class="app" onClick={refocus}>
+        <Topbar
+          wpm={speed()}
+          accuracy={accuracy()}
+          mistakes={session().mistakes}
+          showLive={route() === 'practice'}
+          onHomeClick={() => navigate('practice')}
+        />
 
-      {/* Storage can refuse a write — a full quota, or private browsing. Saying
-          so beats letting the session look saved until the next reload proves
-          otherwise. Stays up once raised: the runs already lost don't come back
-          just because a later, smaller write succeeded. */}
-      <Show when={saveFailed()}>
-        <p class="alert" role="status" aria-live="polite">
-          Couldn't save to this browser's storage — your progress this session
-          won't be here after a reload. Private browsing or a full storage quota
-          are the usual causes.
-        </p>
-      </Show>
+        {/* Storage can refuse a write — a full quota, or private browsing. Saying
+            so beats letting the session look saved until the next reload proves
+            otherwise. Stays up once raised: the runs already lost don't come back
+            just because a later, smaller write succeeded. */}
+        <Show when={saveFailed()}>
+          <p class="alert" role="status" aria-live="polite">
+            Couldn't save to this browser's storage — your progress this session
+            won't be here after a reload. Private browsing or a full storage quota
+            are the usual causes.
+          </p>
+        </Show>
 
-      <Show when={route() === 'practice'}>
-        <section class="stage">
-          <input
-            ref={(el) => {
-              hiddenInput = el
-            }}
-            class="sr-only"
-            type="text"
-            inputmode="text"
-            autocapitalize="off"
-            autocomplete="off"
-            spellcheck={false}
-            aria-label="typing capture"
-            value=""
-            onInput={(event) => {
-              event.currentTarget.value = ''
-            }}
-            onBeforeInput={(event) => {
-              if (event.inputType === 'deleteContentBackward') {
-                event.preventDefault()
-                backspace()
-                return
-              }
-              if (event.inputType === 'insertText' && event.data) {
-                event.preventDefault()
-                for (const char of event.data) typeChar(char)
-              }
-            }}
-          />
+        <Show when={route() === 'practice'}>
+          <section class="stage">
+            <input
+              ref={(el) => {
+                hiddenInput = el
+              }}
+              class="sr-only"
+              type="text"
+              inputmode="text"
+              autocapitalize="off"
+              autocomplete="off"
+              spellcheck={false}
+              aria-label="typing capture"
+              value=""
+              onInput={(event) => {
+                event.currentTarget.value = ''
+              }}
+              onBeforeInput={(event) => {
+                if (event.inputType === 'deleteContentBackward') {
+                  event.preventDefault()
+                  backspace()
+                  return
+                }
+                if (event.inputType === 'insertText' && event.data) {
+                  event.preventDefault()
+                  for (const char of event.data) typeChar(char)
+                }
+              }}
+            />
 
-          <section class="typing-area" aria-label="practice paragraph">
-            {/* Kanji is shown with its reading above it and typed as that
-                reading — display and keystrokes are separate concerns. Words
-                with nothing to gloss render as plain text. */}
-            <p class="kana-line">
-              <For each={displayWords()}>
-                {(word, index) => (
-                  <span
-                    classList={{
-                      'kana-token': true,
-                      'kana-token--done': index() < currentWord(),
-                      'kana-token--current': index() === currentWord(),
-                    }}
-                  >
-                    <For each={word.segments}>
-                      {(segment) => (
-                        <Show when={segment.ruby} fallback={segment.text}>
-                          {(ruby) => (
-                            <ruby>
-                              {segment.text}
-                              <rt>{ruby()}</rt>
-                            </ruby>
-                          )}
-                        </Show>
-                      )}
-                    </For>
-                  </span>
-                )}
-              </For>
-            </p>
-            {/* Everything already pressed, then what's left to press. Wrong keys
-                stand in the line in red exactly where they were typed — the
-                matcher consumed an edge for each, so the two halves always meet
-                at the cursor. */}
-            <p class="romaji-line">
-              <For each={session().keys}>
-                {(key) => (
-                  <span
-                    classList={{
-                      char: true,
-                      'char--correct': key.correct,
-                      'char--incorrect': !key.correct,
-                    }}
-                  >
-                    {key.char}
-                  </span>
-                )}
-              </For>
-              <For each={remaining().split('')}>
-                {(char, index) => (
-                  <span classList={{ char: true, 'char--current': index() === 0 }}>{char}</span>
-                )}
-              </For>
-            </p>
-          </section>
+            <section class="typing-area" aria-label="practice paragraph">
+              {/* Kanji is shown with its reading above it and typed as that
+                  reading — display and keystrokes are separate concerns. Words
+                  with nothing to gloss render as plain text. */}
+              <p class="kana-line">
+                <For each={displayWords()}>
+                  {(word, index) => (
+                    <span
+                      classList={{
+                        'kana-token': true,
+                        'kana-token--done': index() < currentWord(),
+                        'kana-token--current': index() === currentWord(),
+                      }}
+                    >
+                      <For each={word.segments}>
+                        {(segment) => (
+                          <Show when={segment.ruby} fallback={segment.text}>
+                            {(ruby) => (
+                              <ruby>
+                                {segment.text}
+                                <rt>{ruby()}</rt>
+                              </ruby>
+                            )}
+                          </Show>
+                        )}
+                      </For>
+                    </span>
+                  )}
+                </For>
+              </p>
+              {/* Everything already pressed, then what's left to press. Wrong keys
+                  stand in the line in red exactly where they were typed — the
+                  matcher consumed an edge for each, so the two halves always meet
+                  at the cursor. */}
+              <p class="romaji-line">
+                <For each={session().keys}>
+                  {(key) => (
+                    <span
+                      classList={{
+                        char: true,
+                        'char--correct': key.correct,
+                        'char--incorrect': !key.correct,
+                      }}
+                    >
+                      {key.char}
+                    </span>
+                  )}
+                </For>
+                <For each={remaining().split('')}>
+                  {(char, index) => (
+                    <span classList={{ char: true, 'char--current': index() === 0 }}>{char}</span>
+                  )}
+                </For>
+              </p>
+            </section>
 
-          <Show when={showKeyboard()}>
-            <OnScreenKeyboard layout={keyboardLayout()} pressed={pressedKeys} />
-          </Show>
+            <Show when={showKeyboard()}>
+              <OnScreenKeyboard layout={keyboardLayout()} pressed={pressedKeys} />
+            </Show>
 
-          {/* Source picker sits directly under the keyboard, keyboard
-              shortcuts below it — the order type.review uses. */}
-          <div class="practice-hints">
-            <div class="practice-hints__row">
-              <span class="hint-label">source</span>
-              <For each={sourceOptions}>
-                {(option) => (
-                  <button
-                    type="button"
-                    class="source-button"
-                    disabled={!sourceUnlocked(option.value, bestWpm())}
-                    title={
-                      sourceUnlocked(option.value, bestWpm())
-                        ? option.label
-                        : `unlocks at ${option.unlockAt} wpm`
-                    }
-                    classList={{
-                      active: source() === option.value,
-                      locked: !sourceUnlocked(option.value, bestWpm()),
-                    }}
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      changeSource(option.value)
-                    }}
-                  >
-                    {option.label}
-                    <Show when={!sourceUnlocked(option.value, bestWpm())}>
-                      <small> {option.unlockAt}</small>
-                    </Show>
-                  </button>
-                )}
-              </For>
-              <span class="source-current">picked: {lesson().source}</span>
-            </div>
-
-            {/* Which part of the chart to drill. Only meaningful while the kana
-                source is selected, so it stays out of the way otherwise. */}
-            <Show when={source() === 'kana'}>
+            {/* Source picker sits directly under the keyboard, keyboard
+                shortcuts below it — the order type.review uses. */}
+            <div class="practice-hints">
               <div class="practice-hints__row">
-                <span class="hint-label">五十音</span>
-                <For each={KANA_GROUPS}>
-                  {(group) => (
+                <span class="hint-label">source</span>
+                <For each={sourceOptions}>
+                  {(option) => (
                     <button
                       type="button"
                       class="source-button"
-                      classList={{ active: kanaGroup() === group }}
-                      title={KANA_GROUP_LABELS[group]}
+                      disabled={!sourceUnlocked(option.value, bestWpm())}
+                      title={
+                        sourceUnlocked(option.value, bestWpm())
+                          ? option.label
+                          : `unlocks at ${option.unlockAt} wpm`
+                      }
+                      classList={{
+                        active: source() === option.value,
+                        locked: !sourceUnlocked(option.value, bestWpm()),
+                      }}
                       onClick={(event) => {
                         event.stopPropagation()
-                        changeKanaGroup(group)
+                        changeSource(option.value)
                       }}
                     >
-                      {KANA_GROUP_LABELS[group]}
+                      {option.label}
+                      <Show when={!sourceUnlocked(option.value, bestWpm())}>
+                        <small> {option.unlockAt}</small>
+                      </Show>
                     </button>
                   )}
                 </For>
-                <span class="source-current">{kanaRows(kanaGroup()).length} rows</span>
+                <span class="source-current">picked: {lesson().source}</span>
               </div>
-            </Show>
-            <div class="practice-hints__row">
-              <p class="hint">
-                <kbd>Tab</kbd> fresh text
-              </p>
-              <Show when={isComplete()}>
-                <p class="hint">
-                  <kbd>Enter</kbd> next
-                </p>
-              </Show>
-              <button
-                type="button"
-                class="hint-button"
-                aria-pressed={showKeyboard()}
-                onClick={(event) => {
-                  event.stopPropagation()
-                  setKeyboardVisible(!showKeyboard())
-                }}
-              >
-                {showKeyboard() ? 'hide keyboard' : 'show keyboard'}
-              </button>
-            </div>
-          </div>
-        </section>
-      </Show>
 
-      <Show when={route() === 'result'}>
-        <section class="page page--narrow result-page">
-          <h1>result</h1>
-          <Show when={resultRun()} fallback={<p class="muted">No completed run yet.</p>}>
-            {(run) => (
-              <>
-                <Show when={resultUnlocks().length > 0}>
-                  <section class="achievement" role="status" aria-live="polite">
-                    <span class="achievement__title">achievement unlocked</span>
-                    <For each={resultUnlocks()}>
-                      {(item) => <span class="achievement__chip">{item.label}</span>}
-                    </For>
-                  </section>
-                </Show>
-
-                <div class="result-hero">
-                  <div>
-                    <b>{runWpm(run())}</b>
-                    <span>speed</span>
-                  </div>
-                  <div>
-                    <b>{run().accuracy}%</b>
-                    <span>accuracy</span>
-                  </div>
-                </div>
-
-                <div class="result-grid">
-                  <div>
-                    <b>{runRawWpm(run())}</b>
-                    <span>raw</span>
-                  </div>
-                  <div>
-                    <b>{run().consistency ?? 100}%</b>
-                    <span>consistency</span>
-                  </div>
-                  <div>
-                    <b>{run().mistakes}</b>
-                    <span>misses</span>
-                  </div>
-                  <div>
-                    <b>{(run().elapsedMs / 1000).toFixed(1)}s</b>
-                    <span>time</span>
-                  </div>
-                </div>
-
-                <div class="result-meta">
-                  <span>source: {run().source}</span>
-                  <span>chars: {run().chars}</span>
-                  <span>{new Date(run().date).toLocaleString()}</span>
-                </div>
-
-                <div class="action-row">
-                  <button type="button" class="primary" onClick={freshText}>
-                    next practice
-                  </button>
-                  <button
-                    type="button"
-                    class="secondary"
-                    onClick={() => {
-                      resetRunState()
-                      navigate('practice')
-                    }}
-                  >
-                    retry same text
-                  </button>
-                  <button type="button" class="secondary" onClick={() => navigate('stats')}>
-                    view stats
-                  </button>
-                </div>
-
-                <p class="muted">
-                  <kbd>Enter</kbd> next practice
-                </p>
-              </>
-            )}
-          </Show>
-        </section>
-      </Show>
-
-      <Show when={route() === 'stats'}>
-        <section class="page stats-page">
-          <div class="profile-id">
-            <div class="avatar">YOU</div>
-            <div>
-              <h1>your statistics</h1>
-              <p class="muted">
-                {totalSessions()} sessions · {totalMinutes()} min typing
-              </p>
-            </div>
-          </div>
-
-          <div class="stat-grid">
-            <div>
-              <b>{bestWpm()}</b>
-              <span>best wpm</span>
-            </div>
-            <div>
-              <b>{averageCpm()}</b>
-              <span>avg wpm</span>
-            </div>
-            <div>
-              <b>{accuracy()}%</b>
-              <span>current acc</span>
-            </div>
-            <div>
-              <b>{streaks().current}</b>
-              <span>current streak</span>
-            </div>
-          </div>
-
-          <div class="stats-grid-2">
-            <section class="panel">
-              <h2>slow / missed keys</h2>
-              <div class="mini-keyboard">
-                <For each={['qwertyuiop', 'asdfghjkl', 'zxcvbnm']}>
-                  {(row) => (
-                    <div class="mini-keyboard-row">
-                      <For each={row.split('')}>
-                        {(letter) => {
-                          const count = () => missMap()[letter] ?? 0
-                          return (
-                            <span
-                              class="mini-key"
-                              style={{
-                                opacity: String(
-                                  0.24 +
-                                    Math.min(
-                                      0.76,
-                                      ((keyStats().get(letter)?.avgMs ?? 0) / 600) +
-                                        (keyStats().get(letter)?.errorRate ?? 0),
-                                    ),
-                                ),
-                              }}
-                              title={`${letter}: ${count()} misses · ${Math.round(
-                                keyStats().get(letter)?.avgMs ?? 0,
-                              )} ms avg`}
-                            >
-                              {letter}
-                              <small>{count() || ''}</small>
-                            </span>
-                          )
+              {/* Which part of the chart to drill. Only meaningful while the kana
+                  source is selected, so it stays out of the way otherwise. */}
+              <Show when={source() === 'kana'}>
+                <div class="practice-hints__row">
+                  <span class="hint-label">五十音</span>
+                  <For each={KANA_GROUPS}>
+                    {(group) => (
+                      <button
+                        type="button"
+                        class="source-button"
+                        classList={{ active: kanaGroup() === group }}
+                        title={KANA_GROUP_LABELS[group]}
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          changeKanaGroup(group)
                         }}
-                      </For>
-                    </div>
-                  )}
-                </For>
-              </div>
-            </section>
-
-            <section class="panel">
-              <h2>most confused</h2>
-              <div class="bar-list">
-                <For each={topConfusions()} fallback={<p class="muted">No confused pairs yet.</p>}>
-                  {([pair, count]) => (
-                    <div class="bar-row">
-                      <span>{pair}</span>
-                      <meter min="0" max={Math.max(1, topConfusions()[0]?.[1] ?? 1)} value={count} />
-                      <b>{count}</b>
-                    </div>
-                  )}
-                </For>
-              </div>
-            </section>
-          </div>
-
-          <div class="stats-grid-2">
-            <section class="panel">
-              <h2>slowest letters</h2>
-              <div class="bar-list">
-                <For each={slowKeys()} fallback={<p class="muted">Complete a run to collect timing.</p>}>
-                  {([letter, stat]) => (
-                    <div class="bar-row">
-                      <span>{letter === ' ' ? 'space' : letter}</span>
-                      <meter min="0" max={Math.max(1, slowKeys()[0]?.[1].avgMs ?? 1)} value={stat.avgMs} />
-                      <b>{Math.round(stat.avgMs)} ms</b>
-                    </div>
-                  )}
-                </For>
-              </div>
-            </section>
-
-            <section class="panel">
-              <h2>slowest pairs</h2>
-              <div class="bar-list">
-                <For each={slowBigrams()} fallback={<p class="muted">No pair timing yet.</p>}>
-                  {([pair, stat]) => (
-                    <div class="bar-row">
-                      <span>{pair.replaceAll(' ', '␣')}</span>
-                      <meter min="0" max={Math.max(1, slowBigrams()[0]?.[1].avgMs ?? 1)} value={stat.avgMs} />
-                      <b>{Math.round(stat.avgMs)} ms</b>
-                    </div>
-                  )}
-                </For>
-              </div>
-            </section>
-          </div>
-
-          <div class="stats-grid-2">
-            <section class="panel">
-              <h2>last 60 days</h2>
-              <div class="calendar-grid">
-                <For each={recentDayKeys(60)}>
-                  {(key) => {
-                    const count = () => dayStats().get(key) ?? 0
-                    const max = () => Math.max(1, ...dayStats().values())
-                    return (
-                      <span
-                        class="calendar-cell"
-                        classList={{ active: count() > 0 }}
-                        style={{ opacity: String(count() === 0 ? 0.24 : 0.35 + count() / max()) }}
-                        title={`${key}: ${count()} runs`}
-                      />
-                    )
+                      >
+                        {KANA_GROUP_LABELS[group]}
+                      </button>
+                    )}
+                  </For>
+                  <span class="source-current">{kanaRows(kanaGroup()).length} rows</span>
+                </div>
+              </Show>
+              <div class="practice-hints__row">
+                <p class="hint">
+                  <kbd>Tab</kbd> fresh text
+                </p>
+                <Show when={isComplete()}>
+                  <p class="hint">
+                    <kbd>Enter</kbd> next
+                  </p>
+                </Show>
+                <button
+                  type="button"
+                  class="hint-button"
+                  aria-pressed={showKeyboard()}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    setKeyboardVisible(!showKeyboard())
                   }}
-                </For>
+                >
+                  {showKeyboard() ? 'hide keyboard' : 'show keyboard'}
+                </button>
               </div>
-            </section>
-
-            <section class="panel">
-              <h2>source breakdown</h2>
-              <div class="bar-list">
-                <For each={sourceStats()} fallback={<p class="muted">No runs yet.</p>}>
-                  {(item) => (
-                    <div class="bar-row">
-                      <span>{item.source}</span>
-                      <meter min="0" max={runs().length || 1} value={item.count} />
-                      <b>{item.avg} wpm</b>
-                    </div>
-                  )}
-                </For>
-              </div>
-            </section>
-          </div>
-
-          <div class="stats-grid-2">
-            <section class="panel">
-              <h2>streaks</h2>
-              <div class="stat-grid stat-grid--compact">
-                <div>
-                  <b>{streaks().current}</b>
-                  <span>current</span>
-                </div>
-                <div>
-                  <b>{streaks().longest}</b>
-                  <span>longest</span>
-                </div>
-              </div>
-            </section>
-
-            <section class="panel">
-              <h2>wpm distribution</h2>
-              <div class="bar-list">
-                <For each={distribution()}>
-                  {(bin) => (
-                    <div class="bar-row">
-                      <span>{bin.label}</span>
-                      <meter min="0" max={Math.max(1, ...distribution().map((item) => item.count))} value={bin.count} />
-                      <b>{bin.count}</b>
-                    </div>
-                  )}
-                </For>
-              </div>
-            </section>
-          </div>
-
-          <section class="panel">
-            <h2>milestones</h2>
-            <div class="milestone-grid">
-              <For each={milestones()}>
-                {(item) => (
-                  <span class="milestone" classList={{ reached: item.reached }}>
-                    {item.label}
-                  </span>
-                )}
-              </For>
             </div>
           </section>
+        </Show>
 
-          <section class="panel">
-            <h2>recent runs</h2>
-            <div class="runs-table">
-              <For each={runs().slice(0, 12)} fallback={<p class="muted">No runs yet.</p>}>
-                {(run) => (
-                  <div class="run-row">
-                    <span>{new Date(run.date).toLocaleDateString()}</span>
-                    <span>{run.source}</span>
-                    <span>{run.accuracy}%</span>
-                    <b>{runWpm(run)} wpm</b>
+        <Show when={route() === 'result'}>
+          <section class="page page--narrow result-page">
+            <h1>result</h1>
+            <Show when={resultRun()} fallback={<p class="muted">No completed run yet.</p>}>
+              {(run) => (
+                <>
+                  <Show when={resultUnlocks().length > 0}>
+                    <section class="achievement" role="status" aria-live="polite">
+                      <span class="achievement__title">achievement unlocked</span>
+                      <For each={resultUnlocks()}>
+                        {(item) => <span class="achievement__chip">{item.label}</span>}
+                      </For>
+                    </section>
+                  </Show>
+
+                  <div class="result-hero">
+                    <div>
+                      <b>{runWpm(run())}</b>
+                      <span>speed</span>
+                    </div>
+                    <div>
+                      <b>{run().accuracy}%</b>
+                      <span>accuracy</span>
+                    </div>
+                  </div>
+
+                  <div class="result-grid">
+                    <div>
+                      <b>{runRawWpm(run())}</b>
+                      <span>raw</span>
+                    </div>
+                    <div>
+                      <b>{run().consistency ?? 100}%</b>
+                      <span>consistency</span>
+                    </div>
+                    <div>
+                      <b>{run().mistakes}</b>
+                      <span>misses</span>
+                    </div>
+                    <div>
+                      <b>{(run().elapsedMs / 1000).toFixed(1)}s</b>
+                      <span>time</span>
+                    </div>
+                  </div>
+
+                  <div class="result-meta">
+                    <span>source: {run().source}</span>
+                    <span>chars: {run().chars}</span>
+                    <span>{new Date(run().date).toLocaleString()}</span>
+                  </div>
+
+                  <div class="action-row">
+                    <button type="button" class="primary" onClick={freshText}>
+                      next practice
+                    </button>
+                    <button
+                      type="button"
+                      class="secondary"
+                      onClick={() => {
+                        resetRunState()
+                        navigate('practice')
+                      }}
+                    >
+                      retry same text
+                    </button>
+                    <button type="button" class="secondary" onClick={() => navigate('stats')}>
+                      view stats
+                    </button>
+                  </div>
+
+                  <p class="muted">
+                    <kbd>Enter</kbd> next practice
+                  </p>
+                </>
+              )}
+            </Show>
+          </section>
+        </Show>
+
+        <Show when={route() === 'stats'}>
+          <section class="page stats-page">
+            <div class="profile-id">
+              <div class="avatar">YOU</div>
+              <div>
+                <h1>your statistics</h1>
+                <p class="muted">
+                  {totalSessions()} sessions · {totalMinutes()} min typing
+                </p>
+              </div>
+            </div>
+
+            <div class="stat-grid">
+              <div>
+                <b>{bestWpm()}</b>
+                <span>best wpm</span>
+              </div>
+              <div>
+                <b>{averageCpm()}</b>
+                <span>avg wpm</span>
+              </div>
+              <div>
+                <b>{accuracy()}%</b>
+                <span>current acc</span>
+              </div>
+              <div>
+                <b>{streaks().current}</b>
+                <span>current streak</span>
+              </div>
+            </div>
+
+            <div class="stats-grid-2">
+              <section class="panel">
+                <h2>slow / missed keys</h2>
+                <div class="mini-keyboard">
+                  <For each={['qwertyuiop', 'asdfghjkl', 'zxcvbnm']}>
+                    {(row) => (
+                      <div class="mini-keyboard-row">
+                        <For each={row.split('')}>
+                          {(letter) => {
+                            const count = () => missMap()[letter] ?? 0
+                            return (
+                              <span
+                                class="mini-key"
+                                style={{
+                                  opacity: String(
+                                    0.24 +
+                                      Math.min(
+                                        0.76,
+                                        ((keyStats().get(letter)?.avgMs ?? 0) / 600) +
+                                          (keyStats().get(letter)?.errorRate ?? 0),
+                                      ),
+                                  ),
+                                }}
+                                title={`${letter}: ${count()} misses · ${Math.round(
+                                  keyStats().get(letter)?.avgMs ?? 0,
+                                )} ms avg`}
+                              >
+                                {letter}
+                                <small>{count() || ''}</small>
+                              </span>
+                            )
+                          }}
+                        </For>
+                      </div>
+                    )}
+                  </For>
+                </div>
+              </section>
+
+              <section class="panel">
+                <h2>most confused</h2>
+                <div class="bar-list">
+                  <For each={topConfusions()} fallback={<p class="muted">No confused pairs yet.</p>}>
+                    {([pair, count]) => (
+                      <div class="bar-row">
+                        <span>{pair}</span>
+                        <meter min="0" max={Math.max(1, topConfusions()[0]?.[1] ?? 1)} value={count} />
+                        <b>{count}</b>
+                      </div>
+                    )}
+                  </For>
+                </div>
+              </section>
+            </div>
+
+            <div class="stats-grid-2">
+              <section class="panel">
+                <h2>slowest letters</h2>
+                <div class="bar-list">
+                  <For each={slowKeys()} fallback={<p class="muted">Complete a run to collect timing.</p>}>
+                    {([letter, stat]) => (
+                      <div class="bar-row">
+                        <span>{letter === ' ' ? 'space' : letter}</span>
+                        <meter min="0" max={Math.max(1, slowKeys()[0]?.[1].avgMs ?? 1)} value={stat.avgMs} />
+                        <b>{Math.round(stat.avgMs)} ms</b>
+                      </div>
+                    )}
+                  </For>
+                </div>
+              </section>
+
+              <section class="panel">
+                <h2>slowest pairs</h2>
+                <div class="bar-list">
+                  <For each={slowBigrams()} fallback={<p class="muted">No pair timing yet.</p>}>
+                    {([pair, stat]) => (
+                      <div class="bar-row">
+                        <span>{pair.replaceAll(' ', '␣')}</span>
+                        <meter min="0" max={Math.max(1, slowBigrams()[0]?.[1].avgMs ?? 1)} value={stat.avgMs} />
+                        <b>{Math.round(stat.avgMs)} ms</b>
+                      </div>
+                    )}
+                  </For>
+                </div>
+              </section>
+            </div>
+
+            <div class="stats-grid-2">
+              <section class="panel">
+                <h2>last 60 days</h2>
+                <div class="calendar-grid">
+                  <For each={recentDayKeys(60)}>
+                    {(key) => {
+                      const count = () => dayStats().get(key) ?? 0
+                      const max = () => Math.max(1, ...dayStats().values())
+                      return (
+                        <span
+                          class="calendar-cell"
+                          classList={{ active: count() > 0 }}
+                          style={{ opacity: String(count() === 0 ? 0.24 : 0.35 + count() / max()) }}
+                          title={`${key}: ${count()} runs`}
+                        />
+                      )
+                    }}
+                  </For>
+                </div>
+              </section>
+
+              <section class="panel">
+                <h2>source breakdown</h2>
+                <div class="bar-list">
+                  <For each={sourceStats()} fallback={<p class="muted">No runs yet.</p>}>
+                    {(item) => (
+                      <div class="bar-row">
+                        <span>{item.source}</span>
+                        <meter min="0" max={runs().length || 1} value={item.count} />
+                        <b>{item.avg} wpm</b>
+                      </div>
+                    )}
+                  </For>
+                </div>
+              </section>
+            </div>
+
+            <div class="stats-grid-2">
+              <section class="panel">
+                <h2>streaks</h2>
+                <div class="stat-grid stat-grid--compact">
+                  <div>
+                    <b>{streaks().current}</b>
+                    <span>current</span>
+                  </div>
+                  <div>
+                    <b>{streaks().longest}</b>
+                    <span>longest</span>
+                  </div>
+                </div>
+              </section>
+
+              <section class="panel">
+                <h2>wpm distribution</h2>
+                <div class="bar-list">
+                  <For each={distribution()}>
+                    {(bin) => (
+                      <div class="bar-row">
+                        <span>{bin.label}</span>
+                        <meter min="0" max={Math.max(1, ...distribution().map((item) => item.count))} value={bin.count} />
+                        <b>{bin.count}</b>
+                      </div>
+                    )}
+                  </For>
+                </div>
+              </section>
+            </div>
+
+            <section class="panel">
+              <h2>milestones</h2>
+              <div class="milestone-grid">
+                <For each={milestones()}>
+                  {(item) => (
+                    <span class="milestone" classList={{ reached: item.reached }}>
+                      {item.label}
+                    </span>
+                  )}
+                </For>
+              </div>
+            </section>
+
+            <section class="panel">
+              <h2>recent runs</h2>
+              <div class="runs-table">
+                <For each={runs().slice(0, 12)} fallback={<p class="muted">No runs yet.</p>}>
+                  {(run) => (
+                    <div class="run-row">
+                      <span>{new Date(run.date).toLocaleDateString()}</span>
+                      <span>{run.source}</span>
+                      <span>{run.accuracy}%</span>
+                      <b>{runWpm(run)} wpm</b>
+                    </div>
+                  )}
+                </For>
+              </div>
+            </section>
+          </section>
+        </Show>
+
+        <Show when={route() === 'library'}>
+          <section class="page">
+            <h1>library</h1>
+            <p class="muted">
+              Paste lines as <code>かな|romaji</code>, or upload a .txt/.md file with that format.
+            </p>
+            <textarea
+              value={customText()}
+              onInput={(event) => setCustomText(event.currentTarget.value)}
+              placeholder={'おはよう|ohayou\nきょうはいいてんきです|kyouhaiitenkidesu'}
+            />
+            <div class="action-row">
+              <button type="button" class="primary" onClick={() => addCustomText(customText())}>
+                add text
+              </button>
+              <label class="file-button">
+                upload .txt/.md
+                <input
+                  type="file"
+                  accept=".txt,.md,text/plain,text/markdown"
+                  onChange={(event) => {
+                    const file = event.currentTarget.files?.[0]
+                    if (file) void handleFile(file)
+                    event.currentTarget.value = ''
+                  }}
+                />
+              </label>
+            </div>
+            <h2>saved entries</h2>
+            <div class="library-list">
+              <For each={library()} fallback={<p class="muted">No custom text yet.</p>}>
+                {(item) => (
+                  <div class="library-item">
+                    <span>{item.kana}</span>
+                    <code>{item.romaji}</code>
                   </div>
                 )}
               </For>
             </div>
           </section>
-        </section>
-      </Show>
+        </Show>
 
-      <Show when={route() === 'library'}>
-        <section class="page">
-          <h1>library</h1>
-          <p class="muted">
-            Paste lines as <code>かな|romaji</code>, or upload a .txt/.md file with that format.
-          </p>
-          <textarea
-            value={customText()}
-            onInput={(event) => setCustomText(event.currentTarget.value)}
-            placeholder={'おはよう|ohayou\nきょうはいいてんきです|kyouhaiitenkidesu'}
-          />
-          <div class="action-row">
-            <button type="button" class="primary" onClick={() => addCustomText(customText())}>
-              add text
-            </button>
-            <label class="file-button">
-              upload .txt/.md
+        <Show when={route() === 'settings'}>
+          <section class="page page--narrow">
+            <h1>settings</h1>
+            <label class="field">
+              <span>paragraph length</span>
               <input
-                type="file"
-                accept=".txt,.md,text/plain,text/markdown"
-                onChange={(event) => {
-                  const file = event.currentTarget.files?.[0]
-                  if (file) void handleFile(file)
-                  event.currentTarget.value = ''
-                }}
+                type="range"
+                min="3"
+                max="30"
+                value={settings().paragraphItems}
+                onInput={(event) => updateParagraphLength(Number(event.currentTarget.value))}
               />
+              <b>{settings().paragraphItems} items per run</b>
             </label>
-          </div>
-          <h2>saved entries</h2>
-          <div class="library-list">
-            <For each={library()} fallback={<p class="muted">No custom text yet.</p>}>
-              {(item) => (
-                <div class="library-item">
-                  <span>{item.kana}</span>
-                  <code>{item.romaji}</code>
-                </div>
-              )}
-            </For>
-          </div>
-        </section>
-      </Show>
-
-      <Show when={route() === 'settings'}>
-        <section class="page page--narrow">
-          <h1>settings</h1>
-          <label class="field">
-            <span>paragraph length</span>
-            <input
-              type="range"
-              min="3"
-              max="30"
-              value={settings().paragraphItems}
-              onInput={(event) => updateParagraphLength(Number(event.currentTarget.value))}
-            />
-            <b>{settings().paragraphItems} items per run</b>
-          </label>
-          <label class="check-row">
-            <input
-              type="checkbox"
-              checked={showKeyboard()}
-              onChange={(event) => setKeyboardVisible(event.currentTarget.checked)}
-            />
-            <span>show on-screen keyboard</span>
-          </label>
-          <div class="field">
-            <span>keyboard layout</span>
-            <div class="pill-row">
-              <For each={KEYBOARD_LAYOUT_NAMES}>
-                {(layout) => (
-                  <button
-                    type="button"
-                    class="pill"
-                    classList={{ active: keyboardLayout() === layout }}
-                    aria-pressed={keyboardLayout() === layout}
-                    onClick={() => changeKeyboardLayout(layout)}
-                  >
-                    {layout}
-                  </button>
-                )}
-              </For>
+            <label class="check-row">
+              <input
+                type="checkbox"
+                checked={showKeyboard()}
+                onChange={(event) => setKeyboardVisible(event.currentTarget.checked)}
+              />
+              <span>show on-screen keyboard</span>
+            </label>
+            <div class="field">
+              <span>keyboard layout</span>
+              <div class="pill-row">
+                <For each={KEYBOARD_LAYOUT_NAMES}>
+                  {(layout) => (
+                    <button
+                      type="button"
+                      class="pill"
+                      classList={{ active: keyboardLayout() === layout }}
+                      aria-pressed={keyboardLayout() === layout}
+                      onClick={() => changeKeyboardLayout(layout)}
+                    >
+                      {layout}
+                    </button>
+                  )}
+                </For>
+              </div>
             </div>
-          </div>
-        </section>
-      </Show>
+          </section>
+        </Show>
 
-      <BottomNav active={route()} onNavigate={navigate} />
-    </main>
+        <BottomNav active={route()} onNavigate={navigate} />
+      </main>
+    </Show>
   )
 }
 
