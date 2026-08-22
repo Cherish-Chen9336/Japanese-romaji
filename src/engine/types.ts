@@ -1,4 +1,16 @@
-export type SourceName = 'auto' | 'drills' | 'difficult' | 'quotes' | 'words' | 'library'
+export type SourceName = 'auto' | 'kana' | 'drills' | 'difficult' | 'quotes' | 'words' | 'library'
+
+/** Which part of the 五十音図 to drill. */
+export type KanaGroup = 'all' | 'seion' | 'dakuten' | 'yoon'
+
+export const KANA_GROUPS: readonly KanaGroup[] = ['all', 'seion', 'dakuten', 'yoon']
+
+export function isKanaGroup(value: unknown): value is KanaGroup {
+  return KANA_GROUPS.includes(value as KanaGroup)
+}
+
+/** A row of the chart, tagged with the group it belongs to. */
+export type KanaRow = TextItem & { group: Exclude<KanaGroup, 'all'> }
 
 export type Unlock = {
   id: string
@@ -7,12 +19,24 @@ export type Unlock = {
 }
 
 export type TextItem = {
+  /** What's shown on screen — orthographic kana. */
   kana: string
+  /** Canonical romaji. Must be typeable; see engine/prompt.ts. */
   romaji: string
+  /**
+   * Phonetic spelling to type, when it differs from `kana`. Needed for the
+   * grammatical particles — こんにちは is displayed with は but typed `wa`,
+   * and no rule over the kana alone can tell that は from the one in はな.
+   */
+  reading?: string
 }
 
-export type Lesson = TextItem & {
+export type Lesson = {
+  kana: string
+  romaji: string
   source: SourceName
+  /** The items this lesson was built from, kept so it can be recompiled. */
+  items: readonly TextItem[]
 }
 
 export type RunResult = {
@@ -36,6 +60,20 @@ export type StoredRunResult = Omit<RunResult, 'wpm'> & { wpm?: number }
 
 export type Settings = {
   paragraphItems: number
+}
+
+/**
+ * Which physical keyboard the on-screen keyboard draws. A persisted user
+ * setting, so the name and its guard live here in `engine/` rather than beside
+ * the keycap data in `ui/` — `io/` needs to validate it on read and is not
+ * allowed to import from `ui/`.
+ */
+export type KeyboardLayoutName = 'mac' | 'windows'
+
+export const KEYBOARD_LAYOUT_NAMES: readonly KeyboardLayoutName[] = ['windows', 'mac']
+
+export function isKeyboardLayoutName(value: unknown): value is KeyboardLayoutName {
+  return value === 'mac' || value === 'windows'
 }
 
 /**

@@ -1,13 +1,20 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from 'vitest'
+import { InMemoryRecordStore } from './records'
 import {
+  emptyProfile,
+  loadProfile,
+  migrateLocalStorage,
   readConfusionMap,
+  readKeyboardLayout,
   readLibrary,
   readLifetimeStats,
   readMissMap,
   readRuns,
   readSettings,
+  readKanaGroup,
   readShowKeyboard,
+  readSource,
 } from './persistence'
 
 const RUNS_KEY = 'japanese-romaji:runs'
@@ -17,6 +24,9 @@ const MISSES_KEY = 'japanese-romaji:misses'
 const CONFUSIONS_KEY = 'japanese-romaji:confusions'
 const SHOW_KB_KEY = 'japanese-romaji:show-keyboard'
 const LIFETIME_KEY = 'japanese-romaji:lifetime'
+const KB_LAYOUT_KEY = 'japanese-romaji:keyboard-layout'
+const KANA_GROUP_KEY = 'japanese-romaji:kana-group'
+const SOURCE_KEY = 'japanese-romaji:source'
 
 beforeEach(() => {
   localStorage.clear()
@@ -302,5 +312,241 @@ describe('readShowKeyboard', () => {
   it('returns false when the key stores JSON false', () => {
     localStorage.setItem(SHOW_KB_KEY, 'false')
     expect(readShowKeyboard()).toBe(false)
+  })
+})
+
+describe('readKeyboardLayout', () => {
+  it('defaults to windows when the key is absent', () => {
+    expect(readKeyboardLayout()).toBe('windows')
+  })
+
+  it('returns a stored layout name', () => {
+    localStorage.setItem(KB_LAYOUT_KEY, JSON.stringify('mac'))
+    expect(readKeyboardLayout()).toBe('mac')
+  })
+
+  it('falls back to windows for an unknown layout name', () => {
+    localStorage.setItem(KB_LAYOUT_KEY, JSON.stringify('ergodox'))
+    expect(readKeyboardLayout()).toBe('windows')
+  })
+
+  it('falls back to windows for corrupt JSON', () => {
+    localStorage.setItem(KB_LAYOUT_KEY, '{not json')
+    expect(readKeyboardLayout()).toBe('windows')
+  })
+})
+
+describe('readSource', () => {
+  it('defaults to auto', () => {
+    expect(readSource()).toBe('auto')
+  })
+
+  it('returns a stored source', () => {
+    localStorage.setItem(SOURCE_KEY, JSON.stringify('kana'))
+    expect(readSource()).toBe('kana')
+  })
+
+  it('falls back to auto for an unknown source', () => {
+    localStorage.setItem(SOURCE_KEY, JSON.stringify('katakana'))
+    expect(readSource()).toBe('auto')
+  })
+
+  it('falls back to auto for corrupt JSON', () => {
+    localStorage.setItem(SOURCE_KEY, '{nope')
+    expect(readSource()).toBe('auto')
+  })
+})
+
+describe('readKanaGroup', () => {
+  it('defaults to the whole chart', () => {
+    expect(readKanaGroup()).toBe('all')
+  })
+
+  it('returns a stored group', () => {
+    localStorage.setItem(KANA_GROUP_KEY, JSON.stringify('yoon'))
+    expect(readKanaGroup()).toBe('yoon')
+  })
+
+  it('falls back to all for an unknown group', () => {
+    localStorage.setItem(KANA_GROUP_KEY, JSON.stringify('handakuten'))
+    expect(readKanaGroup()).toBe('all')
+  })
+})
+
+// The `kana` source was added after runs were already being stored, so old
+// records must survive and new ones must be accepted.
+describe('kana runs round-trip', () => {
+  it('keeps a stored kana run', () => {
+    localStorage.setItem(
+      RUNS_KEY,
+      JSON.stringify([
+        { source: 'kana', chars: 20, mistakes: 0, accuracy: 100, wpm: 40, elapsedMs: 3000, date: '2026-08-22T00:00:00.000Z' },
+      ]),
+    )
+    expect(readRuns()).toHaveLength(1)
+    expect(readRuns()[0].source).toBe('kana')
+  })
+})
+
+/*
+ * Corrupt stored data must be dropped, not handed to the engine. Each of these
+ * previously passed validation and then threw on the way to the first render —
+ * a hand-edited or half-written localStorage taking the whole app down.
+ */
+describe('corrupt stored data cannot crash the app', () => {
+  it('drops a library entry whose reading is not a string', () => {
+    localStorage.setItem(
+      LIBRARY_KEY,
+      JSON.stringify([{ kana: '学校', romaji: 'gakkou', reading: 7 }]),
+    )
+    // Previously returned the object as-is, and `reading.split(' ')` threw.
+    expect(readLibrary()).toEqual([{ kana: '学校', romaji: 'gakkou' }])
+  })
+
+  it('keeps a library entry whose reading is a string', () => {
+    localStorage.setItem(
+      LIBRARY_KEY,
+      JSON.stringify([{ kana: '学校', romaji: 'gakkou', reading: 'がっこう' }]),
+    )
+    expect(readLibrary()).toEqual([{ kana: '学校', romaji: 'gakkou', reading: 'がっこう' }])
+  })
+
+  it('drops a library entry whose word breaks disagree', () => {
+    localStorage.setItem(
+      LIBRARY_KEY,
+      JSON.stringify([{ kana: 'ひとつ ふたつ', romaji: 'hitotsufutatsu' }]),
+    )
+    expect(readLibrary()).toEqual([])
+  })
+
+  it('drops an absurdly long library entry', () => {
+    localStorage.setItem(
+      LIBRARY_KEY,
+      JSON.stringify([{ kana: 'あ'.repeat(5000), romaji: 'a'.repeat(5000) }]),
+    )
+    expect(readLibrary()).toEqual([])
+  })
+
+  it('drops a null entry inside a stored timing table', () => {
+    localStorage.setItem(
+      RUNS_KEY,
+      JSON.stringify([
+        {
+          source: 'words',
+          chars: 10,
+          mistakes: 0,
+          accuracy: 100,
+          wpm: 30,
+          elapsedMs: 5000,
+          date: '2026-08-01T00:00:00.000Z',
+          keyStats: { a: null, b: { attempts: 1, misses: 0, totalMs: 10 } },
+        },
+      ]),
+    )
+    // Previously kept the null and threw adding up `stat.attempts`.
+    expect(readRuns()[0].keyStats).toEqual({ b: { attempts: 1, misses: 0, totalMs: 10 } })
+  })
+
+  it('drops a streak day that is not a real date', () => {
+    localStorage.setItem(
+      LIFETIME_KEY,
+      JSON.stringify({
+        bestWpm: 10,
+        totalSessions: 1,
+        totalChars: 1,
+        totalElapsedMs: 1000,
+        streakDays: ['2026-08-01', 'bad', '2026-13-45', ''],
+      }),
+    )
+    // Previously passed validation, then threw RangeError: Invalid time value.
+    expect(readLifetimeStats().streakDays).toEqual(['2026-08-01'])
+  })
+})
+
+describe('loadProfile', () => {
+  it('returns empty values for an empty store', async () => {
+    const profile = await loadProfile(new InMemoryRecordStore())
+    expect(profile).toEqual(emptyProfile())
+  })
+
+  it('parses every record through the same validators localStorage used', async () => {
+    const store = new InMemoryRecordStore()
+    await store.write('runs', [
+      { source: 'kana', chars: 10, mistakes: 0, accuracy: 100, wpm: 40, elapsedMs: 3000, date: '2026-08-22T00:00:00.000Z' },
+      { source: 'nonsense', chars: 1 },
+    ])
+    await store.write('library', [{ kana: 'えき', romaji: 'eki' }, { kana: 5 }])
+    await store.write('misses', { a: 3, b: 'lots' })
+    await store.write('confusions', { 'a → b': 2 })
+
+    const profile = await loadProfile(store)
+    expect(profile.runs).toHaveLength(1)
+    expect(profile.library).toEqual([{ kana: 'えき', romaji: 'eki' }])
+    expect(profile.misses).toEqual({ a: 3 })
+    expect(profile.confusions).toEqual({ 'a → b': 2 })
+  })
+
+  it('bootstraps lifetime stats from the runs when the record is absent', async () => {
+    const store = new InMemoryRecordStore()
+    await store.write('runs', [
+      { source: 'words', chars: 10, mistakes: 0, accuracy: 100, wpm: 45, elapsedMs: 20_000, date: '2026-08-01T00:00:00.000Z' },
+    ])
+    expect((await loadProfile(store)).lifetime.bestWpm).toBe(45)
+  })
+
+  it('drops a corrupt record rather than failing the whole load', async () => {
+    const store = new InMemoryRecordStore()
+    await store.write('runs', 'not an array')
+    await store.write('lifetime', { bestWpm: 'fast' })
+    const profile = await loadProfile(store)
+    expect(profile.runs).toEqual([])
+    expect(profile.lifetime).toEqual(emptyProfile().lifetime)
+  })
+})
+
+describe('migrateLocalStorage', () => {
+  const legacyRun = {
+    source: 'words', chars: 10, mistakes: 0, accuracy: 100, wpm: 30,
+    elapsedMs: 5000, date: '2026-08-01T00:00:00.000Z',
+  }
+
+  it('carries an existing localStorage profile into the store', async () => {
+    localStorage.setItem(RUNS_KEY, JSON.stringify([legacyRun]))
+    localStorage.setItem(LIBRARY_KEY, JSON.stringify([{ kana: 'えき', romaji: 'eki' }]))
+    localStorage.setItem(MISSES_KEY, JSON.stringify({ a: 2 }))
+
+    const store = new InMemoryRecordStore()
+    expect(await migrateLocalStorage(store)).toBe(true)
+
+    const profile = await loadProfile(store)
+    expect(profile.runs).toHaveLength(1)
+    expect(profile.library).toEqual([{ kana: 'えき', romaji: 'eki' }])
+    expect(profile.misses).toEqual({ a: 2 })
+  })
+
+  it('does nothing when there is no localStorage profile', async () => {
+    const store = new InMemoryRecordStore()
+    expect(await migrateLocalStorage(store)).toBe(false)
+    expect(await store.readAll()).toEqual({})
+  })
+
+  /*
+   * Only migrates into an empty store. Otherwise someone who cleared their
+   * history would have it resurrected from the stale localStorage copy on the
+   * very next load — the migration would quietly undo a deliberate act.
+   */
+  it('leaves a store that already holds records alone', async () => {
+    localStorage.setItem(RUNS_KEY, JSON.stringify([legacyRun]))
+    const store = new InMemoryRecordStore()
+    await store.write('runs', [])
+
+    expect(await migrateLocalStorage(store)).toBe(false)
+    expect((await loadProfile(store)).runs).toEqual([])
+  })
+
+  it('leaves the localStorage keys in place as the only copy until a write lands', async () => {
+    localStorage.setItem(RUNS_KEY, JSON.stringify([legacyRun]))
+    await migrateLocalStorage(new InMemoryRecordStore())
+    expect(localStorage.getItem(RUNS_KEY)).not.toBeNull()
   })
 })
