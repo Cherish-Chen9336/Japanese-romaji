@@ -39,6 +39,20 @@ export type Settings = {
 }
 
 /**
+ * Which physical keyboard the on-screen keyboard draws. A persisted user
+ * setting, so the name and its guard live here in `engine/` rather than beside
+ * the keycap data in `ui/` — `io/` needs to validate it on read and is not
+ * allowed to import from `ui/`.
+ */
+export type KeyboardLayoutName = 'mac' | 'windows'
+
+export const KEYBOARD_LAYOUT_NAMES: readonly KeyboardLayoutName[] = ['windows', 'mac']
+
+export function isKeyboardLayoutName(value: unknown): value is KeyboardLayoutName {
+  return value === 'mac' || value === 'windows'
+}
+
+/**
  * All-time aggregates, maintained incrementally on every completed run —
  * deliberately separate from the (capped, most-recent-N) stored run list so
  * personal bests, milestones, and streaks can't regress once the run log
