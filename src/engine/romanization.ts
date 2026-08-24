@@ -299,8 +299,8 @@ export function legalNext(tokens: RomajiToken[], state: MatchState): string[] {
  * Genuinely ambiguous cases stay ambiguous: at a ん/な boundary the next key
  * could advance either, and this returns both.
  */
-export function expectedKana(tokens: RomajiToken[], state: MatchState): string[] {
-  const kana = new Set<string>()
+export function expectedTokens(tokens: RomajiToken[], state: MatchState): number[] {
+  const indices = new Set<number>()
   for (const pos of state.positions) {
     const token = tokens[pos.tokenIndex]
     if (token === undefined) continue
@@ -309,15 +309,34 @@ export function expectedKana(tokens: RomajiToken[], state: MatchState): string[]
       (candidate) =>
         candidate.length > pos.typedInToken.length && candidate.startsWith(pos.typedInToken),
     )
-    if (continues) kana.add(token.kana)
+    if (continues) indices.add(pos.tokenIndex)
 
     const hasNextToken = pos.tokenIndex < tokens.length - 1
     if (hasNextToken && token.candidates.includes(pos.typedInToken)) {
       const next = tokens[pos.tokenIndex + 1]
-      if (next.candidates.some((candidate) => candidate.length > 0)) kana.add(next.kana)
+      if (next.candidates.some((candidate) => candidate.length > 0)) indices.add(pos.tokenIndex + 1)
     }
   }
-  return [...kana]
+  return [...indices]
+}
+
+/**
+ * The one mora being typed, or null where that is genuinely undecided.
+ *
+ * Identified by token index rather than by the kana itself: ここ is two separate
+ * encounters with こ, and comparing names would merge them into one.
+ */
+export function expectedToken(
+  tokens: RomajiToken[],
+  state: MatchState,
+): { index: number; kana: string } | null {
+  const indices = expectedTokens(tokens, state)
+  if (indices.length !== 1) return null
+  return { index: indices[0], kana: tokens[indices[0]].kana }
+}
+
+export function expectedKana(tokens: RomajiToken[], state: MatchState): string[] {
+  return [...new Set(expectedTokens(tokens, state).map((index) => tokens[index].kana))]
 }
 
 /**

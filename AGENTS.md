@@ -71,11 +71,25 @@ key to blame while always having a kana**. After `s` on し the legal letters ar
 mora. Genuinely ambiguous boundaries (ん before な) stay unattributed rather than
 guessed.
 
-`weakestKana` ranks on error rate **normalised by exposure**, with a minimum
-attempt count. Ranking on raw miss totals floats the kana you have simply seen
-most often to the top and keeps them there, so one early stumble follows a
-learner around forever. Drills select on these moras, matching items by
-`reading ?? kana` so a kanji word is chosen for what it is typed with.
+**One attempt is one encounter with the mora, not one keystroke.** Counting
+keystrokes divided the error rate by the length of the spelling, so the same
+single fumble scored あ at 50% and しゃ at 25% — ranking the harder kana as the
+easier one — and a three-letter kana cleared a "seen three times" floor on its
+first appearance. The pending mora is identified by *token index*, not by name,
+because ここ is two separate encounters with こ.
+
+`weakestKana` ranks on a **smoothed** error rate rather than a raw one behind a
+minimum-attempts gate. The gate threw away the strongest signal available: a
+mora missed on both of the two times it has been seen is more clearly weak than
+one missed twice in eight, and the gate hid the first while ranking the second.
+Smoothing pulls a low-evidence rate toward "probably fine" instead of discarding
+it. Speed breaks ties but never gets a kana onto the list alone — a mora you have
+never mistyped isn't weak, however slow.
+
+Drills select on these moras, matching items by `reading ?? kana` so a kanji word
+is chosen for what it is typed with. Known limitation: selection filters but does
+not weight, so a weak mora appearing in one item gets less practice than an
+equally weak one appearing in ten.
 
 ### The input model
 

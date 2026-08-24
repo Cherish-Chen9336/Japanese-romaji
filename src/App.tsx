@@ -844,7 +844,7 @@ function App() {
 
               <section class="panel">
                 <h2>weakest kana</h2>
-                <p class="muted">What drills pull from. Ranked by error rate, not raw misses.</p>
+                <p class="muted">What drills pull from. Ranked by how often you miss them, weighted by how often you've met them.</p>
                 <div class="bar-list">
                   <For
                     each={weakestMoras()}

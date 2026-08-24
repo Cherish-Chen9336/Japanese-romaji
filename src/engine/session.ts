@@ -1,5 +1,5 @@
 import {
-  expectedKana,
+  expectedToken,
   initMatch,
   legalNext,
   stepMatch,
@@ -37,8 +37,18 @@ export type SessionState = {
    * Distinct from `keyStats` because the two answer different questions: `h`
    * being slow says nothing about whether し or ひ is the problem, and a miss
    * mid-mora often has no single key to blame while always having a kana.
+   *
+   * One `attempt` is one encounter with the mora, not one keystroke. Counting
+   * keystrokes divided the error rate by the length of the spelling, so the same
+   * single fumble scored あ at 50% and しゃ at 25% — ranking the harder kana as
+   * the easier one.
    */
   kanaStats: Record<string, TimingStat>
+  /**
+   * The mora being typed and what it has cost so far, held until the cursor
+   * moves off it. Keyed by token index because ここ is two encounters with こ.
+   */
+  pendingKana: { index: number; kana: string; ms: number; missed: boolean } | null
   intervals: number[]
   /** Timestamp of the last committed keystroke, right or wrong. */
   lastKeyAt: number | null
@@ -92,6 +102,7 @@ export function emptySession(): SessionState {
     keyStats: {},
     bigramStats: {},
     kanaStats: {},
+    pendingKana: null,
     intervals: [],
     lastKeyAt: null,
     rejected: null,
@@ -190,12 +201,29 @@ export function applyTypeChar(
   const keyStats = key === null ? state.keyStats : updateStat(state.keyStats, key, interval, !step.correct)
 
   // Charged to the mora being typed, which is knowable in cases where the key
-  // is not: `h` and `i` are both legal mid-し, but both are し.
-  const waitingOn = expectedKana(tokens, state.match)
-  const kanaStats =
-    waitingOn.length === 1
-      ? updateStat(state.kanaStats, waitingOn[0], interval, !step.correct)
-      : state.kanaStats
+  // is not: `h` and `i` are both legal mid-し, but both are し. Accumulated
+  // across the mora and banked when the cursor leaves it, so one attempt means
+  // one encounter rather than one keystroke.
+  const target = expectedToken(tokens, state.match)
+  let kanaStats = state.kanaStats
+  let pendingKana = state.pendingKana
+
+  if (pendingKana !== null && pendingKana.index !== target?.index) {
+    kanaStats = updateStat(kanaStats, pendingKana.kana, pendingKana.ms, pendingKana.missed)
+    pendingKana = null
+  }
+  if (target !== null) {
+    pendingKana = {
+      index: target.index,
+      kana: target.kana,
+      ms: (pendingKana?.ms ?? 0) + interval,
+      missed: (pendingKana?.missed ?? false) || !step.correct,
+    }
+  }
+  if (step.done && pendingKana !== null) {
+    kanaStats = updateStat(kanaStats, pendingKana.kana, pendingKana.ms, pendingKana.missed)
+    pendingKana = null
+  }
 
   // Clean transitions only. A pair measures how fast you move between two keys;
   // with a typo at either end it measures recovery instead, which is a different
@@ -221,6 +249,7 @@ export function applyTypeChar(
     keyStats,
     bigramStats,
     kanaStats,
+    pendingKana,
     intervals: interval > 0 ? [...state.intervals, interval] : state.intervals,
     lastKeyAt: now,
   }
@@ -229,7 +258,7 @@ export function applyTypeChar(
     session,
     ...(step.correct
       ? {}
-      : { missed: { legal: step.legal, typed: char, kana: waitingOn.length === 1 ? waitingOn[0] : null } }),
+      : { missed: { legal: step.legal, typed: char, kana: target?.kana ?? null } }),
     completed: step.done,
   }
 }
@@ -258,7 +287,7 @@ export function applyBackspace(state: SessionState, tokens: RomajiToken[]): Sess
   // it timed the next key against one the edit removed: typing a, x, backspace,
   // i recorded an "ai" pair whose label came from the surviving keys and whose
   // duration came from x→i — a measurement of neither sequence.
-  return { ...state, keys, match: matchFor(tokens, keys), lastKeyAt: null, rejected: null }
+  return { ...state, keys, match: matchFor(tokens, keys), lastKeyAt: null, rejected: null, pendingKana: null }
 }
 
 export function computeMetrics(state: SessionState, now: number): SessionMetrics {

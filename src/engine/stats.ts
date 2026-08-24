@@ -173,24 +173,40 @@ export function wpmDistribution(runs: RunResult[]): { label: string; count: numb
 }
 
 /**
- * The moras most in need of practice, weakest first.
+ * Weight of the "probably fine" prior. Small enough that real evidence
+ * overwhelms it quickly, large enough that one bad encounter isn't damning.
+ */
+const PRIOR_MISSES = 0.5
+const PRIOR_ATTEMPTS = 2
+
+/**
+ * Error rate pulled toward the prior in proportion to how little evidence there
+ * is behind it. A mora missed on both of the two times it has been seen is more
+ * clearly weak than one missed twice in eight — 0.63 against 0.25 — but the two
+ * are indistinguishable on raw rate, and a hard minimum-attempts floor solved
+ * that by discarding the first outright.
+ */
+export function kanaWeakness(stat: AggregatedTimingStat): number {
+  return (stat.misses + PRIOR_MISSES) / (stat.attempts + PRIOR_ATTEMPTS)
+}
+
+/**
+ * The moras you actually get wrong, worst first.
  *
- * Ranked on error rate with speed as a tiebreak, and — importantly — normalised
- * by exposure. Ranking on raw miss totals means the kana you have simply seen
- * most often float to the top and stay there, so an early stumble follows you
- * around forever while a kana you have met twice and failed twice looks fine.
+ * Comparable across kana only because an attempt is one encounter with the mora
+ * rather than one keystroke. Per-keystroke counting divided the rate by the
+ * length of the spelling, so the same single fumble scored あ at 50% and しゃ at
+ * 25%, ranking the harder kana as the easier one.
  *
- * `minAttempts` keeps single unlucky keystrokes out of the ranking; a kana needs
- * to have been seen a few times before its rate means anything.
+ * Speed breaks ties but never gets a kana in on its own: a mora you have never
+ * once mistyped does not belong on a list headed "weakest", however slow it is.
  */
 export function weakestKana(
   stats: Map<string, AggregatedTimingStat>,
   limit = 8,
-  minAttempts = 3,
 ): [string, AggregatedTimingStat][] {
   return [...stats.entries()]
-    .filter(([, stat]) => stat.attempts >= minAttempts)
-    .sort((a, b) => b[1].errorRate - a[1].errorRate || b[1].avgMs - a[1].avgMs)
+    .filter(([, stat]) => stat.errorRate > 0)
+    .sort((a, b) => kanaWeakness(b[1]) - kanaWeakness(a[1]) || b[1].avgMs - a[1].avgMs)
     .slice(0, limit)
-    .filter(([, stat]) => stat.errorRate > 0 || stat.avgMs > 0)
 }

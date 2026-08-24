@@ -292,15 +292,42 @@ describe('weakestKana', () => {
     expect(weakestKana(stats)[0][0]).toBe('しゃ')
   })
 
-  it('ignores a kana seen too few times for its rate to mean anything', () => {
-    const stats = new Map([['か', stat(2, 2, 200)]])
-    expect(weakestKana(stats)).toEqual([])
-    expect(weakestKana(stats, 8, 2).map(([kana]) => kana)).toEqual(['か'])
+  /*
+   * The case a hard minimum-attempts floor got wrong. Missing a mora on both of
+   * the two times you have seen it is stronger evidence of weakness than
+   * missing one twice in eight, but the floor hid the first entirely while
+   * ranking the second. Smoothing keeps both, ordered by how much the evidence
+   * supports them.
+   */
+  it('ranks strong evidence above weak evidence rather than discarding it', () => {
+    const stats = new Map([['ちゅ', stat(8, 2, 200)], ['しゃ', stat(2, 2, 200)]])
+    expect(weakestKana(stats).map(([kana]) => kana)).toEqual(['しゃ', 'ちゅ'])
   })
 
-  it('leaves out kana with nothing wrong with them', () => {
-    const stats = new Map([['か', stat(10, 0, 0)]])
-    expect(weakestKana(stats)).toEqual([])
+  it('does not let one unlucky encounter outrank a well-evidenced problem', () => {
+    // 1 in 1 is 100% raw, but on almost no evidence; 6 in 10 is 60% on plenty.
+    const stats = new Map([['か', stat(1, 1, 200)], ['き', stat(10, 6, 200)]])
+    expect(weakestKana(stats).map(([kana]) => kana)).toEqual(['き', 'か'])
+  })
+
+  it('still surfaces a kana seen only once, ranked low', () => {
+    const stats = new Map([['か', stat(1, 1, 200)]])
+    expect(weakestKana(stats).map(([kana]) => kana)).toEqual(['か'])
+  })
+
+  /*
+   * A mora you have never once mistyped does not belong on a list headed
+   * "weakest", however slow it is. The previous guard was `errorRate > 0 ||
+   * avgMs > 0`, and since avgMs is above zero for anything ever typed, it
+   * excluded nothing at all.
+   */
+  it('leaves out kana that have never been mistyped, however slow', () => {
+    expect(weakestKana(new Map([['か', stat(10, 0, 5000)]]))).toEqual([])
+  })
+
+  it('keeps speed as a tiebreak between kana that are both being missed', () => {
+    const stats = new Map([['か', stat(10, 2, 100)], ['き', stat(10, 2, 400)]])
+    expect(weakestKana(stats).map(([kana]) => kana)).toEqual(['き', 'か'])
   })
 
   it('caps the list at the requested size', () => {

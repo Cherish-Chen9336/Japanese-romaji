@@ -447,9 +447,41 @@ describe('applyTypeChar — wrong keystrokes, stop-on-error', () => {
  * has no single key to blame while always having a kana.
  */
 describe('kana stats', () => {
-  it('charges a correct keystroke to the mora being typed', () => {
-    const s = type(tokenizeKana('しゃしん'), 'sha')
-    expect(s.kanaStats['しゃ']).toEqual({ attempts: 3, misses: 0, totalMs: 200 })
+  /*
+   * One attempt is one *encounter with the mora*, not one keystroke. Counting
+   * keystrokes divided the error rate by the length of the spelling: the same
+   * single fumble scored あ at 50% and しゃ at 25%, ranking the harder kana as
+   * the easier one, and a three-letter kana cleared a "seen three times" floor
+   * on its very first appearance.
+   */
+  it('counts one attempt per encounter, whatever the spelling costs', () => {
+    for (const [kana, romaji] of [['あ', 'a'], ['か', 'ka'], ['しゃ', 'sha'], ['ちゅ', 'chu']]) {
+      expect(type(tokenizeKana(kana), romaji).kanaStats[kana].attempts, kana).toBe(1)
+    }
+  })
+
+  it('scores the same fumble the same however long the spelling is', () => {
+    const rates = [['あ', 'a'], ['か', 'ka'], ['しゃ', 'sha'], ['ちゅ', 'chu']].map(([kana, romaji]) => {
+      const tokens = tokenizeKana(kana)
+      const fumbled = applyTypeChar(emptySession(), 'q', tokens, T0, true).session
+      const stat = type(tokens, romaji, fumbled).kanaStats[kana]
+      return stat.misses / stat.attempts
+    })
+    expect(new Set(rates).size).toBe(1)
+    expect(rates[0]).toBe(1)
+  })
+
+  // Identified by token, not by name — otherwise these merge into one encounter.
+  it('counts a mora twice when it appears twice', () => {
+    expect(type(tokenizeKana('ここ'), 'koko').kanaStats['こ'].attempts).toBe(2)
+  })
+
+  it('records every mora of a word, including a repeated ん', () => {
+    const s = type(tokenizeKana('さんねん'), 'sannen')
+    expect(s.kanaStats['さ'].attempts).toBe(1)
+    expect(s.kanaStats['ね'].attempts).toBe(1)
+    // Both ん — the second used to vanish at the ambiguous boundary.
+    expect(s.kanaStats['ん'].attempts).toBe(2)
   })
 
   it('charges a miss to the mora even when no single key was expected', () => {
@@ -460,16 +492,15 @@ describe('kana stats', () => {
     expect(result.missed?.legal).toEqual(['h', 'i'])
     // …but the mora is, and it used to be dropped entirely.
     expect(result.missed?.kana).toBe('し')
-    expect(result.session.kanaStats['し'].misses).toBe(1)
+    const done = type(tokens, 'hi', result.session)
+    expect(done.kanaStats['し'].misses).toBe(1)
+    expect(done.kanaStats['し'].attempts).toBe(1)
   })
 
   it('leaves the mora unattributed at a genuinely ambiguous boundary', () => {
     const tokens = tokenizeKana('んな')
     const afterN = applyTypeChar(emptySession(), 'n', tokens, T0, true).session
-    const result = applyTypeChar(afterN, 'q', tokens, T0 + 100, true)
-    // The next key could advance ん or な; blaming one would be a guess.
-    expect(result.missed?.kana).toBeNull()
-    expect(result.session.kanaStats['ん']?.misses ?? 0).toBe(0)
+    expect(applyTypeChar(afterN, 'q', tokens, T0 + 100, true).missed?.kana).toBeNull()
   })
 
   it('separates two moras that share their letters', () => {
@@ -477,11 +508,17 @@ describe('kana stats', () => {
     expect(Object.keys(s.kanaStats).sort()).toEqual(['い', 'く', 'しゅ', 'だ'].sort())
   })
 
+  it('abandons a half-typed mora on backspace rather than banking it', () => {
+    const half = type(tokenizeKana('しゃ'), 'sh')
+    expect(half.pendingKana?.kana).toBe('しゃ')
+    expect(applyBackspace(half, tokenizeKana('しゃ')).pendingKana).toBeNull()
+  })
+
   it('carries into the recorded run', () => {
     const item = { kana: 'し', romaji: 'shi' }
     const lesson = { kana: 'し', romaji: 'shi', source: 'words' as const, items: [item] }
     const s = type(compileItem(item), 'shi')
     const run = buildRunResult(s, lesson, computeMetrics(s, T0), () => '2026-01-01T00:00:00.000Z')
-    expect(run.kanaStats?.['し'].attempts).toBe(3)
+    expect(run.kanaStats?.['し'].attempts).toBe(1)
   })
 })
