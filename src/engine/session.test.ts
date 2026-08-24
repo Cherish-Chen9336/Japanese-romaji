@@ -159,12 +159,12 @@ describe('applyTypeChar — wrong keystrokes, advance-on-error', () => {
   it('reports every character that would have been accepted', () => {
     const afterS = applyTypeChar(emptySession(), 's', tokenizeKana('し'), T0, false).session
     const result = applyTypeChar(afterS, 'x', tokenizeKana('し'), T0 + 100, false)
-    expect(result.missed).toEqual({ legal: ['h', 'i'], typed: 'x' })
+    expect(result.missed).toEqual({ legal: ['h', 'i'], typed: 'x', kana: 'し' })
   })
 
   it('reports a single expected character when only one was legal', () => {
     const result = applyTypeChar(emptySession(), 'x', ABC, T0, false)
-    expect(result.missed).toEqual({ legal: ['a'], typed: 'x' })
+    expect(result.missed).toEqual({ legal: ['a'], typed: 'x', kana: 'あ' })
   })
 
   it('completes the run even when the last keystroke is wrong', () => {
@@ -395,7 +395,7 @@ describe('applyTypeChar — wrong keystrokes, stop-on-error', () => {
     const result = applyTypeChar(emptySession(), 'x', ABC, T0, true)
     expect(result.session.attempts).toBe(1)
     expect(result.session.mistakes).toBe(1)
-    expect(result.missed).toEqual({ legal: ['a'], typed: 'x' })
+    expect(result.missed).toEqual({ legal: ['a'], typed: 'x', kana: 'あ' })
   })
 
   // Nothing was consumed, so there is no red character in the line to mark.
@@ -438,5 +438,50 @@ describe('applyTypeChar — wrong keystrokes, stop-on-error', () => {
     const refused = applyTypeChar(typeStrict(ABC, 'a'), 'x', ABC, T0 + 200, true).session
     expect(refused.rejected).toBe('x')
     expect(applyBackspace(refused, ABC).rejected).toBeNull()
+  })
+})
+
+/*
+ * Per-mora stats. The reason these exist alongside keyStats: `h` being slow
+ * says nothing about whether し or ひ is the problem, and a miss mid-mora often
+ * has no single key to blame while always having a kana.
+ */
+describe('kana stats', () => {
+  it('charges a correct keystroke to the mora being typed', () => {
+    const s = type(tokenizeKana('しゃしん'), 'sha')
+    expect(s.kanaStats['しゃ']).toEqual({ attempts: 3, misses: 0, totalMs: 200 })
+  })
+
+  it('charges a miss to the mora even when no single key was expected', () => {
+    const tokens = tokenizeKana('し')
+    const afterS = applyTypeChar(emptySession(), 's', tokens, T0, true).session
+    const result = applyTypeChar(afterS, 'x', tokens, T0 + 100, true)
+    // `h` and `i` were both legal, so no key is at fault…
+    expect(result.missed?.legal).toEqual(['h', 'i'])
+    // …but the mora is, and it used to be dropped entirely.
+    expect(result.missed?.kana).toBe('し')
+    expect(result.session.kanaStats['し'].misses).toBe(1)
+  })
+
+  it('leaves the mora unattributed at a genuinely ambiguous boundary', () => {
+    const tokens = tokenizeKana('んな')
+    const afterN = applyTypeChar(emptySession(), 'n', tokens, T0, true).session
+    const result = applyTypeChar(afterN, 'q', tokens, T0 + 100, true)
+    // The next key could advance ん or な; blaming one would be a guess.
+    expect(result.missed?.kana).toBeNull()
+    expect(result.session.kanaStats['ん']?.misses ?? 0).toBe(0)
+  })
+
+  it('separates two moras that share their letters', () => {
+    const s = type(tokenizeKana('しゅくだい'), 'shukudai')
+    expect(Object.keys(s.kanaStats).sort()).toEqual(['い', 'く', 'しゅ', 'だ'].sort())
+  })
+
+  it('carries into the recorded run', () => {
+    const item = { kana: 'し', romaji: 'shi' }
+    const lesson = { kana: 'し', romaji: 'shi', source: 'words' as const, items: [item] }
+    const s = type(compileItem(item), 'shi')
+    const run = buildRunResult(s, lesson, computeMetrics(s, T0), () => '2026-01-01T00:00:00.000Z')
+    expect(run.kanaStats?.['し'].attempts).toBe(3)
   })
 })

@@ -992,3 +992,10 @@ meter::-webkit-meter-optimum-value {
 .char--rejected::after {
   background: var(--color-error);
 }
+
+/* Kana in a stats row needs the Japanese face and a size that makes small
+ * distinctions legible — きゃ against きゃ at caption size is a guessing game. */
+.bar-row__kana {
+  font-family: var(--font-sans) !important;
+  font-size: var(--fs-16) !important;
+}

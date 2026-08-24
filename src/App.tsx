@@ -23,6 +23,7 @@ import {
   streakStats,
   topTimingStats,
   unlockedMilestones,
+  weakestKana,
   wpmDistribution,
 } from './engine/stats'
 import { KANA_GROUPS, KEYBOARD_LAYOUT_NAMES } from './engine/types'
@@ -98,7 +99,7 @@ function App() {
   const [library, setLibrary] = createSignal<TextItem[]>([])
   const [source, setSource] = createSignal<SourceName>(readSource())
   const [lesson, setLesson] = createSignal<Lesson>(
-    generateLesson('words', readSettings(), {}, [], 0, Math.random, 'all'),
+    generateLesson('words', readSettings(), [], [], 0, Math.random, 'all'),
   )
   const [session, setSession] = createSignal<SessionState>(emptySession())
   const [tick, setTick] = createSignal(Date.now())
@@ -157,6 +158,9 @@ function App() {
   const bigramStats = createMemo(() => mergeTimingStats(runs(), 'bigramStats'))
   const slowKeys = createMemo(() => topTimingStats(keyStats(), 12))
   const slowBigrams = createMemo(() => topTimingStats(bigramStats(), 8))
+  const kanaStats = createMemo(() => mergeTimingStats(runs(), 'kanaStats'))
+  const weakestMoras = createMemo(() => weakestKana(kanaStats(), 8))
+  const weakKana = createMemo(() => weakestMoras().map(([kana]) => kana))
   const streaks = createMemo(() => streakStats(lifetimeStats().streakDays))
   const distribution = createMemo(() => wpmDistribution(runs()))
 
@@ -254,7 +258,7 @@ function App() {
     generateLesson(
       nextSource,
       nextSettings,
-      missMap(),
+      weakKana(),
       library(),
       bestWpm(),
       Math.random,
@@ -832,6 +836,31 @@ function App() {
                             )
                           }}
                         </For>
+                      </div>
+                    )}
+                  </For>
+                </div>
+              </section>
+
+              <section class="panel">
+                <h2>weakest kana</h2>
+                <p class="muted">What drills pull from. Ranked by error rate, not raw misses.</p>
+                <div class="bar-list">
+                  <For
+                    each={weakestMoras()}
+                    fallback={<p class="muted">Type a little more and the weak moras appear here.</p>}
+                  >
+                    {([kana, stat]) => (
+                      <div class="bar-row">
+                        <span class="bar-row__kana">{kana}</span>
+                        <meter
+                          min="0"
+                          max={Math.max(0.01, weakestMoras()[0]?.[1].errorRate ?? 1)}
+                          value={stat.errorRate}
+                        />
+                        <b>
+                          {Math.round(stat.errorRate * 100)}% · {Math.round(stat.avgMs)} ms
+                        </b>
                       </div>
                     )}
                   </For>

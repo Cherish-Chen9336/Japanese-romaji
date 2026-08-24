@@ -60,6 +60,23 @@ split: `engine/` pure logic → `io/` browser adapters → `ui/` SolidJS.
   import from `io/` or `ui/`, and `io/` must never import from `ui/`. Keep
   new pure logic in `engine/`, not back in `App.tsx`, or this test catches it.
 
+### Mastery is tracked per mora, not per key
+
+`kanaStats` sits alongside `keyStats` because the two answer different
+questions. `h` being slow says nothing about whether し or ひ is the problem,
+and — the reason this exists at all — a miss mid-mora frequently has **no single
+key to blame while always having a kana**. After `s` on し the legal letters are
+`h` and `i`; neither is at fault, so the miss used to be discarded outright.
+`expectedKana` resolves that: ambiguity in the spelling is not ambiguity in the
+mora. Genuinely ambiguous boundaries (ん before な) stay unattributed rather than
+guessed.
+
+`weakestKana` ranks on error rate **normalised by exposure**, with a minimum
+attempt count. Ranking on raw miss totals floats the kana you have simply seen
+most often to the top and keeps them there, so one early stumble follows a
+learner around forever. Drills select on these moras, matching items by
+`reading ?? kana` so a kanji word is chosen for what it is typed with.
+
 ### The input model
 
 Typing runs against **kana tokens**, not a fixed romaji string. `engine/prompt.ts`

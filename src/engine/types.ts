@@ -53,6 +53,8 @@ export type RunResult = {
   date: string
   keyStats?: Record<string, TimingStat>
   bigramStats?: Record<string, TimingStat>
+  /** Per-mora timing. Absent on runs recorded before kana were tracked. */
+  kanaStats?: Record<string, TimingStat>
 }
 
 /** Shape that may arrive from localStorage — wpm is optional for legacy records. */

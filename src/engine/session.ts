@@ -1,4 +1,5 @@
 import {
+  expectedKana,
   initMatch,
   legalNext,
   stepMatch,
@@ -31,6 +32,13 @@ export type SessionState = {
   finishedAt: number | null
   keyStats: Record<string, TimingStat>
   bigramStats: Record<string, TimingStat>
+  /**
+   * Per-mora timing and accuracy — the basis for knowing which kana are weak.
+   * Distinct from `keyStats` because the two answer different questions: `h`
+   * being slow says nothing about whether し or ひ is the problem, and a miss
+   * mid-mora often has no single key to blame while always having a kana.
+   */
+  kanaStats: Record<string, TimingStat>
   intervals: number[]
   /** Timestamp of the last committed keystroke, right or wrong. */
   lastKeyAt: number | null
@@ -50,7 +58,12 @@ export type TypeResult = {
    * have been accepted — after `s` on し that's genuinely both `h` and `i`, and
    * blaming one of them would make the stats an artefact of display order.
    */
-  missed?: { legal: string[]; typed: string }
+  missed?: {
+    legal: string[]
+    typed: string
+    /** The mora that was being typed, when exactly one was. */
+    kana: string | null
+  }
 }
 
 export type SessionMetrics = {
@@ -78,6 +91,7 @@ export function emptySession(): SessionState {
     finishedAt: null,
     keyStats: {},
     bigramStats: {},
+    kanaStats: {},
     intervals: [],
     lastKeyAt: null,
     rejected: null,
@@ -175,6 +189,14 @@ export function applyTypeChar(
   const previous = state.keys[state.keys.length - 1]
   const keyStats = key === null ? state.keyStats : updateStat(state.keyStats, key, interval, !step.correct)
 
+  // Charged to the mora being typed, which is knowable in cases where the key
+  // is not: `h` and `i` are both legal mid-し, but both are し.
+  const waitingOn = expectedKana(tokens, state.match)
+  const kanaStats =
+    waitingOn.length === 1
+      ? updateStat(state.kanaStats, waitingOn[0], interval, !step.correct)
+      : state.kanaStats
+
   // Clean transitions only. A pair measures how fast you move between two keys;
   // with a typo at either end it measures recovery instead, which is a different
   // quantity averaged into the same bucket. It also keeps the pair's name
@@ -198,13 +220,16 @@ export function applyTypeChar(
     finishedAt: step.done ? now : null,
     keyStats,
     bigramStats,
+    kanaStats,
     intervals: interval > 0 ? [...state.intervals, interval] : state.intervals,
     lastKeyAt: now,
   }
 
   return {
     session,
-    ...(step.correct ? {} : { missed: { legal: step.legal, typed: char } }),
+    ...(step.correct
+      ? {}
+      : { missed: { legal: step.legal, typed: char, kana: waitingOn.length === 1 ? waitingOn[0] : null } }),
     completed: step.done,
   }
 }
@@ -284,5 +309,6 @@ export function buildRunResult(
     date: isoNow(),
     keyStats: state.keyStats,
     bigramStats: state.bigramStats,
+    kanaStats: state.kanaStats,
   }
 }

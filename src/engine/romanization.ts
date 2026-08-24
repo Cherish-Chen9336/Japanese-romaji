@@ -288,6 +288,39 @@ export function legalNext(tokens: RomajiToken[], state: MatchState): string[] {
 }
 
 /**
+ * Which kana the currently-legal keystrokes would advance.
+ *
+ * This is what makes per-kana mastery possible where per-key mastery isn't.
+ * After `s` on し the legal letters are `h` and `i` — ambiguous, so no single
+ * key can be blamed for a miss there, and the miss used to be discarded. But
+ * both of those letters belong to the same kana, so the kana *can* be blamed.
+ * Ambiguity in the spelling is not ambiguity in the mora.
+ *
+ * Genuinely ambiguous cases stay ambiguous: at a ん/な boundary the next key
+ * could advance either, and this returns both.
+ */
+export function expectedKana(tokens: RomajiToken[], state: MatchState): string[] {
+  const kana = new Set<string>()
+  for (const pos of state.positions) {
+    const token = tokens[pos.tokenIndex]
+    if (token === undefined) continue
+
+    const continues = token.candidates.some(
+      (candidate) =>
+        candidate.length > pos.typedInToken.length && candidate.startsWith(pos.typedInToken),
+    )
+    if (continues) kana.add(token.kana)
+
+    const hasNextToken = pos.tokenIndex < tokens.length - 1
+    if (hasNextToken && token.candidates.includes(pos.typedInToken)) {
+      const next = tokens[pos.tokenIndex + 1]
+      if (next.candidates.some((candidate) => candidate.length > 0)) kana.add(next.kana)
+    }
+  }
+  return [...kana]
+}
+
+/**
  * A keystroke that tolerates errors: correct keys advance as usual, and a wrong
  * key advances too — consuming one edge in every direction that was legal, and
  * letting later keystrokes kill the branches that turn out dead.

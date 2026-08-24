@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   MAPPED_KANA,
+  expectedKana,
   initMatch,
   legalNext,
   projectMatch,
@@ -400,5 +401,47 @@ describe('matcher input guards', () => {
     const tokens = tokenizeKana('し')
     const bogus = { positions: [{ tokenIndex: 9, typedInToken: '' }] }
     expect(legalNext(tokens, bogus)).toEqual([])
+  })
+})
+
+describe('expectedKana', () => {
+  it('names the kana waiting at the start of a word', () => {
+    expect(expectedKana(tokenizeKana('しゃしん'), initMatch())).toEqual(['しゃ'])
+  })
+
+  /*
+   * The point of tracking kana rather than keys. After `s` on し the legal
+   * letters are `h` and `i` — no single key is at fault for a miss — but both
+   * belong to し, so the kana is. Ambiguity in the spelling is not ambiguity in
+   * the mora.
+   */
+  it('stays unambiguous mid-mora even when the letters are not', () => {
+    const tokens = tokenizeKana('し')
+    const afterS = stepMatch(tokens, initMatch(), 's')
+    expect(afterS.ok && legalNext(tokens, afterS.state)).toEqual(['h', 'i'])
+    expect(afterS.ok && expectedKana(tokens, afterS.state)).toEqual(['し'])
+  })
+
+  it('reports both kana at a genuinely ambiguous boundary', () => {
+    const tokens = tokenizeKana('んな')
+    const afterN = stepMatch(tokens, initMatch(), 'n')
+    // `n` completes ん, so the next key could extend it to `nn` or open な.
+    expect(afterN.ok && expectedKana(tokens, afterN.state).sort()).toEqual(['な', 'ん'])
+  })
+
+  it('follows the cursor from one mora to the next', () => {
+    const tokens = tokenizeKana('あい')
+    const afterA = stepMatch(tokens, initMatch(), 'a')
+    expect(afterA.ok && expectedKana(tokens, afterA.state)).toEqual(['い'])
+  })
+
+  it('is empty once there is nothing left to type', () => {
+    const tokens = tokenizeKana('あ')
+    const done = stepMatch(tokens, initMatch(), 'a')
+    expect(done.ok && expectedKana(tokens, done.state)).toEqual([])
+  })
+
+  it('names the geminated unit, not the bare sokuon', () => {
+    expect(expectedKana(tokenizeKana('っこ'), initMatch())).toEqual(['っこ'])
   })
 })

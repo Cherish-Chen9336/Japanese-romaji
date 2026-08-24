@@ -91,7 +91,7 @@ export function recentDayKeys(count: number, now: Date = new Date()): string[] {
 
 export function mergeTimingStats(
   runs: RunResult[],
-  field: 'keyStats' | 'bigramStats',
+  field: 'keyStats' | 'bigramStats' | 'kanaStats',
 ): Map<string, AggregatedTimingStat> {
   const merged = new Map<string, TimingStat>()
   for (const run of runs) {
@@ -170,4 +170,27 @@ export function wpmDistribution(runs: RunResult[]): { label: string; count: numb
     if (bin) bin.count += 1
   }
   return bins
+}
+
+/**
+ * The moras most in need of practice, weakest first.
+ *
+ * Ranked on error rate with speed as a tiebreak, and — importantly — normalised
+ * by exposure. Ranking on raw miss totals means the kana you have simply seen
+ * most often float to the top and stay there, so an early stumble follows you
+ * around forever while a kana you have met twice and failed twice looks fine.
+ *
+ * `minAttempts` keeps single unlucky keystrokes out of the ranking; a kana needs
+ * to have been seen a few times before its rate means anything.
+ */
+export function weakestKana(
+  stats: Map<string, AggregatedTimingStat>,
+  limit = 8,
+  minAttempts = 3,
+): [string, AggregatedTimingStat][] {
+  return [...stats.entries()]
+    .filter(([, stat]) => stat.attempts >= minAttempts)
+    .sort((a, b) => b[1].errorRate - a[1].errorRate || b[1].avgMs - a[1].avgMs)
+    .slice(0, limit)
+    .filter(([, stat]) => stat.errorRate > 0 || stat.avgMs > 0)
 }

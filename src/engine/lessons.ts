@@ -195,16 +195,23 @@ export function buildParagraph(
   }
 }
 
-export function drillBankFromMisses(misses: Record<string, number>): TextItem[] {
-  const weakLetters = Object.entries(misses)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
-    .map(([letter]) => letter)
+/**
+ * Practice material for the moras a typist is weakest at.
+ *
+ * Selecting on kana rather than on Latin letters is the whole point. Letter
+ * selection over-picked wildly — a miss on any vowel matched nearly every item
+ * in every bank — and it could not tell difficulty with し apart from difficulty
+ * with every other use of `s`, `h` or `i`.
+ *
+ * Items are matched on the text actually typed (`reading ?? kana`), so a kanji
+ * item is selected for the moras it is read with, not the characters it is
+ * written with.
+ */
+export function drillBankFromWeakKana(weak: readonly string[]): TextItem[] {
+  if (weak.length === 0) return drillFallbackBank
 
-  if (weakLetters.length === 0) return drillFallbackBank
-
-  const candidates = [...wordBank, ...difficultBank, ...drillFallbackBank].filter((item) =>
-    weakLetters.some((letter) => item.romaji.includes(letter)),
+  const candidates = [...gojuonBank, ...wordBank, ...difficultBank].filter((item) =>
+    weak.some((kana) => (item.reading ?? item.kana).includes(kana)),
   )
   return candidates.length > 0 ? candidates : drillFallbackBank
 }
@@ -235,7 +242,7 @@ export function explicitSourcesForBest(best: number): Exclude<SourceName, 'auto'
 export function generateLesson(
   requestedSource: SourceName,
   settings: Settings,
-  misses: Record<string, number>,
+  weakKana: readonly string[],
   library: TextItem[],
   bestWpmValue = 0,
   rng: RandomSource = Math.random,
@@ -259,7 +266,7 @@ export function generateLesson(
     return buildParagraph(kanaRows(kanaGroup), 'kana', settings.paragraphItems, rng)
   }
   if (usableSource === 'drills') {
-    return buildParagraph(drillBankFromMisses(misses), 'drills', settings.paragraphItems, rng)
+    return buildParagraph(drillBankFromWeakKana(weakKana), 'drills', settings.paragraphItems, rng)
   }
   if (usableSource === 'library') {
     return buildParagraph(library, 'library', settings.paragraphItems, rng)

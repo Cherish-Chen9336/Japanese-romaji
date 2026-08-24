@@ -82,6 +82,7 @@ function normalizeRun(item: unknown): RunResult {
     date: r.date as string,
     keyStats: readTimingStats(r.keyStats),
     bigramStats: readTimingStats(r.bigramStats),
+    kanaStats: readTimingStats(r.kanaStats),
   }
 }
 

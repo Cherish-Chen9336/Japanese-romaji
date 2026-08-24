@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildParagraph,
   difficultBank,
-  drillBankFromMisses,
+  drillBankFromWeakKana,
   drillFallbackBank,
   explicitSourcesForBest,
   generateLesson,
@@ -112,32 +112,37 @@ describe('buildParagraph', () => {
   })
 })
 
-describe('drillBankFromMisses', () => {
-  it('falls back to the fixed drill bank when there are no misses', () => {
-    expect(drillBankFromMisses({})).toBe(drillFallbackBank)
+describe('drillBankFromWeakKana', () => {
+  it('falls back to the fixed drill bank when nothing is weak yet', () => {
+    expect(drillBankFromWeakKana([])).toBe(drillFallbackBank)
   })
 
-  it('prefers items containing the top-missed letters', () => {
-    const bank = drillBankFromMisses({ sh: 10, ch: 5 })
+  it('picks only items that actually contain the weak moras', () => {
+    const bank = drillBankFromWeakKana(['りょ'])
     expect(bank.length).toBeGreaterThan(0)
-    expect(bank.every((item) => item.romaji.includes('sh') || item.romaji.includes('ch'))).toBe(true)
+    expect(bank.every((item) => (item.reading ?? item.kana).includes('りょ'))).toBe(true)
   })
 
-  it('falls back to the fixed drill bank when misses exist but nothing matches', () => {
-    expect(drillBankFromMisses({ zzzzz: 1 })).toBe(drillFallbackBank)
+  // Kanji items are matched on what is typed, not on what is written.
+  it('matches a kanji item through its reading', () => {
+    const bank = drillBankFromWeakKana(['ひこ'])
+    expect(bank.some((item) => item.kana === '飛行機')).toBe(true)
   })
 
-  it('only uses the top 5 missed keys — a 6th key ranked below them must not expand the bank', () => {
-    // 'z' scores highest (10 misses), 'y' is 6th (1 miss).
-    // drillBankFromMisses must not include items that only match 'y'.
-    // The letter 'y' appears in yayuyo (drillFallbackBank) but not in wordBank or difficultBank.
-    // So if the bank contains items containing 'y' in their romaji, it filtered on 'y' — wrong.
-    const misses = { z: 10, s: 9, h: 8, k: 7, n: 6, y: 1 }
-    const bank = drillBankFromMisses(misses)
-    // 'y' is 6th — must NOT have influenced the filter.
-    // Every item in the bank must match at least one of the top-5 keys: z, s, h, k, n.
-    const top5 = ['z', 's', 'h', 'k', 'n']
-    expect(bank.every((item) => top5.some((letter) => item.romaji.includes(letter)))).toBe(true)
+  it('falls back when a weak mora appears in nothing', () => {
+    expect(drillBankFromWeakKana(['ヷ'])).toBe(drillFallbackBank)
+  })
+
+  /*
+   * Why this replaced letter-based selection: a miss on any vowel matched
+   * nearly every item in every bank, so "targeted" drills were barely narrower
+   * than the whole corpus.
+   */
+  it('narrows far more than selecting on letters ever did', () => {
+    const everything = [...gojuonBank, ...wordBank, ...difficultBank]
+    const byLetter = everything.filter((item) => item.romaji.includes('i'))
+    const byKana = drillBankFromWeakKana(['ちょ'])
+    expect(byKana.length).toBeLessThan(byLetter.length / 3)
   })
 })
 
@@ -177,24 +182,24 @@ describe('explicitSourcesForBest', () => {
 
 describe('generateLesson', () => {
   it('falls back to words when the requested source is locked', () => {
-    const lesson = generateLesson('quotes', settings, {}, [], 0, () => 0)
+    const lesson = generateLesson('quotes', settings, [], [], 0, () => 0)
     expect(lesson.source).toBe('words')
   })
 
   it('falls back to words when library is requested but empty', () => {
-    const lesson = generateLesson('library', settings, {}, [], 70, () => 0)
+    const lesson = generateLesson('library', settings, [], [], 70, () => 0)
     expect(lesson.source).toBe('words')
   })
 
   it('uses the user library when requested and non-empty', () => {
     const library = [{ kana: 'てすと', romaji: 'tesuto' }]
-    const lesson = generateLesson('library', settings, {}, library, 70, () => 0)
+    const lesson = generateLesson('library', settings, [], library, 70, () => 0)
     expect(lesson.source).toBe('library')
     expect(lesson.kana.split(' ').every((part) => part === 'てすと')).toBe(true)
   })
 
   it('drills source pulls from the miss-weighted bank', () => {
-    const lesson = generateLesson('drills', settings, {}, [], 0, () => 0)
+    const lesson = generateLesson('drills', settings, [], [], 0, () => 0)
     expect(lesson.source).toBe('drills')
   })
 
@@ -202,12 +207,12 @@ describe('generateLesson', () => {
     // rng() = 0 always selects the first entry of explicitSourcesForBest(0),
     // which is deterministic given the fixed sourceOptions order.
     const expectedFirst = explicitSourcesForBest(0).filter((s) => s !== 'library')[0]
-    const lesson = generateLesson('auto', settings, {}, [], 0, () => 0)
+    const lesson = generateLesson('auto', settings, [], [], 0, () => 0)
     expect(lesson.source).toBe(expectedFirst)
   })
 
   it('requesting a source unlocked at the given wpm uses that source directly', () => {
-    const lesson = generateLesson('difficult', settings, {}, [], 30, () => 0)
+    const lesson = generateLesson('difficult', settings, [], [], 30, () => 0)
     expect(lesson.source).toBe('difficult')
     expect(difficultBank.map((i) => i.kana)).toContain(lesson.kana.split(' ')[0])
   })
@@ -215,7 +220,7 @@ describe('generateLesson', () => {
   it('respects settings.paragraphItems for word count', () => {
     // Uses `difficult`, not `quotes` — quote-bank kana strings contain
     // internal spaces, which would make a naive split(' ') length check lie.
-    const lesson = generateLesson('difficult', { paragraphItems: 2, stopOnError: true }, {}, [], 30, () => 0)
+    const lesson = generateLesson('difficult', { paragraphItems: 2, stopOnError: true }, [], [], 30, () => 0)
     expect(lesson.kana.split(' ')).toHaveLength(2)
     expect(difficultBank.map((i) => i.kana)).toContain(lesson.kana.split(' ')[0])
   })
@@ -278,13 +283,13 @@ describe('kana source', () => {
   const settings: Settings = { paragraphItems: 4, stopOnError: true }
 
   it('builds a lesson from the chart', () => {
-    const lesson = generateLesson('kana', settings, {}, [], 0, mulberry32(1), 'all')
+    const lesson = generateLesson('kana', settings, [], [], 0, mulberry32(1), 'all')
     expect(lesson.source).toBe('kana')
     expect(lesson.items.every((item) => gojuonBank.includes(item as KanaRow))).toBe(true)
   })
 
   it('honours the requested group', () => {
-    const lesson = generateLesson('kana', settings, {}, [], 0, mulberry32(2), 'yoon')
+    const lesson = generateLesson('kana', settings, [], [], 0, mulberry32(2), 'yoon')
     expect(lesson.items.every((item) => (item as KanaRow).group === 'yoon')).toBe(true)
   })
 
@@ -292,7 +297,7 @@ describe('kana source', () => {
   // be exactly backwards.
   it('is available from zero wpm', () => {
     expect(sourceUnlocked('kana', 0)).toBe(true)
-    expect(generateLesson('kana', settings, {}, [], 0, mulberry32(3), 'all').source).toBe('kana')
+    expect(generateLesson('kana', settings, [], [], 0, mulberry32(3), 'all').source).toBe('kana')
   })
 
   // The chart is a drill you choose, not something to be handed unasked.
@@ -348,7 +353,7 @@ describe('kanji is reachable, not just present', () => {
     const seen = new Set<string>()
     const rng = mulberry32(11)
     for (let i = 0; i < 30; i++) {
-      for (const item of generateLesson('auto', settings, {}, [], 0, rng).items) {
+      for (const item of generateLesson('auto', settings, [], [], 0, rng).items) {
         if (hasKanji(item.kana)) seen.add(item.kana)
       }
     }
