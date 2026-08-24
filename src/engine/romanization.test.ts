@@ -435,6 +435,12 @@ describe('expectedKana', () => {
     expect(afterA.ok && expectedKana(tokens, afterA.state)).toEqual(['い'])
   })
 
+  // Same defensive guard `legalNext` carries: positions from this module always
+  // index a real token, but the function is exported and can be handed anything.
+  it('ignores a position pointing past the end of the tokens', () => {
+    expect(expectedKana(tokenizeKana('あ'), { positions: [{ tokenIndex: 9, typedInToken: '' }] })).toEqual([])
+  })
+
   it('is empty once there is nothing left to type', () => {
     const tokens = tokenizeKana('あ')
     const done = stepMatch(tokens, initMatch(), 'a')
@@ -443,5 +449,33 @@ describe('expectedKana', () => {
 
   it('names the geminated unit, not the bare sokuon', () => {
     expect(expectedKana(tokenizeKana('っこ'), initMatch())).toEqual(['っこ'])
+  })
+})
+
+describe('projectMatch witness ranking', () => {
+  // Two live positions at the same token and the same typed length: the tie has
+  // to break on candidate order, or the hint depends on insertion order.
+  it('prefers the position on the higher-ranked spelling', () => {
+    const tokens = tokenizeKana('し')
+    const both = { positions: [{ tokenIndex: 0, typedInToken: 'c' }, { tokenIndex: 0, typedInToken: 's' }] }
+    expect(projectMatch(tokens, both).hint).toBe('hi')
+    const reversed = { positions: [...both.positions].reverse() }
+    expect(projectMatch(tokens, reversed).hint).toBe('hi')
+  })
+
+  // Different lengths at the same token: the further-typed one wins, whichever
+  // order they arrive in.
+  it('prefers the position that has been typed into further', () => {
+    const tokens = tokenizeKana('しゃ')
+    const mixed = { positions: [{ tokenIndex: 0, typedInToken: 's' }, { tokenIndex: 0, typedInToken: 'sh' }] }
+    expect(projectMatch(tokens, mixed).hint).toBe('a')
+    const reversed = { positions: [...mixed.positions].reverse() }
+    expect(projectMatch(tokens, reversed).hint).toBe('a')
+  })
+
+  it('falls back gracefully when a position matches no candidate', () => {
+    const tokens = tokenizeKana('し')
+    const stray = { positions: [{ tokenIndex: 0, typedInToken: 'zz' }] }
+    expect(projectMatch(tokens, stray).tokenIndex).toBe(0)
   })
 })

@@ -14,6 +14,7 @@ import {
   streakStats,
   topTimingStats,
   unlockedMilestones,
+  weakestKana,
   wpmDistribution,
 } from './stats'
 import type { LifetimeStats, RunResult, StoredRunResult, TimingStat } from './types'
@@ -249,5 +250,63 @@ describe('wpmDistribution', () => {
     const runs = [run({ wpm: 0 }), run({ wpm: 19 }), run({ wpm: 20 }), run({ wpm: 79 }), run({ wpm: 80 }), run({ wpm: 200 })]
     const bins = Object.fromEntries(wpmDistribution(runs).map((b) => [b.label, b.count]))
     expect(bins).toEqual({ '0-20': 2, '20-40': 1, '40-60': 0, '60-80': 1, '80+': 2 })
+  })
+})
+
+describe('weakestKana', () => {
+  const stat = (attempts: number, misses: number, avgMs: number) => ({
+    attempts,
+    misses,
+    totalMs: avgMs * attempts,
+    avgMs,
+    errorRate: misses / attempts,
+  })
+
+  it('ranks the highest error rate first', () => {
+    const stats = new Map([
+      ['か', stat(10, 1, 200)],
+      ['しゃ', stat(10, 5, 200)],
+      ['き', stat(10, 3, 200)],
+    ])
+    expect(weakestKana(stats).map(([kana]) => kana)).toEqual(['しゃ', 'き', 'か'])
+  })
+
+  it('breaks a tie on error rate with speed', () => {
+    const stats = new Map([
+      ['か', stat(10, 2, 100)],
+      ['き', stat(10, 2, 400)],
+    ])
+    expect(weakestKana(stats).map(([kana]) => kana)).toEqual(['き', 'か'])
+  })
+
+  /*
+   * Normalising by exposure is the whole point. On raw miss counts か would win
+   * with 5 misses, but it has been seen a hundred times and is fine; しゃ has
+   * been seen four times and failed three, which is what needs practice.
+   */
+  it('ranks by rate, not by how often a kana has been seen', () => {
+    const stats = new Map([
+      ['か', stat(100, 5, 200)],
+      ['しゃ', stat(4, 3, 200)],
+    ])
+    expect(weakestKana(stats)[0][0]).toBe('しゃ')
+  })
+
+  it('ignores a kana seen too few times for its rate to mean anything', () => {
+    const stats = new Map([['か', stat(2, 2, 200)]])
+    expect(weakestKana(stats)).toEqual([])
+    expect(weakestKana(stats, 8, 2).map(([kana]) => kana)).toEqual(['か'])
+  })
+
+  it('leaves out kana with nothing wrong with them', () => {
+    const stats = new Map([['か', stat(10, 0, 0)]])
+    expect(weakestKana(stats)).toEqual([])
+  })
+
+  it('caps the list at the requested size', () => {
+    const stats = new Map(
+      Array.from({ length: 20 }, (_, i) => [`k${i}`, stat(10, i + 1, 100)] as const),
+    )
+    expect(weakestKana(stats, 3)).toHaveLength(3)
   })
 })
