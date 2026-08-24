@@ -1,6 +1,7 @@
 import { For, Show, createMemo, createSignal, onCleanup, onMount } from 'solid-js'
 import './App.css'
 import {
+  drillMoras,
   generateLesson,
   kanaRows,
   parseLibraryText,
@@ -22,6 +23,8 @@ import {
   sourceBreakdown,
   streakStats,
   topTimingStats,
+  kanaWeakness,
+  leastPractisedKana,
   unlockedMilestones,
   weakestKana,
   wpmDistribution,
@@ -160,7 +163,16 @@ function App() {
   const slowBigrams = createMemo(() => topTimingStats(bigramStats(), 8))
   const kanaStats = createMemo(() => mergeTimingStats(runs(), 'kanaStats'))
   const weakestMoras = createMemo(() => weakestKana(kanaStats(), 8))
-  const weakKana = createMemo(() => weakestMoras().map(([kana]) => kana))
+  /*
+   * Drill targets are the weakest moras *plus* the least-practised ones. Weakness
+   * alone can't drive practice: a mora is only found weak once you have met it
+   * and failed it, so a pool made only of known weaknesses stops showing you
+   * anything else and new ones never surface.
+   */
+  const weakKana = createMemo(() => [
+    ...weakestMoras().map(([kana]) => kana),
+    ...leastPractisedKana(kanaStats(), drillMoras, 4),
+  ])
   const streaks = createMemo(() => streakStats(lifetimeStats().streakDays))
   const distribution = createMemo(() => wpmDistribution(runs()))
 
@@ -844,7 +856,7 @@ function App() {
 
               <section class="panel">
                 <h2>weakest kana</h2>
-                <p class="muted">What drills pull from. Ranked by how often you miss them, weighted by how often you've met them.</p>
+                <p class="muted">What drills pull from. Ordered by how often you miss them, weighted by how many times you've met them.</p>
                 <div class="bar-list">
                   <For
                     each={weakestMoras()}
@@ -853,13 +865,17 @@ function App() {
                     {([kana, stat]) => (
                       <div class="bar-row">
                         <span class="bar-row__kana">{kana}</span>
+                        {/* Bar shows the score the list is ordered by. Drawing
+                            the raw rate instead made the panel contradict its
+                            own order — 6-in-10 sorted above 1-in-1 while
+                            displaying 60% above 100%. */}
                         <meter
                           min="0"
-                          max={Math.max(0.01, weakestMoras()[0]?.[1].errorRate ?? 1)}
-                          value={stat.errorRate}
+                          max={Math.max(0.01, kanaWeakness(weakestMoras()[0]?.[1] ?? stat))}
+                          value={kanaWeakness(stat)}
                         />
                         <b>
-                          {Math.round(stat.errorRate * 100)}% · {Math.round(stat.avgMs)} ms
+                          {stat.misses}/{stat.attempts} · {Math.round(stat.avgMs)} ms
                         </b>
                       </div>
                     )}

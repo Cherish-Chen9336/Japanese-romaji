@@ -497,10 +497,23 @@ describe('kana stats', () => {
     expect(done.kanaStats['し'].attempts).toBe(1)
   })
 
-  it('leaves the mora unattributed at a genuinely ambiguous boundary', () => {
+  /*
+   * Blamed on the mora being worked on, not on where the keystroke landed. At an
+   * ん boundary the next key could extend ん or open the following mora, but the
+   * typist was in the middle of ん either way — and reporting null there simply
+   * threw the miss away.
+   */
+  it('blames a miss on the mora being typed, even at an ambiguous boundary', () => {
     const tokens = tokenizeKana('んな')
     const afterN = applyTypeChar(emptySession(), 'n', tokens, T0, true).session
-    expect(applyTypeChar(afterN, 'q', tokens, T0 + 100, true).missed?.kana).toBeNull()
+    expect(applyTypeChar(afterN, 'q', tokens, T0 + 100, true).missed?.kana).toBe('ん')
+  })
+
+  it('reports no mora when the position is not one', () => {
+    // A separator: nothing to charge a miss to.
+    const tokens = tokenizeKana('あ い')
+    const afterA = applyTypeChar(emptySession(), 'a', tokens, T0, true).session
+    expect(applyTypeChar(afterA, 'q', tokens, T0 + 100, true).missed?.kana).toBeNull()
   })
 
   it('separates two moras that share their letters', () => {

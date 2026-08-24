@@ -1,3 +1,4 @@
+import { isMoraToken, tokenizeKana } from './romanization'
 import { dealRandom, pickRandom, type RandomSource } from './rng'
 import type { KanaGroup, KanaRow, Lesson, Settings, SourceName, TextItem } from './types'
 
@@ -195,23 +196,38 @@ export function buildParagraph(
   }
 }
 
+/** The moras an item is actually made of, as the matcher and the stats see it. */
+export function itemMoras(item: TextItem): string[] {
+  return tokenizeKana(item.reading ?? item.kana)
+    .map((token) => token.kana)
+    .filter(isMoraToken)
+}
+
+/** Every mora the drill corpus can actually teach. */
+export const drillMoras: readonly string[] = [
+  ...new Set([...gojuonBank, ...wordBank, ...difficultBank].flatMap(itemMoras)),
+]
+
 /**
  * Practice material for the moras a typist is weakest at.
  *
- * Selecting on kana rather than on Latin letters is the whole point. Letter
- * selection over-picked wildly — a miss on any vowel matched nearly every item
- * in every bank — and it could not tell difficulty with し apart from difficulty
- * with every other use of `s`, `h` or `i`.
+ * Matched against the item's **tokens**, not against its text. A substring test
+ * disagrees with the model that produced the weakness: し appears inside しゃ,
+ * so weak し selected でんしゃ, かいしゃ and しゃしゅしょ — none of which contain
+ * a standalone し at all. Those drills spent encounters without ever touching
+ * the weakness that chose them, which quietly breaks the feedback loop. Same for
+ * こ inside っこ, which the stats record as one mora.
  *
- * Items are matched on the text actually typed (`reading ?? kana`), so a kanji
- * item is selected for the moras it is read with, not the characters it is
- * written with.
+ * Selecting on moras rather than Latin letters was the earlier half of this:
+ * letter selection over-picked wildly, because a miss on any vowel matched
+ * nearly every item in every bank.
  */
 export function drillBankFromWeakKana(weak: readonly string[]): TextItem[] {
   if (weak.length === 0) return drillFallbackBank
 
+  const wanted = new Set(weak)
   const candidates = [...gojuonBank, ...wordBank, ...difficultBank].filter((item) =>
-    weak.some((kana) => (item.reading ?? item.kana).includes(kana)),
+    itemMoras(item).some((mora) => wanted.has(mora)),
   )
   return candidates.length > 0 ? candidates : drillFallbackBank
 }

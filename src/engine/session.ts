@@ -1,5 +1,7 @@
 import {
   expectedToken,
+  isMoraToken,
+  settledToken,
   initMatch,
   legalNext,
   stepMatch,
@@ -200,28 +202,66 @@ export function applyTypeChar(
   const previous = state.keys[state.keys.length - 1]
   const keyStats = key === null ? state.keyStats : updateStat(state.keyStats, key, interval, !step.correct)
 
-  // Charged to the mora being typed, which is knowable in cases where the key
-  // is not: `h` and `i` are both legal mid-し, but both are し. Accumulated
-  // across the mora and banked when the cursor leaves it, so one attempt means
-  // one encounter rather than one keystroke.
-  const target = expectedToken(tokens, state.match)
+  /*
+   * Charged to the mora being typed, accumulated across its keystrokes and
+   * banked when the cursor leaves it — so one attempt is one encounter.
+   *
+   * Attribution reads the state *after* the keystroke, not before. Before it,
+   * ん followed by anything is ambiguous: the next key could extend ん to `nn`
+   * or open the following mora. Attributing on that pre-state discarded every
+   * keystroke at such a boundary, which meant んあ recorded ん and lost あ
+   * entirely — and せんせい, でんしゃ and 日本語 all contain one.
+   */
+  /*
+   * The mora being typed when this key was pressed, captured before the state
+   * moves on — so a miss is blamed on what the typist was working on rather than
+   * on wherever the keystroke landed them.
+   *
+   * The pre-keystroke expectation leads, because it knows when the cursor has
+   * finished a mora and is sitting at a separator, where there is nothing to
+   * blame. Only when *that* is ambiguous — an ん boundary — does the mora in
+   * progress answer instead, since the typist was mid-ん either way.
+   */
+  const expected = expectedToken(tokens, state.match)
+  const wasOn =
+    expected !== null
+      ? (isMoraToken(expected.kana) ? expected.kana : null)
+      : (state.pendingKana?.kana ?? null)
+
+  const landed = settledToken(tokens, step.state)
   let kanaStats = state.kanaStats
   let pendingKana = state.pendingKana
 
-  if (pendingKana !== null && pendingKana.index !== target?.index) {
-    kanaStats = updateStat(kanaStats, pendingKana.kana, pendingKana.ms, pendingKana.missed)
-    pendingKana = null
-  }
-  if (target !== null) {
-    pendingKana = {
-      index: target.index,
-      kana: target.kana,
-      ms: (pendingKana?.ms ?? 0) + interval,
-      missed: (pendingKana?.missed ?? false) || !step.correct,
+  const bank = (pending: NonNullable<SessionState['pendingKana']>) =>
+    updateStat(kanaStats, pending.kana, pending.ms, pending.missed)
+
+  if (landed === null) {
+    // Still undecided — keep accumulating against the mora we were already on.
+    if (pendingKana !== null) {
+      pendingKana = {
+        ...pendingKana,
+        ms: pendingKana.ms + interval,
+        missed: pendingKana.missed || !step.correct,
+      }
+    }
+  } else {
+    const trackable = isMoraToken(landed.kana)
+    if (pendingKana !== null && (!trackable || pendingKana.index !== landed.index)) {
+      kanaStats = bank(pendingKana)
+      pendingKana = null
+    }
+    if (trackable) {
+      pendingKana = {
+        index: landed.index,
+        kana: landed.kana,
+        ms: (pendingKana?.ms ?? 0) + interval,
+        missed: (pendingKana?.missed ?? false) || !step.correct,
+      }
     }
   }
+
   if (step.done && pendingKana !== null) {
-    kanaStats = updateStat(kanaStats, pendingKana.kana, pendingKana.ms, pendingKana.missed)
+    kanaStats = bank(pendingKana)
     pendingKana = null
   }
 
@@ -258,7 +298,7 @@ export function applyTypeChar(
     session,
     ...(step.correct
       ? {}
-      : { missed: { legal: step.legal, typed: char, kana: target?.kana ?? null } }),
+      : { missed: { legal: step.legal, typed: char, kana: wasOn } }),
     completed: step.done,
   }
 }

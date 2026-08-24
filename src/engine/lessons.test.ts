@@ -3,6 +3,8 @@ import {
   buildParagraph,
   difficultBank,
   drillBankFromWeakKana,
+  drillMoras,
+  itemMoras,
   drillFallbackBank,
   explicitSourcesForBest,
   generateLesson,
@@ -117,32 +119,63 @@ describe('drillBankFromWeakKana', () => {
     expect(drillBankFromWeakKana([])).toBe(drillFallbackBank)
   })
 
-  it('picks only items that actually contain the weak moras', () => {
-    const bank = drillBankFromWeakKana(['りょ'])
-    expect(bank.length).toBeGreaterThan(0)
-    expect(bank.every((item) => (item.reading ?? item.kana).includes('りょ'))).toBe(true)
+  /*
+   * Matched on tokens, not on text. Asserting against named items rather than
+   * re-running the production predicate — the previous test did the latter, so
+   * it agreed with the implementation no matter what the implementation was.
+   *
+   * し appears inside しゃ as a *character*, but tokenises as part of it. Items
+   * whose only し is inside a しゃ must not be chosen to practise し, or the
+   * drill spends encounters without ever touching the weakness that chose it.
+   */
+  it('does not select an item whose only match is inside a larger mora', () => {
+    const chosen = drillBankFromWeakKana(['し']).map((item) => item.kana)
+    expect(chosen).not.toContain('電車') // でんしゃ — no standalone し
+    expect(chosen).not.toContain('会社') // かいしゃ
+    expect(chosen).not.toContain('しゃしゅしょ')
+    expect(chosen).toContain('さしすせそ') // does contain a standalone し
+  })
+
+  it('does not select こ for an item whose only こ is a geminated っこ', () => {
+    const chosen = drillBankFromWeakKana(['こ']).map((item) => item.kana)
+    expect(chosen).not.toContain('学校') // がっこう tokenises as が, っこ, う
+    expect(chosen).toContain('かきくけこ')
+  })
+
+  it('selects the geminated mora when that is what is weak', () => {
+    expect(drillBankFromWeakKana(['っこ']).map((item) => item.kana)).toContain('学校')
   })
 
   // Kanji items are matched on what is typed, not on what is written.
   it('matches a kanji item through its reading', () => {
-    const bank = drillBankFromWeakKana(['ひこ'])
-    expect(bank.some((item) => item.kana === '飛行機')).toBe(true)
+    expect(drillBankFromWeakKana(['ひ']).map((item) => item.kana)).toContain('飛行機')
   })
 
   it('falls back when a weak mora appears in nothing', () => {
     expect(drillBankFromWeakKana(['ヷ'])).toBe(drillFallbackBank)
   })
 
-  /*
-   * Why this replaced letter-based selection: a miss on any vowel matched
-   * nearly every item in every bank, so "targeted" drills were barely narrower
-   * than the whole corpus.
-   */
   it('narrows far more than selecting on letters ever did', () => {
     const everything = [...gojuonBank, ...wordBank, ...difficultBank]
     const byLetter = everything.filter((item) => item.romaji.includes('i'))
-    const byKana = drillBankFromWeakKana(['ちょ'])
-    expect(byKana.length).toBeLessThan(byLetter.length / 3)
+    expect(drillBankFromWeakKana(['ちょ']).length).toBeLessThan(byLetter.length / 3)
+  })
+})
+
+describe('itemMoras', () => {
+  it('lists the moras an item is made of', () => {
+    expect(itemMoras({ kana: '写真', reading: 'しゃしん', romaji: 'shashin' })).toEqual(['しゃ', 'し', 'ん'])
+  })
+
+  it('keeps a geminated pair as the single mora the stats record', () => {
+    expect(itemMoras({ kana: '学校', reading: 'がっこう', romaji: 'gakkou' })).toEqual(['が', 'っこ', 'う'])
+  })
+
+  // Separators and literal-fallback characters are not moras and must not be
+  // offered as drill targets.
+  it('drops separators and anything that is not kana', () => {
+    expect(itemMoras({ kana: 'えき まち', romaji: 'eki machi' })).toEqual(['え', 'き', 'ま', 'ち'])
+    expect(itemMoras({ kana: '日本語', romaji: 'nihongo' })).toEqual([])
   })
 })
 
@@ -372,5 +405,27 @@ describe('kanji is reachable, not just present', () => {
       .filter((item) => hasKanji(item.kana) && item.reading === undefined)
       .map((item) => item.kana)
     expect(missing).toEqual([])
+  })
+})
+
+describe('drillMoras', () => {
+  it('lists every mora the drill corpus can teach', () => {
+    expect(drillMoras.length).toBeGreaterThan(80)
+    expect(drillMoras).toContain('ぎゅ')
+    expect(drillMoras).toContain('っこ')
+  })
+
+  it('contains only real moras — no separators or literal characters', () => {
+    expect(drillMoras.filter((mora) => !/^[ぁ-ゖァ-ヺー]+$/.test(mora))).toEqual([])
+  })
+
+  it('has no duplicates', () => {
+    expect(new Set(drillMoras).size).toBe(drillMoras.length)
+  })
+
+  // Exploration only works if every corpus mora is reachable from some item.
+  it('can serve a drill for every mora it lists', () => {
+    const unreachable = drillMoras.filter((mora) => drillBankFromWeakKana([mora]) === drillFallbackBank)
+    expect(unreachable).toEqual([])
   })
 })

@@ -86,10 +86,32 @@ Smoothing pulls a low-evidence rate toward "probably fine" instead of discarding
 it. Speed breaks ties but never gets a kana onto the list alone — a mora you have
 never mistyped isn't weak, however slow.
 
-Drills select on these moras, matching items by `reading ?? kana` so a kanji word
-is chosen for what it is typed with. Known limitation: selection filters but does
-not weight, so a weak mora appearing in one item gets less practice than an
-equally weak one appearing in ten.
+Only **real moras** are tracked. Word separators carry a space and an item the
+kana table can't reach falls back to one token per romaji character, so an
+uploaded `日本語|nihongo` produced tokens named `n`, `i`, `h`, `o`, `g` — which
+landed in the table, could fill the weakest list, and then matched no Japanese
+item at all, silently stopping drills from targeting anything.
+
+Attribution reads the state **after** each keystroke, not before. Before it, ん
+followed by anything is ambiguous — the next key could extend it to `nn` or open
+the following mora — and attributing on that pre-state discarded every keystroke
+at such a boundary. んあ recorded ん and lost あ entirely; せんせい, でんしゃ and
+日本語 all contain one.
+
+Drills match an item's **tokens**, never a substring of its text. し appears
+inside しゃ as a character, so a substring test chose でんしゃ and かいしゃ to
+practise し when neither contains a standalone し — spending encounters without
+touching the weakness that selected them.
+
+Targets are the weakest moras **plus the least-practised ones**. Weakness alone
+cannot drive practice: a mora is only found weak once you have met it and failed
+it, so a pool built only of known weaknesses stops showing you anything else.
+Simulated over 150 runs, the exploit-only pool collapsed to four items and two
+genuinely hard moras were never shown once; with exploration all 108 corpus moras
+get seen and all three planted weaknesses are found and fixed.
+
+Known limitation: selection filters but does not weight, so a weak mora appearing
+in one item gets less practice than an equally weak one appearing in ten.
 
 ### The input model
 

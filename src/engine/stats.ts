@@ -210,3 +210,27 @@ export function weakestKana(
     .sort((a, b) => kanaWeakness(b[1]) - kanaWeakness(a[1]) || b[1].avgMs - a[1].avgMs)
     .slice(0, limit)
 }
+
+/**
+ * The moras met least often, including those never met at all.
+ *
+ * Weakness alone cannot drive practice, because a mora can only be found weak
+ * once you have met it and failed it — and if drills serve only what is already
+ * known to be weak, you stop meeting anything else. Simulated over 150 runs the
+ * pool collapsed to four items and two genuinely difficult moras were never
+ * shown once, so their difficulty was never discovered.
+ *
+ * Mixing the least-practised in alongside the weakest is the exploration half of
+ * that: it keeps the corpus circulating so new weaknesses can surface.
+ */
+export function leastPractisedKana(
+  stats: Map<string, AggregatedTimingStat>,
+  corpus: readonly string[],
+  limit = 4,
+): string[] {
+  return [...corpus]
+    .map((kana) => [kana, stats.get(kana)?.attempts ?? 0] as const)
+    .sort((a, b) => a[1] - b[1])
+    .slice(0, limit)
+    .map(([kana]) => kana)
+}

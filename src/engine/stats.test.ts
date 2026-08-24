@@ -13,6 +13,7 @@ import {
   sourceBreakdown,
   streakStats,
   topTimingStats,
+  leastPractisedKana,
   unlockedMilestones,
   weakestKana,
   wpmDistribution,
@@ -335,5 +336,38 @@ describe('weakestKana', () => {
       Array.from({ length: 20 }, (_, i) => [`k${i}`, stat(10, i + 1, 100)] as const),
     )
     expect(weakestKana(stats, 3)).toHaveLength(3)
+  })
+})
+
+describe('leastPractisedKana', () => {
+  const stat = (attempts: number) => ({
+    attempts, misses: 0, totalMs: attempts * 100, avgMs: 100, errorRate: 0,
+  })
+
+  it('puts moras never met at all first', () => {
+    const stats = new Map([['か', stat(10)], ['き', stat(3)]])
+    expect(leastPractisedKana(stats, ['か', 'き', 'く'], 2)).toEqual(['く', 'き'])
+  })
+
+  it('orders by how often each has been met', () => {
+    const stats = new Map([['か', stat(10)], ['き', stat(1)], ['く', stat(5)]])
+    expect(leastPractisedKana(stats, ['か', 'き', 'く'], 3)).toEqual(['き', 'く', 'か'])
+  })
+
+  it('caps the list at the requested size', () => {
+    expect(leastPractisedKana(new Map(), ['あ', 'い', 'う', 'え'], 2)).toHaveLength(2)
+  })
+
+  /*
+   * Why this exists. A mora is only found weak once you have met it and failed
+   * it, so a drill pool built only from known weaknesses stops showing you
+   * anything else and new weaknesses never surface. Simulated over 150 runs the
+   * pool collapsed to four items and two genuinely hard moras were never shown
+   * once. Weakness exploits; this explores.
+   */
+  it('keeps naming unmet moras no matter how much has been practised', () => {
+    const corpus = ['あ', 'い', 'う', 'え', 'お']
+    const heavilyPractised = new Map(corpus.slice(0, 4).map((k) => [k, stat(500)]))
+    expect(leastPractisedKana(heavilyPractised, corpus, 1)).toEqual(['お'])
   })
 })

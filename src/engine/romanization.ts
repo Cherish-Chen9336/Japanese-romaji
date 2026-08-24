@@ -340,6 +340,43 @@ export function expectedKana(tokens: RomajiToken[], state: MatchState): string[]
 }
 
 /**
+ * The single token every live position now sits in, or null while they disagree.
+ *
+ * Where `expectedToken` asks "what could the next key advance", this asks "what
+ * did the key that just happened advance" — and that is usually decidable when
+ * the former is not. After `n` on んあ both ん and あ are possible; once `a` has
+ * been pressed, only あ is. Attributing before the keystroke instead of after it
+ * discarded the whole of あ.
+ */
+export function settledToken(
+  tokens: RomajiToken[],
+  state: MatchState,
+): { index: number; kana: string } | null {
+  const indices = new Set(state.positions.map((pos) => pos.tokenIndex))
+  if (indices.size !== 1) return null
+  const index = [...indices][0]
+  const token = tokens[index]
+  return token === undefined ? null : { index, kana: token.kana }
+}
+
+/** Hiragana and katakana, including the small forms and the long-vowel mark. */
+const MORA = /^[ぁ-ゖァ-ヺー]+$/
+
+/**
+ * Whether a token names a real mora and so belongs in mastery tracking.
+ *
+ * Not every token does. Word separators carry a space, and an item the kana
+ * table can't reach falls back to one token per romaji character — so an
+ * uploaded `日本語|nihongo` produced tokens named `n`, `i`, `h`, `o`, `g`.
+ * Left unfiltered those land in the per-kana table, can fill the weakest-kana
+ * list, and then match no Japanese item at all, so drills silently stop
+ * targeting anything real.
+ */
+export function isMoraToken(kana: string): boolean {
+  return MORA.test(kana)
+}
+
+/**
  * A keystroke that tolerates errors: correct keys advance as usual, and a wrong
  * key advances too — consuming one edge in every direction that was legal, and
  * letting later keystrokes kill the branches that turn out dead.
