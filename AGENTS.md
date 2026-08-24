@@ -87,7 +87,10 @@ Three properties this has to keep, each with tests that fail loudly if it breaks
 
 - **Wrong keys have two treatments, and `stopOnError` picks between them.**
   The default refuses the key: nothing is consumed, the cursor holds, and the
-  character still being waited for turns red. Every Japanese typing site does
+  **caret** turns solid red — never the text. Colouring the character being
+  waited for was tried and is a trap: red text reads as something you typed, so
+  the instinct is to backspace it, and backspace takes the correct character to
+  its left instead, because the refused key never entered the line. Every Japanese typing site does
   this, because romaji input assembles a kana rather than filling a slot — a key
   that half-assembles nothing leaves the typist mid-mora with no way to see what
   state they are in. Recovery costs one keypress, not a backspace.

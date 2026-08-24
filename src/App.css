@@ -982,15 +982,19 @@ meter::-webkit-meter-optimum-value {
 }
 
 /* Stop-on-error refuses the keystroke, so there is no wrong character in the
- * line to colour. The signal goes on the character still being waited for: it
- * turns red and the caret beside it follows, which reads as "not this one, that
- * one" rather than as a character you typed. */
-.char--rejected {
-  color: var(--color-error);
-}
-
+ * line to colour — and colouring the character still being *waited for* was a
+ * trap: red text reads as a character you typed, so the instinct is to backspace
+ * it, and backspace takes the correct character to its left instead, because the
+ * refused key never entered the line.
+ *
+ * The caret carries the signal instead. It is the cursor, not the text, so
+ * nothing on screen looks deletable. Solid rather than blinking, because the
+ * state it reports is "stuck here", and wider so it reads at a glance. */
 .char--rejected::after {
+  animation: none;
   background: var(--color-error);
+  opacity: 1;
+  width: 3px;
 }
 
 /* Kana in a stats row needs the Japanese face and a size that makes small
