@@ -26,7 +26,7 @@ const RUN = {
 function seeded() {
   const store = new InMemoryRecordStore()
   return (async () => {
-    await store.write('runs', [RUN])
+    await store.replaceRuns([RUN])
     await store.write('library', [{ kana: 'えき', romaji: 'eki' }])
     await store.write('misses', { k: 3 })
     await store.write('confusions', { 'a → b': 2 })
@@ -150,7 +150,7 @@ describe('export then import', () => {
     const text = await exportBackup(await seeded())
 
     const target = new InMemoryRecordStore()
-    await target.write('runs', [RUN, RUN, RUN])
+    await target.replaceRuns([RUN, RUN, RUN])
     await target.write('confusions', { 'x → y': 9 })
     await importBackup(target, text)
 

@@ -194,6 +194,15 @@ function App() {
     void recordStore.write(name, value).catch(() => setSaveFailed(true))
   }
 
+  /**
+   * One run, appended. Never the whole history: rewriting it on every save is
+   * what the separate run store exists to avoid, and the cost of that rewrite
+   * grew with the history rather than with what actually changed.
+   */
+  const persistRun = (run: RunResult): void => {
+    void recordStore.appendRun(run).catch(() => setSaveFailed(true))
+  }
+
   /** Puts a loaded profile into the signals. Shared by boot, import and reset. */
   const adoptProfile = (profile: StoredProfile) => {
     setRuns(profile.runs)
@@ -324,11 +333,8 @@ function App() {
     })
     // No cap. The 100-run limit existed to fit localStorage, and truncating
     // history is what used to make personal bests and streaks regress.
-    const nextRuns = [run, ...runs()]
-    setRuns(() => {
-      persistRecord('runs', nextRuns)
-      return nextRuns
-    })
+    persistRun(run)
+    setRuns((current) => [run, ...current])
     return run
   }
 

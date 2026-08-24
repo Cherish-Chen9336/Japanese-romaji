@@ -328,6 +328,9 @@ export function emptyProfile(): StoredProfile {
 export async function migrateLocalStorage(store: RecordStore): Promise<boolean> {
   const existing = await store.readAll()
   if (Object.keys(existing).length > 0) return false
+  // Run history lives in its own store now, so an empty `records` no longer
+  // means an empty profile — check both before deciding this is a fresh install.
+  if ((await store.readRuns()).length > 0) return false
 
   const runs = readJson<unknown>(RUNS_KEY, null)
   const library = readJson<unknown>(LIBRARY_KEY, null)
@@ -336,8 +339,9 @@ export async function migrateLocalStorage(store: RecordStore): Promise<boolean> 
   const confusions = readJson<unknown>(CONFUSIONS_KEY, null)
   if (runs === null && library === null && lifetime === null) return false
 
+  if (Array.isArray(runs)) await store.replaceRuns(runs)
+
   const carry: [RecordName, unknown][] = [
-    ['runs', runs],
     ['library', library],
     ['lifetime', lifetime],
     ['misses', misses],
@@ -355,8 +359,8 @@ export async function migrateLocalStorage(store: RecordStore): Promise<boolean> 
  * dropped exactly as one corrupted in localStorage was.
  */
 export async function loadProfile(store: RecordStore): Promise<StoredProfile> {
-  const raw = await store.readAll()
-  const runs = parseRuns(raw.runs)
+  const [raw, storedRuns] = await Promise.all([store.readAll(), store.readRuns()])
+  const runs = parseRuns(storedRuns)
   return {
     runs,
     library: parseLibrary(raw.library),

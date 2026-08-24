@@ -30,10 +30,18 @@ split: `engine/` pure logic → `io/` browser adapters → `ui/` SolidJS.
   vitest environment is `node` — this is where nearly all logic should live
   and where new features should be designed test-first.
 - **`src/io/`** — the only layer allowed to touch `localStorage`/`window`.
-  Storage is split on purpose. **Records** — run history, the library, lifetime
-  stats, the miss and confusion tables — live in IndexedDB (`io/records.ts`),
-  because they grow; run history used to be capped at 100 to fit localStorage.
-  **Preferences** — paragraph length, keyboard visibility and layout, kana
+  Storage is split on purpose. **Records** — the library, lifetime stats, the
+  miss and confusion tables — live in IndexedDB (`io/records.ts`), written whole
+  because each stays small. **Run history** has its own IndexedDB store
+  (`RUNS_STORE`, one record per run, `autoIncrement` keys) because it does not
+  stay small. As one blob, saving a run rewrote every run ever typed: measured in
+  Chromium at 197 ms against 5,000 runs and 926 ms against 20,000, growing
+  without bound. Appending one record measured 0.3–1 ms at every size. Use
+  `appendRun` to save; `replaceRuns` is for importing a backup, not for saving.
+  The v1 single-blob `records.runs` key migrates on first read and is deleted
+  rather than copied — it is the whole history, so leaving it doubles the
+  profile's size forever. **Preferences** — paragraph length, keyboard
+  visibility and layout, kana
   group, source — stay in localStorage, because reading them synchronously is
   what lets the first paint happen without awaiting a database. Records are
   parsed by the same validators the localStorage path used, so hardening applies

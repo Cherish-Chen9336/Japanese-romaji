@@ -471,7 +471,7 @@ describe('loadProfile', () => {
 
   it('parses every record through the same validators localStorage used', async () => {
     const store = new InMemoryRecordStore()
-    await store.write('runs', [
+    await store.replaceRuns([
       { source: 'kana', chars: 10, mistakes: 0, accuracy: 100, wpm: 40, elapsedMs: 3000, date: '2026-08-22T00:00:00.000Z' },
       { source: 'nonsense', chars: 1 },
     ])
@@ -488,7 +488,7 @@ describe('loadProfile', () => {
 
   it('bootstraps lifetime stats from the runs when the record is absent', async () => {
     const store = new InMemoryRecordStore()
-    await store.write('runs', [
+    await store.replaceRuns([
       { source: 'words', chars: 10, mistakes: 0, accuracy: 100, wpm: 45, elapsedMs: 20_000, date: '2026-08-01T00:00:00.000Z' },
     ])
     expect((await loadProfile(store)).lifetime.bestWpm).toBe(45)
@@ -496,7 +496,7 @@ describe('loadProfile', () => {
 
   it('drops a corrupt record rather than failing the whole load', async () => {
     const store = new InMemoryRecordStore()
-    await store.write('runs', 'not an array')
+    await store.replaceRuns(['not a run'])
     await store.write('lifetime', { bestWpm: 'fast' })
     const profile = await loadProfile(store)
     expect(profile.runs).toEqual([])
@@ -538,10 +538,27 @@ describe('migrateLocalStorage', () => {
   it('leaves a store that already holds records alone', async () => {
     localStorage.setItem(RUNS_KEY, JSON.stringify([legacyRun]))
     const store = new InMemoryRecordStore()
-    await store.write('runs', [])
+    await store.write('library', [])
 
     expect(await migrateLocalStorage(store)).toBe(false)
     expect((await loadProfile(store)).runs).toEqual([])
+  })
+
+  /*
+   * Run history lives in its own store now, so an empty `records` no longer
+   * means an empty profile. Someone whose only data is typing history must not
+   * have a stale localStorage profile merged in on top of it.
+   */
+  it('leaves a store that holds only run history alone', async () => {
+    localStorage.setItem(RUNS_KEY, JSON.stringify([legacyRun]))
+    localStorage.setItem(LIBRARY_KEY, JSON.stringify([{ kana: 'えき', romaji: 'eki' }]))
+    const store = new InMemoryRecordStore()
+    await store.appendRun({ ...legacyRun, wpm: 99 })
+
+    expect(await migrateLocalStorage(store)).toBe(false)
+    const profile = await loadProfile(store)
+    expect(profile.runs.map((run) => run.wpm)).toEqual([99])
+    expect(profile.library).toEqual([])
   })
 
   it('leaves the localStorage keys in place as the only copy until a write lands', async () => {

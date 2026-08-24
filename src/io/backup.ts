@@ -111,7 +111,7 @@ export async function importBackup(
 
   const { records, preferences } = parsed.backup
   await store.clear()
-  await store.write('runs', records.runs)
+  await store.replaceRuns(records.runs)
   await store.write('library', records.library)
   await store.write('lifetime', records.lifetime)
   await store.write('misses', records.misses)
