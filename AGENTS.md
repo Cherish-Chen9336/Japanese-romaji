@@ -242,6 +242,27 @@ sokuon. Chart groups are hardcoded, so a new `KanaGroup` needs adding in two
 places. Corpus-wide invariants read `allBankItems()` rather than a hand-listed
 set of banks, so a bank added later joins them by existing.
 
+### Finishing a run
+
+A completed run is **saved synchronously, at the moment it completes**; only the
+navigation to the result screen is deferred, and that timer is tracked so a reset
+cancels it.
+
+Both used to happen in one `setTimeout(…, 0)` that re-read the `session` and
+`lesson` signals when it fired. Tab and Enter both restart, so a restart keypress
+landing in that window — which ordinary fast typing reaches — reset the session
+first and the callback then recorded *the empty session* as the run. Reproduced
+in Chromium against the committed build: a finished 52-character run was
+discarded and a `chars: 0, wpm: 0` phantom written to the history in its place,
+with the app navigating to a result screen to display it. Phantom runs do not
+stay contained, either: lifetime totals, averages, personal bests and streak days
+are all derived from that same table.
+
+Saving from the arguments rather than the signals is what makes a completed run a
+completed run whatever happens next. Cancelling the navigation is separate, and
+is about not yanking a typist to a result screen for a run they have already
+moved on from.
+
 ### Closing the loop on the results card
 
 `weakAfterRun` feeds a "still weak" callout on the result screen. Without it the

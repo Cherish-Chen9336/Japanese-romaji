@@ -124,6 +124,8 @@ function App() {
 
   let hiddenInput: HTMLInputElement | undefined
   let savedCurrentRun = false
+  /** Pending navigation to the result screen; cancelled if the run is reset. */
+  let completionTimer: number | null = null
 
   /**
    * The lesson as the matcher and the screen both see it: one token per mora,
@@ -281,7 +283,15 @@ function App() {
     setRoute(next)
   }
 
+  const cancelCompletion = () => {
+    if (completionTimer !== null) {
+      clearTimeout(completionTimer)
+      completionTimer = null
+    }
+  }
+
   const resetRunState = () => {
+    cancelCompletion()
     savedCurrentRun = false
     setSession(emptySession())
   }
@@ -327,11 +337,19 @@ function App() {
     resetRunState()
   }
 
-  const saveCurrentRun = () => {
+  /*
+   * Takes the finished session and its lesson rather than reading the signals.
+   *
+   * It used to re-read them from inside a deferred callback, so anything that
+   * reset the run in that window — a restart keypress landing between the last
+   * keystroke and the timer, which fast typing reaches — had the completed run
+   * recorded against whatever state had replaced it.
+   */
+  const saveCurrentRun = (finished: SessionState, forLesson: Lesson) => {
     if (savedCurrentRun) return null
     savedCurrentRun = true
-    const currentSession = session()
-    const currentLesson = lesson()
+    const currentSession = finished
+    const currentLesson = forLesson
     const currentMetrics = computeMetrics(currentSession, Date.now())
     const run = buildRunResult(currentSession, currentLesson, currentMetrics)
     setLastRun(run)
@@ -375,12 +393,28 @@ function App() {
       })
     }
     if (result.completed) {
-      setTimeout(() => {
-        saveCurrentRun()
+      /*
+       * Recorded now, navigated to next.
+       *
+       * Both used to happen in a deferred callback that re-read the session and
+       * lesson signals, so a restart keypress landing in that window — which
+       * fast typing reaches, since Tab and Enter both reset — had the finished
+       * run written against the empty session that had replaced it: a phantom
+       * run in the history, and in the lifetime totals and streaks built from
+       * it. Saving here means a completed run is a completed run whatever
+       * happens next; only the navigation is deferred, and it is cancelled on a
+       * reset rather than yanking the typist to a result screen for a run they
+       * have already moved on from.
+       */
+      saveCurrentRun(result.session, lesson())
+      completionTimer = window.setTimeout(() => {
+        completionTimer = null
         navigate('result')
       }, 0)
     }
   }
+
+  onCleanup(cancelCompletion)
 
   const backspace = () => {
     setSession((current) => applyBackspace(current, tokens()))
