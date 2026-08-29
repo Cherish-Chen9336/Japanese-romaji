@@ -238,6 +238,49 @@ an already-known kana target rather than decoding romaji into kana, so it accept
 `n` before a vowel (んあ as `na`) where a real IME would require `nn`. Fine for
 transliteration practice; wrong if this ever becomes input-method training.
 
+## Deliberately not built
+
+Decisions to *not* do something leave no commit and no code, so they live here or
+nowhere. Each of these has been proposed at least once and rejected on purpose;
+re-proposing one is fine, but start from the reason it lost.
+
+The capability gap audit of 2026-08-21 (artifact
+`5d7fd5a8-93ee-42c7-a671-6fbc16d50d03`, measured against
+`/home/web-ella/githubs/type-review`) is the source of several of these. It is a
+useful inventory, but it measures this app against an **English** trainer, so
+"missing" in it sometimes means "does not apply". Where this section and that
+audit disagree, this section is current.
+
+- **A per-key mastery heatmap on the practice keyboard.** The audit lists it as a
+  missing capability because the reference has it. It does not transfer. One
+  Latin key types many moras — `n` alone covers な, に, ぬ, ね, の and ん — so a
+  tinted keycap cannot say which mora is at fault, and there is no honest way to
+  aggregate: worst-of makes one weak mora accuse five keys, average-of hides it,
+  and `shi`/`si`/`ci` make the projection unstable on top. `scoredKey` also drops
+  a miss whenever more than one key was legal — 12% of misses across the corpus,
+  21% in the difficult bank, so the loss is worst exactly where the material is
+  hardest. The practice keyboard already has a job, orientation and pressed-state
+  feedback, and persistent historical colour competes with it. Mastery belongs on
+  the 五十音 grid instead, which fits the data almost exactly: 104 of the 108
+  tracked moras sit on the chart, every chart cell is reachable from the corpus,
+  and the only four outside it are sokuon (っこ っし って っと).
+- **A keyboard heatmap tinted by speed, anywhere.** `keyStats` timing charges the
+  interval to the key just pressed, so whichever key *starts* a mora absorbs the
+  kana-recall pause. Twelve consonants — `b c d f g j m n p r w z` — never once
+  appear mid-mora in this corpus, while `a` and `o` are mora-initial 6% and 4% of
+  the time. A speed heatmap would light the consonant row for every user forever;
+  that is the CV structure of Japanese, not a finger problem anyone can act on.
+- **Speed as a second colour channel on the 五十音 mastery map.** Accuracy gets the
+  one colour channel; excess latency goes in the tooltip and in panels of its
+  own. This is the same rule `weakestKana` already follows — speed breaks ties
+  but never ranks a mora on its own — and one shade standing for two different
+  problems is what made the old `avgMs / 600 + errorRate` tint unreadable.
+- **Colemak/Dvorak keycap maps, digit and ASCII-punctuation drills, and
+  source-code passages.** All three are real capabilities in the reference and
+  all three are about typing English. Romaji has no digits or ASCII punctuation
+  to drill, 、 and 。 would need their own design rather than a toggle, and
+  remapping keycaps has near-zero value for someone learning kana on QWERTY.
+
 ## Shared Memory
 
 **Always write new instructions, rules, and memory to `AGENTS.md` only.**
