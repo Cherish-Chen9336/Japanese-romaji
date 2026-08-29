@@ -293,12 +293,23 @@ describe('computeMetrics', () => {
 describe('timing stats', () => {
   it('scores a correct keystroke against the key that was pressed', () => {
     const s = type(ABC, 'ai')
-    expect(s.keyStats['i']).toEqual({ attempts: 1, misses: 0, totalMs: 100 })
+    expect(s.keyStats['i']).toEqual({ attempts: 1, misses: 0, totalMs: 100, timingSamples: 1 })
   })
 
+  /*
+   * The first key of a run has nothing before it to measure against. It is an
+   * unobserved interval, not a zero-millisecond one, so it counts as an attempt
+   * and contributes no timing sample — otherwise the key drags its own average
+   * toward zero, and a key only ever pressed first reports itself as instant.
+   */
   it('scores a wrong keystroke against the key that was expected', () => {
     const result = applyTypeChar(emptySession(), 'x', ABC, T0)
-    expect(result.session.keyStats['a']).toEqual({ attempts: 1, misses: 1, totalMs: 0 })
+    expect(result.session.keyStats['a']).toEqual({
+      attempts: 1,
+      misses: 1,
+      totalMs: 0,
+      timingSamples: 0,
+    })
   })
 
   // With two legal continuations there is no single key at fault, and charging
@@ -525,6 +536,57 @@ describe('kana stats', () => {
     const half = type(tokenizeKana('しゃ'), 'sh')
     expect(half.pendingKana?.kana).toBe('しゃ')
     expect(applyBackspace(half, tokenizeKana('しゃ')).pendingKana).toBeNull()
+  })
+
+  /*
+   * The duration of a mora and the width to charge the baseline over. Without
+   * the width, `totalMs` is time-to-type-the-whole-spelling and rises with the
+   * number of letters: a flawless typist at a constant 100 ms recorded あ at 100
+   * and しゃ at 300 and looked three times worse at しゃ for no reason at all.
+   */
+  it('records how many timed keystrokes a duration covers', () => {
+    for (const [kana, romaji] of [['か', 'ka'], ['しゃ', 'sha'], ['ちゅ', 'chu']]) {
+      // Led in with あ so the mora under test has no untimed first keystroke.
+      const s = type(tokenizeKana(`あ${kana}`), `a${romaji}`)
+      const stat = s.kanaStats[kana]
+      expect(stat.keystrokes, kana).toBe(romaji.length)
+      expect(stat.totalMs, kana).toBe(100 * romaji.length)
+      expect(stat.timingSamples, kana).toBe(1)
+    }
+  })
+
+  /*
+   * At an ん boundary the interval genuinely cannot be attributed yet: in `nna`
+   * the second `n` opens な, but in `nnna` it belongs to ん and the third opens
+   * な, and no key so far says which. Both encounters give up their clock rather
+   * than claim an interval that may be the other's — but the attempt survives,
+   * so the error signal, which is the one that ranks a mora, is untouched.
+   */
+  it('gives up timing at an ambiguous boundary but keeps the encounter', () => {
+    const s = type(tokenizeKana('さんな'), 'sanna')
+    expect(s.kanaStats['ん'].attempts).toBe(1)
+    expect(s.kanaStats['な'].attempts).toBe(1)
+    expect(s.kanaStats['ん'].timingSamples).toBe(0)
+    expect(s.kanaStats['な'].timingSamples).toBe(0)
+    // Not merely absent from the table — present, and counted.
+    expect(s.kanaStats['ん'].totalMs).toBe(0)
+  })
+
+  /*
+   * After a miss the elapsed time is recovery time. Counted as latency it would
+   * charge one fumble twice — once to the error rate, again to the clock —
+   * making a mora look weak on an axis it never actually failed on.
+   */
+  it('keeps no duration for an encounter that was missed', () => {
+    const tokens = tokenizeKana('あしゃ')
+    // Fumbled mid-mora, after `s`, where the miss is unambiguously しゃ's.
+    const afterS = type(tokens, 'as')
+    const fumbled = applyTypeChar(afterS, 'q', tokens, T0 + 300, true).session
+    const done = type(tokens, 'ha', fumbled)
+    expect(done.kanaStats['しゃ'].attempts).toBe(1)
+    expect(done.kanaStats['しゃ'].misses).toBe(1)
+    expect(done.kanaStats['しゃ'].timingSamples).toBe(0)
+    expect(done.kanaStats['しゃ'].totalMs).toBe(0)
   })
 
   it('carries into the recorded run', () => {

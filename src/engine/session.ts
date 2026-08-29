@@ -10,7 +10,7 @@ import {
   type RecoveryStep,
   type RomajiToken,
 } from './romanization'
-import type { Lesson, RunResult, TimingStat } from './types'
+import type { Lesson, MoraTimingStat, RunResult, TimingStat } from './types'
 
 /** One keystroke, kept in order so backspace can undo and the line can be drawn. */
 export type TypedKey = {
@@ -45,13 +45,44 @@ export type SessionState = {
    * single fumble scored あ at 50% and しゃ at 25% — ranking the harder kana as
    * the easier one.
    */
-  kanaStats: Record<string, TimingStat>
+  kanaStats: Record<string, MoraTimingStat>
   /**
    * The mora being typed and what it has cost so far, held until the cursor
    * moves off it. Keyed by token index because ここ is two encounters with こ.
+   *
+   * `timed` is what decides whether this encounter's duration is usable at all.
+   * It goes false when any keystroke of the mora had no measurable interval, and
+   * when the parse was ambiguous while the mora was in progress — see
+   * `timingBlocked`. The encounter still counts as an attempt and still records
+   * a miss; only its clock is thrown away.
    */
-  pendingKana: { index: number; kana: string; ms: number; missed: boolean } | null
+  pendingKana: {
+    index: number
+    kana: string
+    ms: number
+    missed: boolean
+    keystrokes: number
+    timed: boolean
+  } | null
   intervals: number[]
+  /**
+   * Intervals from clean keystrokes only, the sample the run's baseline cadence
+   * is taken from. Misses are excluded because the interval after one measures
+   * recovery, which would raise the baseline and quietly forgive every mora.
+   */
+  cleanIntervals: number[]
+  /**
+   * Set while the matcher cannot say which mora a keystroke belongs to, and read
+   * by the *next* mora to open.
+   *
+   * At an ん boundary the interval is genuinely unattributable in advance: in
+   * `nna` the second `n` opens な, but in `nnna` it belongs to ん and the third
+   * opens な, and which one is true is not known until a later key kills a
+   * branch. Rather than follow the branches, the encounters either side of the
+   * ambiguity give up their timing — an omission, not a guess. Attempts and
+   * misses survive, so the error signal, which is the primary one, is untouched.
+   */
+  timingBlocked: boolean
   /** Timestamp of the last committed keystroke, right or wrong. */
   lastKeyAt: number | null
   /**
@@ -106,21 +137,71 @@ export function emptySession(): SessionState {
     kanaStats: {},
     pendingKana: null,
     intervals: [],
+    cleanIntervals: [],
+    timingBlocked: false,
     lastKeyAt: null,
     rejected: null,
   }
 }
 
+/**
+ * Records one attempt, and its duration only if there was one to record.
+ *
+ * A null `ms` is an unobserved interval, not an instant keystroke: the first key
+ * of a run has no predecessor to measure against, and `applyBackspace` clears
+ * `lastKeyAt` deliberately so the key after an edit has none either. Counted as
+ * zero they dragged every average down, and a key pressed only in those
+ * positions reported itself as infinitely fast.
+ */
 function updateStat(
   stats: Record<string, TimingStat>,
   key: string,
-  ms: number,
+  ms: number | null,
   miss: boolean,
 ): Record<string, TimingStat> {
-  const stat = stats[key] ?? { attempts: 0, misses: 0, totalMs: 0 }
+  const stat = stats[key] ?? { attempts: 0, misses: 0, totalMs: 0, timingSamples: 0 }
+  const samples = stat.timingSamples ?? stat.attempts
   return {
     ...stats,
-    [key]: { attempts: stat.attempts + 1, misses: stat.misses + (miss ? 1 : 0), totalMs: stat.totalMs + ms },
+    [key]: {
+      attempts: stat.attempts + 1,
+      misses: stat.misses + (miss ? 1 : 0),
+      totalMs: stat.totalMs + (ms ?? 0),
+      timingSamples: samples + (ms === null ? 0 : 1),
+    },
+  }
+}
+
+/**
+ * Banks one encounter with a mora.
+ *
+ * Duration is kept only for encounters that were both cleanly timed and
+ * mistake-free. After a miss the elapsed time is recovery time, and counting it
+ * would charge the same fumble twice — once to the error rate and again to the
+ * latency — making an already-weak mora look weak on a second axis it never
+ * failed on.
+ */
+function updateMoraStat(
+  stats: Record<string, MoraTimingStat>,
+  pending: NonNullable<SessionState['pendingKana']>,
+): Record<string, MoraTimingStat> {
+  const stat = stats[pending.kana] ?? {
+    attempts: 0,
+    misses: 0,
+    totalMs: 0,
+    timingSamples: 0,
+    keystrokes: 0,
+  }
+  const usable = pending.timed && !pending.missed
+  return {
+    ...stats,
+    [pending.kana]: {
+      attempts: stat.attempts + 1,
+      misses: stat.misses + (pending.missed ? 1 : 0),
+      totalMs: stat.totalMs + (usable ? pending.ms : 0),
+      timingSamples: (stat.timingSamples ?? stat.attempts) + (usable ? 1 : 0),
+      keystrokes: (stat.keystrokes ?? 0) + (usable ? pending.keystrokes : 0),
+    },
   }
 }
 
@@ -191,12 +272,14 @@ export function applyTypeChar(
     ? rejectingStep(tokens, state.match, char)
     : { ...stepWithRecovery(tokens, state.match, char), consumed: true }
   const startedAt = state.startedAt ?? now
-  // Clamped at both ends. The upper bound is the pause cap; the lower bound
+  // Null where there is nothing to measure against: the first key of a run, and
+  // the first after a backspace, which clears `lastKeyAt` on purpose. Clamped at
+  // both ends otherwise. The upper bound is the pause cap; the lower bound
   // matters because `now` comes from a wall clock that can step backwards (an
   // NTP correction, a manual change), and a negative interval poisoned the
   // timing totals and the elapsed time with it.
   const interval =
-    state.lastKeyAt === null ? 0 : Math.max(0, Math.min(PAUSE_CAP_MS, now - state.lastKeyAt))
+    state.lastKeyAt === null ? null : Math.max(0, Math.min(PAUSE_CAP_MS, now - state.lastKeyAt))
 
   const key = scoredKey(char, step.correct, step.legal)
   const previous = state.keys[state.keys.length - 1]
@@ -231,19 +314,25 @@ export function applyTypeChar(
   const landed = settledToken(tokens, step.state)
   let kanaStats = state.kanaStats
   let pendingKana = state.pendingKana
+  let timingBlocked = state.timingBlocked
 
   const bank = (pending: NonNullable<SessionState['pendingKana']>) =>
-    updateStat(kanaStats, pending.kana, pending.ms, pending.missed)
+    updateMoraStat(kanaStats, pending)
 
   if (landed === null) {
-    // Still undecided — keep accumulating against the mora we were already on.
+    // Still undecided — keep accumulating against the mora we were already on,
+    // but the clock is no longer trustworthy: this interval may belong to the
+    // mora after it, and which is true depends on a branch not yet resolved.
     if (pendingKana !== null) {
       pendingKana = {
         ...pendingKana,
-        ms: pendingKana.ms + interval,
+        ms: pendingKana.ms + (interval ?? 0),
+        keystrokes: pendingKana.keystrokes + 1,
         missed: pendingKana.missed || !step.correct,
+        timed: false,
       }
     }
+    timingBlocked = true
   } else {
     const trackable = isMoraToken(landed.kana)
     if (pendingKana !== null && (!trackable || pendingKana.index !== landed.index)) {
@@ -254,10 +343,15 @@ export function applyTypeChar(
       pendingKana = {
         index: landed.index,
         kana: landed.kana,
-        ms: (pendingKana?.ms ?? 0) + interval,
+        ms: (pendingKana?.ms ?? 0) + (interval ?? 0),
         missed: (pendingKana?.missed ?? false) || !step.correct,
+        keystrokes: (pendingKana?.keystrokes ?? 0) + 1,
+        // A mora opening straight out of an ambiguous boundary has lost its
+        // first interval to that ambiguity, so it is not cleanly timed either.
+        timed: (pendingKana?.timed ?? true) && interval !== null && !timingBlocked,
       }
     }
+    timingBlocked = false
   }
 
   if (step.done && pendingKana !== null) {
@@ -290,7 +384,12 @@ export function applyTypeChar(
     bigramStats,
     kanaStats,
     pendingKana,
-    intervals: interval > 0 ? [...state.intervals, interval] : state.intervals,
+    intervals: interval !== null && interval > 0 ? [...state.intervals, interval] : state.intervals,
+    cleanIntervals:
+      step.correct && interval !== null && interval > 0
+        ? [...state.cleanIntervals, interval]
+        : state.cleanIntervals,
+    timingBlocked,
     lastKeyAt: now,
   }
 
@@ -327,7 +426,15 @@ export function applyBackspace(state: SessionState, tokens: RomajiToken[]): Sess
   // it timed the next key against one the edit removed: typing a, x, backspace,
   // i recorded an "ai" pair whose label came from the surviving keys and whose
   // duration came from x→i — a measurement of neither sequence.
-  return { ...state, keys, match: matchFor(tokens, keys), lastKeyAt: null, rejected: null, pendingKana: null }
+  return {
+    ...state,
+    keys,
+    match: matchFor(tokens, keys),
+    lastKeyAt: null,
+    rejected: null,
+    pendingKana: null,
+    timingBlocked: false,
+  }
 }
 
 export function computeMetrics(state: SessionState, now: number): SessionMetrics {
@@ -358,12 +465,32 @@ export function computeMetrics(state: SessionState, now: number): SessionMetrics
   return { wpm, rawWpm, accuracy, consistency, elapsedMs }
 }
 
+/**
+ * The typist's own cadence for this run: the median interval between clean
+ * keystrokes.
+ *
+ * Median rather than mean because a single long pause — a glance at the screen,
+ * a thought about the next word — would drag a mean up and forgive every mora in
+ * the run. Null below a few samples, where the number would be an accident of
+ * one or two keystrokes rather than a cadence; a run that short simply
+ * contributes no excess.
+ */
+const MIN_BASELINE_SAMPLES = 5
+
+export function baselineInterval(cleanIntervals: readonly number[]): number | null {
+  if (cleanIntervals.length < MIN_BASELINE_SAMPLES) return null
+  const sorted = [...cleanIntervals].sort((a, b) => a - b)
+  const mid = Math.floor(sorted.length / 2)
+  return sorted.length % 2 === 1 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
+}
+
 export function buildRunResult(
   state: SessionState,
   lesson: Lesson,
   metrics: SessionMetrics,
   isoNow: () => string = () => new Date().toISOString(),
 ): RunResult {
+  const baseline = baselineInterval(state.cleanIntervals)
   return {
     source: lesson.source,
     // What was actually typed, not the canonical spelling's length — a run
@@ -379,5 +506,6 @@ export function buildRunResult(
     keyStats: state.keyStats,
     bigramStats: state.bigramStats,
     kanaStats: state.kanaStats,
+    ...(baseline === null ? {} : { baselineMs: baseline }),
   }
 }

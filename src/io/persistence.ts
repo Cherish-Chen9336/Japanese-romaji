@@ -8,7 +8,7 @@ import type {
   Settings,
   SourceName,
   TextItem,
-  TimingStat,
+  MoraTimingStat,
 } from '../engine/types'
 import type { RecordName, RecordStore } from './records'
 import { readJson, writeJson } from './storage'
@@ -83,6 +83,7 @@ function normalizeRun(item: unknown): RunResult {
     keyStats: readTimingStats(r.keyStats),
     bigramStats: readTimingStats(r.bigramStats),
     kanaStats: readTimingStats(r.kanaStats),
+    ...(isNum(r.baselineMs) && r.baselineMs > 0 ? { baselineMs: r.baselineMs } : {}),
   }
 }
 
@@ -96,15 +97,27 @@ function isRecord(v: unknown): boolean {
  * stats page tried to add up `stat.attempts` — a corrupt key taking down the
  * whole page rather than being dropped.
  */
-function readTimingStats(raw: unknown): Record<string, TimingStat> | undefined {
+function readTimingStats(raw: unknown): Record<string, MoraTimingStat> | undefined {
   if (!isRecord(raw)) return undefined
-  const out: Record<string, TimingStat> = {}
+  const out: Record<string, MoraTimingStat> = {}
   for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
     if (!isRecord(value)) continue
     const stat = value as Record<string, unknown>
     if (!isNum(stat.attempts) || !isNum(stat.misses) || !isNum(stat.totalMs)) continue
     if (stat.attempts < 0 || stat.misses < 0 || stat.totalMs < 0) continue
-    out[key] = { attempts: stat.attempts, misses: stat.misses, totalMs: stat.totalMs }
+    // Both optional, and both are dropped rather than defaulted when missing or
+    // invalid. Absent, the reader falls back to `attempts` as the denominator,
+    // which is what a run written before these existed already reported;
+    // defaulting them to zero here would instead erase that run's timings.
+    const timingSamples = isNum(stat.timingSamples) && stat.timingSamples >= 0 ? stat.timingSamples : undefined
+    const keystrokes = isNum(stat.keystrokes) && stat.keystrokes >= 0 ? stat.keystrokes : undefined
+    out[key] = {
+      attempts: stat.attempts,
+      misses: stat.misses,
+      totalMs: stat.totalMs,
+      ...(timingSamples === undefined ? {} : { timingSamples }),
+      ...(keystrokes === undefined ? {} : { keystrokes }),
+    }
   }
   return out
 }

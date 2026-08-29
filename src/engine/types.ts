@@ -54,7 +54,21 @@ export type RunResult = {
   keyStats?: Record<string, TimingStat>
   bigramStats?: Record<string, TimingStat>
   /** Per-mora timing. Absent on runs recorded before kana were tracked. */
-  kanaStats?: Record<string, TimingStat>
+  kanaStats?: Record<string, MoraTimingStat>
+  /**
+   * This run's median clean inter-keystroke interval — the typist's own cadence
+   * on the day, and the unit `kanaStats` excess is measured against.
+   *
+   * Stored per run rather than computed across all of them because it is a
+   * property of the sitting: tired and quick are different baselines, and
+   * subtracting one run's cadence from another's timings would report the
+   * difference between the two days as difficulty with a kana.
+   *
+   * Absent when the run was too short to establish one, and on every run
+   * recorded before this existed. Those runs contribute attempts and misses but
+   * no excess, which is the honest reading — the number cannot be reconstructed.
+   */
+  baselineMs?: number
 }
 
 /** Shape that may arrive from localStorage — wpm is optional for legacy records. */
@@ -104,9 +118,49 @@ export type TimingStat = {
   attempts: number
   misses: number
   totalMs: number
+  /**
+   * Encounters actually behind `totalMs`, which is not every attempt.
+   *
+   * The first keystroke of a run has no preceding key to measure against, and
+   * `applyBackspace` clears `lastKeyAt` on purpose, so the key after an edit has
+   * none either. Those are unobserved, not zero-millisecond observations, and
+   * dividing `totalMs` by every attempt counted them as instant.
+   *
+   * Optional because runs recorded before this existed have none. Absent, the
+   * denominator falls back to `attempts`, which reproduces exactly what those
+   * runs already displayed rather than restating their history.
+   */
+  timingSamples?: number
+}
+
+/**
+ * Per-mora timing, which needs one field a key does not.
+ *
+ * `totalMs` for a mora is the time to type its whole spelling, so it scales with
+ * how many letters that spelling takes: a flawless typist at a constant 100 ms
+ * records あ at 100 and しゃ at 300 without once hesitating. `keystrokes` is what
+ * makes the two comparable — the expected cost of the spelling can be subtracted
+ * from the observed cost, leaving only the part the typist actually owns.
+ */
+export type MoraTimingStat = TimingStat & {
+  /** Timed keystrokes behind `totalMs`, the width to charge the baseline over. */
+  keystrokes?: number
 }
 
 export type AggregatedTimingStat = TimingStat & {
   avgMs: number
   errorRate: number
+}
+
+/**
+ * A mora's timing after the spelling's own cost has been taken out.
+ *
+ * `avgExcessMs` is the hesitation this mora costs beyond what its length
+ * explains, in milliseconds, and it is comparable across moras of any spelling
+ * length. Zero means "typed at your own ordinary cadence"; negative means faster
+ * than that, which is a real thing a well-known mora does.
+ */
+export type AggregatedMoraStat = AggregatedTimingStat & {
+  excessMs: number
+  avgExcessMs: number
 }

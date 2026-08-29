@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest'
+import { applyTypeChar, buildRunResult, computeMetrics, emptySession } from './session'
+import { tokenizeKana } from './romanization'
 import {
   dailyCounts,
   dayKey,
   emptyLifetimeStats,
   lifetimeStatsFromRuns,
+  mergeMoraStats,
   mergeTimingStats,
   newlyReachedMilestones,
   recentDayKeys,
@@ -182,7 +185,17 @@ describe('mergeTimingStats', () => {
     const statB: TimingStat = { attempts: 3, misses: 0, totalMs: 300 }
     const runs = [run({ keyStats: { a: statA } }), run({ keyStats: { a: statB } })]
     const merged = mergeTimingStats(runs, 'keyStats')
-    expect(merged.get('a')).toEqual({ attempts: 5, misses: 1, totalMs: 500, avgMs: 100, errorRate: 0.2 })
+    // Neither run carries `timingSamples` — the shape written before durations
+    // were counted apart from attempts. The denominator falls back to attempts,
+    // so these runs still report exactly the average they always did.
+    expect(merged.get('a')).toEqual({
+      attempts: 5,
+      misses: 1,
+      totalMs: 500,
+      timingSamples: 5,
+      avgMs: 100,
+      errorRate: 0.2,
+    })
   })
 
   it('treats a missing keyStats/bigramStats field as empty', () => {
@@ -201,14 +214,34 @@ describe('topTimingStats', () => {
     expect(top.map(([key]) => key)).toEqual(['common'])
   })
 
-  it('sorts by avgMs + errorRate * 500, descending, and respects the limit', () => {
+  /*
+   * Time alone. The old comparator added `errorRate * 500` to the average, an
+   * undocumented exchange rate between speed and accuracy, and it put a clean
+   * 200 ms key below an error-prone 50 ms one in a list headed "slowest" whose
+   * only column is milliseconds — the reader had no way to see why.
+   */
+  it('sorts by time alone, descending, and respects the limit', () => {
     const stats = new Map([
-      ['slow', { attempts: 2, misses: 0, totalMs: 400, avgMs: 200, errorRate: 0 }],
-      ['error-prone', { attempts: 2, misses: 2, totalMs: 100, avgMs: 50, errorRate: 1 }],
-      ['fast', { attempts: 2, misses: 0, totalMs: 20, avgMs: 10, errorRate: 0 }],
+      ['slow', { attempts: 2, misses: 0, totalMs: 400, timingSamples: 2, avgMs: 200, errorRate: 0 }],
+      ['error-prone', { attempts: 2, misses: 2, totalMs: 100, timingSamples: 2, avgMs: 50, errorRate: 1 }],
+      ['fast', { attempts: 2, misses: 0, totalMs: 20, timingSamples: 2, avgMs: 10, errorRate: 0 }],
     ])
     const top = topTimingStats(stats, 2)
-    expect(top.map(([key]) => key)).toEqual(['error-prone', 'slow'])
+    expect(top.map(([key]) => key)).toEqual(['slow', 'error-prone'])
+  })
+
+  /*
+   * Gated on measured durations, not attempts. A key seen twice but never in a
+   * timeable position has no average to rank on, and ranking it on the zero it
+   * was never observed to take put it at the bottom of a "slowest" list as if
+   * that had been measured.
+   */
+  it('excludes a key with attempts but no timed samples', () => {
+    const stats = new Map([
+      ['untimed', { attempts: 5, misses: 0, totalMs: 0, timingSamples: 0, avgMs: 0, errorRate: 0 }],
+      ['timed', { attempts: 2, misses: 0, totalMs: 200, timingSamples: 2, avgMs: 100, errorRate: 0 }],
+    ])
+    expect(topTimingStats(stats, 10).map(([key]) => key)).toEqual(['timed'])
   })
 })
 
@@ -255,12 +288,16 @@ describe('wpmDistribution', () => {
 })
 
 describe('weakestKana', () => {
+  /* `avgMs` here is excess time — what the mora cost beyond its spelling. */
   const stat = (attempts: number, misses: number, avgMs: number) => ({
     attempts,
     misses,
     totalMs: avgMs * attempts,
+    timingSamples: attempts,
     avgMs,
     errorRate: misses / attempts,
+    excessMs: avgMs * attempts,
+    avgExcessMs: avgMs,
   })
 
   it('ranks the highest error rate first', () => {
@@ -369,5 +406,97 @@ describe('leastPractisedKana', () => {
     const corpus = ['あ', 'い', 'う', 'え', 'お']
     const heavilyPractised = new Map(corpus.slice(0, 4).map((k) => [k, stat(500)]))
     expect(leastPractisedKana(heavilyPractised, corpus, 1)).toEqual(['お'])
+  })
+})
+
+describe('mergeMoraStats', () => {
+  /**
+   * Drives the real session so these assertions run against the engine that
+   * records the numbers, not against a hand-built fixture that could agree with
+   * a broken implementation. `gapsMs` is the pause before each keystroke.
+   */
+  function runOf(kana: string, romaji: string, gapsMs: number[]) {
+    const tokens = tokenizeKana(kana)
+    let state = emptySession()
+    let at = 1_000
+    romaji.split('').forEach((char, index) => {
+      at += gapsMs[index]
+      state = applyTypeChar(state, char, tokens, at, true).session
+    })
+    const lesson = { kana, romaji, source: 'words' as const, items: [{ kana, romaji }] }
+    return buildRunResult(state, lesson, computeMetrics(state, at), () => '2026-08-01T00:00:00.000Z')
+  }
+
+  const steady = (romaji: string) => new Array(romaji.length).fill(100)
+
+  /*
+   * The bug this whole statistic exists to fix. A flawless typist at a constant
+   * 100 ms, no mistakes and no hesitation anywhere, used to record あ at 0 ms,
+   * か at 200 and しゃ at 300 — and `weakestKana` broke ties on that, handing the
+   * tie to whichever mora was spelled with more letters. Subtracting the run's
+   * own cadence once per keystroke leaves nothing, which is the truth: this
+   * typist found none of them hard.
+   */
+  it('charges no excess to a mora typed at the run\'s own cadence, whatever its length', () => {
+    const kana = 'あかしゃちゅ'
+    const romaji = 'akashachu'
+    const merged = mergeMoraStats([runOf(kana, romaji, steady(romaji))])
+    for (const mora of ['か', 'しゃ', 'ちゅ']) {
+      expect(merged.get(mora)?.avgExcessMs, mora).toBe(0)
+    }
+    // All three genuinely measured — a zero from having no samples would pass
+    // the assertion above while measuring nothing at all.
+    for (const mora of ['か', 'しゃ', 'ちゅ']) {
+      expect(merged.get(mora)?.timingSamples, mora).toBe(1)
+    }
+  })
+
+  /*
+   * The other half of comparability: an identical stall has to score identically
+   * whatever the spelling costs. Dividing by keystrokes instead — the obvious
+   * alternative — scored this 400 on あ and 133 on ちゅ, making the longer mora
+   * look easier for exactly the same hesitation.
+   */
+  it('charges an identical hesitation identically, whatever the spelling length', () => {
+    const kana = 'あかしゃちゅ'
+    const romaji = 'akashachu'
+    const stall = steady(romaji)
+    stall[6] = 500 // the pause before ちゅ's first key
+    const merged = mergeMoraStats([runOf(kana, romaji, stall)])
+    expect(merged.get('ちゅ')?.avgExcessMs).toBe(400)
+    expect(merged.get('か')?.avgExcessMs).toBe(0)
+  })
+
+  /*
+   * The baseline belongs to the sitting. Pooling raw totals across runs and
+   * subtracting one overall cadence would report the gap between a quick day and
+   * a slow one as difficulty with a kana: here the second run is uniformly twice
+   * as slow, and neither run contains a moment of hesitation.
+   */
+  it('measures each run against its own cadence, not a pooled one', () => {
+    const kana = 'あかしゃちゅ'
+    const romaji = 'akashachu'
+    const slow = new Array(romaji.length).fill(200)
+    const merged = mergeMoraStats([runOf(kana, romaji, steady(romaji)), runOf(kana, romaji, slow)])
+    expect(merged.get('しゃ')?.excessMs).toBe(0)
+    expect(merged.get('しゃ')?.timingSamples).toBe(2)
+  })
+
+  /*
+   * A run written before baselines existed still knows what it got wrong. Its
+   * durations are whole-mora totals that cannot be converted into excess, and
+   * borrowing another run's cadence to convert them would invent a number.
+   */
+  it('reads a run with no baseline for accuracy and not for time', () => {
+    const legacy = run({ kanaStats: { し: { attempts: 4, misses: 1, totalMs: 1_200 } } })
+    const merged = mergeMoraStats([legacy])
+    expect(merged.get('し')?.attempts).toBe(4)
+    expect(merged.get('し')?.errorRate).toBe(0.25)
+    expect(merged.get('し')?.timingSamples).toBe(0)
+    expect(merged.get('し')?.excessMs).toBe(0)
+  })
+
+  it('treats a missing kanaStats field as empty', () => {
+    expect(mergeMoraStats([run()]).size).toBe(0)
   })
 })

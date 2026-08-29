@@ -86,6 +86,51 @@ easier one — and a three-letter kana cleared a "seen three times" floor on its
 first appearance. The pending mora is identified by *token index*, not by name,
 because ここ is two separate encounters with こ.
 
+**A mora's duration is measured as excess over the run's own cadence.** Raw
+`totalMs` is time-to-type-the-whole-spelling, so it rises with the number of
+letters: a flawless typist at a constant 100 ms recorded あ at 0 ms, か at 200 and
+しゃ at 300, having hesitated nowhere. `weakestKana` broke ties on that, handing
+the tie to whichever mora was spelled with more letters. `mergeMoraStats`
+subtracts `keystrokes × run.baselineMs` — the run's median clean inter-keystroke
+interval — leaving only the hesitation the typist actually owns. Three rejected
+alternatives, each a trap: **onset only** (the pause before the first keystroke)
+misses the mid-mora decision, which for しゃ is exactly where `sha` vs `sya` is
+recalled; **dividing by keystroke count** reintroduces the dilution that per-mora
+counting exists to remove, scoring one 500 ms stall as 500 on あ but 233 on しゃ;
+**max interval** gives a three-key spelling three chances to draw a large value
+where a one-key spelling gets one. The baseline is per run because it belongs to
+the sitting — subtracting one run's cadence from another's timings reports the
+difference between a tired day and a quick one as difficulty with a kana. Excess
+is summed **signed**; clamping negatives per encounter would let long spellings
+collect positive noise from more keystrokes than short ones can.
+
+**Durations are kept only for encounters that were cleanly timed and
+mistake-free.** `timingSamples` is the denominator, not `attempts`. The first key
+of a run has no predecessor to measure against and `applyBackspace` clears
+`lastKeyAt` on purpose, so the key after an edit has none either — those are
+unobserved intervals, not zero-millisecond ones, and counting them as zero made a
+key pressed only in those positions report itself as instant. Time after a miss
+is recovery time; counting it would charge one fumble twice, to the error rate
+and again to the clock. At an ん boundary the interval is genuinely
+unattributable — in `nna` the second `n` opens な, but in `nnna` it belongs to ん —
+so both encounters give up their clock rather than guess. The attempt and the
+miss always survive, so the error signal, which is the one that ranks a mora, is
+never affected by any of this.
+
+Absent `timingSamples` means "written before this existed" and falls back to
+`attempts`, reproducing exactly what those runs already displayed. That, and
+storing excess in new fields rather than redefining `totalMs`, is why this needed
+no migration, no `DB_VERSION` bump and no backup version bump.
+
+**Nothing ranks on speed blended into accuracy.** `topTimingStats` sorts on time
+alone and `smoothedErrorRate` drives the key heatmap's opacity alone. The old
+`avgMs + errorRate * 500` and `avgMs / 600 + errorRate` were not unit errors — a
+rate times milliseconds is milliseconds — but something worse: an arbitrary,
+undocumented exchange rate between speed and accuracy, feeding a list headed
+"slowest" whose only column was milliseconds, and a keyboard tint where one shade
+stood for two different problems. Where a surface has one channel, accuracy gets
+it; speed goes in the tooltip or a panel of its own.
+
 `weakestKana` ranks on a **smoothed** error rate rather than a raw one behind a
 minimum-attempts gate. The gate threw away the strongest signal available: a
 mora missed on both of the two times it has been seen is more clearly weak than

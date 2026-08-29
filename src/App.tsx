@@ -23,7 +23,8 @@ import {
   sourceBreakdown,
   streakStats,
   topTimingStats,
-  kanaWeakness,
+  mergeMoraStats,
+  smoothedErrorRate,
   leastPractisedKana,
   unlockedMilestones,
   weakestKana,
@@ -161,7 +162,7 @@ function App() {
   const bigramStats = createMemo(() => mergeTimingStats(runs(), 'bigramStats'))
   const slowKeys = createMemo(() => topTimingStats(keyStats(), 12))
   const slowBigrams = createMemo(() => topTimingStats(bigramStats(), 8))
-  const kanaStats = createMemo(() => mergeTimingStats(runs(), 'kanaStats'))
+  const kanaStats = createMemo(() => mergeMoraStats(runs()))
   const weakestMoras = createMemo(() => weakestKana(kanaStats(), 8))
   /*
    * Drill targets are the weakest moras *plus* the least-practised ones. Weakness
@@ -823,7 +824,7 @@ function App() {
 
             <div class="stats-grid-2">
               <section class="panel">
-                <h2>slow / missed keys</h2>
+                <h2>missed keys</h2>
                 <div class="mini-keyboard">
                   <For each={['qwertyuiop', 'asdfghjkl', 'zxcvbnm']}>
                     {(row) => (
@@ -831,21 +832,28 @@ function App() {
                         <For each={row.split('')}>
                           {(letter) => {
                             const count = () => missMap()[letter] ?? 0
+                            const stat = () => keyStats().get(letter)
                             return (
                               <span
                                 class="mini-key"
                                 style={{
+                                  /*
+                                   * Accuracy alone. This used to blend latency in
+                                   * as `avgMs / 600 + errorRate`, which made one
+                                   * shade stand for two different problems with an
+                                   * undocumented rate of exchange between them —
+                                   * and a dark key gave the reader no way to tell
+                                   * whether they were slow on it or wrong on it.
+                                   * Speed keeps its own panel and the tooltip.
+                                   */
                                   opacity: String(
-                                    0.24 +
-                                      Math.min(
-                                        0.76,
-                                        ((keyStats().get(letter)?.avgMs ?? 0) / 600) +
-                                          (keyStats().get(letter)?.errorRate ?? 0),
-                                      ),
+                                    0.24 + 0.76 * (stat()?.misses ? smoothedErrorRate(stat()!) : 0),
                                   ),
                                 }}
                                 title={`${letter}: ${count()} misses · ${Math.round(
-                                  keyStats().get(letter)?.avgMs ?? 0,
+                                  (stat()?.errorRate ?? 0) * 100,
+                                )}% of ${stat()?.attempts ?? 0} · ${Math.round(
+                                  stat()?.avgMs ?? 0,
                                 )} ms avg`}
                               >
                                 {letter}
@@ -877,8 +885,8 @@ function App() {
                             displaying 60% above 100%. */}
                         <meter
                           min="0"
-                          max={Math.max(0.01, kanaWeakness(weakestMoras()[0]?.[1] ?? stat))}
-                          value={kanaWeakness(stat)}
+                          max={Math.max(0.01, smoothedErrorRate(weakestMoras()[0]?.[1] ?? stat))}
+                          value={smoothedErrorRate(stat)}
                         />
                         <b>
                           {stat.misses}/{stat.attempts} · {Math.round(stat.avgMs)} ms

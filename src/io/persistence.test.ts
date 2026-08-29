@@ -447,6 +447,83 @@ describe('corrupt stored data cannot crash the app', () => {
     expect(readRuns()[0].keyStats).toEqual({ b: { attempts: 1, misses: 0, totalMs: 10 } })
   })
 
+  /*
+   * Both fields are optional, and the distinction matters: absent means "this
+   * run predates the field", which makes the reader fall back to `attempts` as
+   * the denominator and report exactly what the run always reported. Defaulting
+   * them to zero here would instead tell the reader the run timed nothing.
+   */
+  it('keeps the timing sample count and keystroke width when a run carries them', () => {
+    localStorage.setItem(
+      RUNS_KEY,
+      JSON.stringify([
+        {
+          source: 'words',
+          chars: 10,
+          mistakes: 0,
+          accuracy: 100,
+          wpm: 30,
+          elapsedMs: 5000,
+          date: '2026-08-01T00:00:00.000Z',
+          baselineMs: 120,
+          kanaStats: { し: { attempts: 3, misses: 1, totalMs: 600, timingSamples: 2, keystrokes: 6 } },
+        },
+      ]),
+    )
+    const back = readRuns()[0]
+    expect(back.baselineMs).toBe(120)
+    expect(back.kanaStats?.['し']).toEqual({
+      attempts: 3,
+      misses: 1,
+      totalMs: 600,
+      timingSamples: 2,
+      keystrokes: 6,
+    })
+  })
+
+  it('leaves the new timing fields off a run that never had them', () => {
+    localStorage.setItem(
+      RUNS_KEY,
+      JSON.stringify([
+        {
+          source: 'words',
+          chars: 10,
+          mistakes: 0,
+          accuracy: 100,
+          wpm: 30,
+          elapsedMs: 5000,
+          date: '2026-08-01T00:00:00.000Z',
+          kanaStats: { し: { attempts: 3, misses: 1, totalMs: 600 } },
+        },
+      ]),
+    )
+    const back = readRuns()[0]
+    expect(back.baselineMs).toBeUndefined()
+    expect(back.kanaStats?.['し']).toEqual({ attempts: 3, misses: 1, totalMs: 600 })
+  })
+
+  it('drops a corrupt timing sample count rather than trusting it', () => {
+    localStorage.setItem(
+      RUNS_KEY,
+      JSON.stringify([
+        {
+          source: 'words',
+          chars: 10,
+          mistakes: 0,
+          accuracy: 100,
+          wpm: 30,
+          elapsedMs: 5000,
+          date: '2026-08-01T00:00:00.000Z',
+          baselineMs: -5,
+          kanaStats: { し: { attempts: 3, misses: 1, totalMs: 600, timingSamples: -2, keystrokes: 'six' } },
+        },
+      ]),
+    )
+    const back = readRuns()[0]
+    expect(back.baselineMs).toBeUndefined()
+    expect(back.kanaStats?.['し']).toEqual({ attempts: 3, misses: 1, totalMs: 600 })
+  })
+
   it('drops a streak day that is not a real date', () => {
     localStorage.setItem(
       LIFETIME_KEY,

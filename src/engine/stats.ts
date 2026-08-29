@@ -1,4 +1,12 @@
-import type { AggregatedTimingStat, LifetimeStats, RunResult, SourceName, TimingStat, Unlock } from './types'
+import type {
+  AggregatedMoraStat,
+  AggregatedTimingStat,
+  LifetimeStats,
+  RunResult,
+  SourceName,
+  TimingStat,
+  Unlock,
+} from './types'
 
 export function dayKey(dateString: string): string {
   return new Date(dateString).toISOString().slice(0, 10)
@@ -93,14 +101,19 @@ export function mergeTimingStats(
   runs: RunResult[],
   field: 'keyStats' | 'bigramStats' | 'kanaStats',
 ): Map<string, AggregatedTimingStat> {
-  const merged = new Map<string, TimingStat>()
+  const merged = new Map<string, Required<TimingStat>>()
   for (const run of runs) {
     const stats = run[field] ?? {}
     for (const [key, stat] of Object.entries(stats)) {
-      const current = merged.get(key) ?? { attempts: 0, misses: 0, totalMs: 0 }
+      const current = merged.get(key) ?? { attempts: 0, misses: 0, totalMs: 0, timingSamples: 0 }
       current.attempts += stat.attempts
       current.misses += stat.misses
       current.totalMs += stat.totalMs
+      // Absent on runs recorded before durations were counted separately from
+      // attempts. Falling back to `attempts` reproduces exactly what those runs
+      // already displayed, rather than rewriting their history to say something
+      // they never measured.
+      current.timingSamples += stat.timingSamples ?? stat.attempts
       merged.set(key, current)
     }
   }
@@ -109,20 +122,89 @@ export function mergeTimingStats(
   for (const [key, stat] of merged) {
     aggregated.set(key, {
       ...stat,
-      avgMs: stat.attempts > 0 ? stat.totalMs / stat.attempts : 0,
+      avgMs: stat.timingSamples > 0 ? stat.totalMs / stat.timingSamples : 0,
       errorRate: stat.attempts > 0 ? stat.misses / stat.attempts : 0,
     })
   }
   return aggregated
 }
 
+/**
+ * Per-mora stats with the cost of each spelling taken back out.
+ *
+ * `totalMs` for a mora is the time to type all of its letters, so it rises with
+ * the length of the spelling whether or not the typist hesitated: a flawless
+ * 100 ms cadence records あ at 100 and しゃ at 300. Subtracting the run's own
+ * baseline once per keystroke leaves the hesitation and nothing else, so the two
+ * become comparable — both score zero above, and an identical 400 ms stall
+ * scores 400 on either.
+ *
+ * The subtraction is done per run, before summing, because the baseline belongs
+ * to the sitting. Pooling raw totals across runs and subtracting one overall
+ * cadence at the end would report the difference between a quick day and a tired
+ * one as difficulty with a kana.
+ *
+ * Excess is summed signed, never clamped per encounter. Clamping negatives away
+ * would let a long spelling collect positive noise from more keystrokes than a
+ * short one can — reintroducing the length bias this exists to remove. Clamp at
+ * the point of display instead.
+ */
+export function mergeMoraStats(runs: RunResult[]): Map<string, AggregatedMoraStat> {
+  const merged = new Map<string, { attempts: number; misses: number; samples: number; excess: number }>()
+  for (const run of runs) {
+    const baseline = run.baselineMs
+    for (const [kana, stat] of Object.entries(run.kanaStats ?? {})) {
+      const current = merged.get(kana) ?? { attempts: 0, misses: 0, samples: 0, excess: 0 }
+      current.attempts += stat.attempts
+      current.misses += stat.misses
+      // A run with no baseline — too short to establish one, or recorded before
+      // baselines existed — still contributes what it saw of accuracy. Its
+      // durations are simply not convertible into excess, and inventing one from
+      // a different run's cadence would be worse than having none.
+      if (typeof baseline === 'number' && typeof stat.timingSamples === 'number') {
+        current.samples += stat.timingSamples
+        current.excess += stat.totalMs - (stat.keystrokes ?? 0) * baseline
+      }
+      merged.set(kana, current)
+    }
+  }
+
+  const aggregated = new Map<string, AggregatedMoraStat>()
+  for (const [kana, stat] of merged) {
+    aggregated.set(kana, {
+      attempts: stat.attempts,
+      misses: stat.misses,
+      totalMs: stat.excess,
+      timingSamples: stat.samples,
+      avgMs: stat.samples > 0 ? stat.excess / stat.samples : 0,
+      errorRate: stat.attempts > 0 ? stat.misses / stat.attempts : 0,
+      excessMs: stat.excess,
+      avgExcessMs: stat.samples > 0 ? stat.excess / stat.samples : 0,
+    })
+  }
+  return aggregated
+}
+
+/**
+ * The slowest keys or pairs, ranked on time alone.
+ *
+ * This used to sort on `avgMs + errorRate * 500`, which is not a unit error —
+ * a rate times milliseconds is milliseconds — but a worse thing: an arbitrary,
+ * undocumented exchange rate between speed and accuracy, feeding a list whose
+ * heading promises "slowest" and whose only column is milliseconds. An
+ * error-prone 50 ms key outranked a clean 200 ms one, and the display gave the
+ * reader nothing to explain why.
+ *
+ * Gated on timing samples rather than attempts, so a key seen only in positions
+ * that could not be timed doesn't rank on a duration nobody measured.
+ */
 export function topTimingStats(
   stats: Map<string, AggregatedTimingStat>,
   limit: number,
 ): [string, AggregatedTimingStat][] {
   return [...stats.entries()]
-    .filter(([, stat]) => stat.attempts >= 2)
-    .sort((a, b) => b[1].avgMs + b[1].errorRate * 500 - (a[1].avgMs + a[1].errorRate * 500))
+    .filter(([, stat]) => (stat.timingSamples ?? stat.attempts) >= 2)
+    .sort((a, b) => b[1].avgMs - a[1].avgMs)
     .slice(0, limit)
 }
 
@@ -181,12 +263,15 @@ const PRIOR_ATTEMPTS = 2
 
 /**
  * Error rate pulled toward the prior in proportion to how little evidence there
- * is behind it. A mora missed on both of the two times it has been seen is more
+ * is behind it. Used for keys as well as moras — a rarely-pressed key deserves
+ * the same scepticism a rarely-met kana gets.
+ *
+ * A mora missed on both of the two times it has been seen is more
  * clearly weak than one missed twice in eight — 0.63 against 0.25 — but the two
  * are indistinguishable on raw rate, and a hard minimum-attempts floor solved
  * that by discarding the first outright.
  */
-export function kanaWeakness(stat: AggregatedTimingStat): number {
+export function smoothedErrorRate(stat: AggregatedTimingStat): number {
   return (stat.misses + PRIOR_MISSES) / (stat.attempts + PRIOR_ATTEMPTS)
 }
 
@@ -200,14 +285,18 @@ export function kanaWeakness(stat: AggregatedTimingStat): number {
  *
  * Speed breaks ties but never gets a kana in on its own: a mora you have never
  * once mistyped does not belong on a list headed "weakest", however slow it is.
+ *
+ * The tiebreak is excess time, not raw time. Raw time rises with the length of
+ * the spelling, so it handed the tie to whichever mora was spelled with more
+ * letters — しゃ over あ for being three keystrokes rather than for being harder.
  */
 export function weakestKana(
-  stats: Map<string, AggregatedTimingStat>,
+  stats: Map<string, AggregatedMoraStat>,
   limit = 8,
-): [string, AggregatedTimingStat][] {
+): [string, AggregatedMoraStat][] {
   return [...stats.entries()]
     .filter(([, stat]) => stat.errorRate > 0)
-    .sort((a, b) => kanaWeakness(b[1]) - kanaWeakness(a[1]) || b[1].avgMs - a[1].avgMs)
+    .sort((a, b) => smoothedErrorRate(b[1]) - smoothedErrorRate(a[1]) || b[1].avgExcessMs - a[1].avgExcessMs)
     .slice(0, limit)
 }
 
