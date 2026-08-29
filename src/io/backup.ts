@@ -20,10 +20,22 @@ import { RECORD_NAMES, type RecordStore } from './records'
  * The file is plain JSON with a format marker and a version. Refusing an
  * unrecognised version is deliberate: silently reinterpreting a file written by
  * a future release would corrupt a profile rather than decline to touch it.
+ *
+ * v2 adds `mode` to a run. The bump is what stops a *v1 reader* accepting a file
+ * containing timed runs: it would drop the field it does not know and read every
+ * timed run as a passage run, quietly polluting personal bests with a
+ * measurement they were never comparable to. Refusing the file is the whole
+ * point of carrying a version.
+ *
+ * v1 files are still read, because nothing about them is ambiguous — every run
+ * in one predates time mode and so is a passage run.
  */
 
 export const BACKUP_FORMAT = 'japanese-romaji-profile'
-export const BACKUP_VERSION = 1
+export const BACKUP_VERSION = 2
+
+/** Versions this build can read. Older ones are migrated on the way in. */
+const READABLE_VERSIONS = new Set([1, 2])
 
 export type Backup = {
   format: typeof BACKUP_FORMAT
@@ -69,7 +81,9 @@ export function parseBackup(text: string): ParseResult {
   }
   const r = raw as Record<string, unknown>
   if (r.format !== BACKUP_FORMAT) return { ok: false, reason: 'not-a-backup' }
-  if (r.version !== BACKUP_VERSION) return { ok: false, reason: 'unsupported-version' }
+  if (typeof r.version !== 'number' || !READABLE_VERSIONS.has(r.version)) {
+    return { ok: false, reason: 'unsupported-version' }
+  }
 
   const source = (r.records ?? {}) as Record<string, unknown>
   const runs = parseRuns(source.runs)

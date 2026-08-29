@@ -2,11 +2,13 @@ import type {
   AggregatedMoraStat,
   AggregatedTimingStat,
   LifetimeStats,
+  RunMode,
   RunResult,
   SourceName,
   TimingStat,
   Unlock,
 } from './types'
+import { STANDARD_TIMED_MS } from './types'
 
 export function dayKey(dateString: string): string {
   return new Date(dateString).toISOString().slice(0, 10)
@@ -44,11 +46,37 @@ export function emptyLifetimeStats(): LifetimeStats {
   return { bestWpm: 0, totalSessions: 0, totalChars: 0, totalElapsedMs: 0, streakDays: [] }
 }
 
+/** A run's mode, reading the absence on older records as what it meant. */
+export function runMode(run: RunResult): RunMode {
+  return run.mode ?? { kind: 'passage' }
+}
+
+/**
+ * Whether a run may set a personal best, unlock a source, or join the speed
+ * distribution.
+ *
+ * One place, rather than a `run.mode` check at each of the four sites that care.
+ * A passage run always counts, however long its passage: those already vary from
+ * three items to thirty across different sources and error settings, so length
+ * has never been what made them comparable. A timed run counts only at the
+ * standard duration — a fifteen-second sprint measured against a sixty-second
+ * run is a different test, and pooling the two would let the shorter one own the
+ * record for reasons that have nothing to do with typing.
+ *
+ * Every run, eligible or not, still contributes to mastery, totals and streaks.
+ * This governs the *ranking* surfaces alone.
+ */
+export function isProgressionEligible(run: RunResult): boolean {
+  const mode = runMode(run)
+  return mode.kind === 'passage' || mode.durationMs === STANDARD_TIMED_MS
+}
+
 export function recordRunInLifetimeStats(current: LifetimeStats, run: RunResult): LifetimeStats {
   const day = dayKey(run.date)
   const streakDays = current.streakDays.includes(day) ? current.streakDays : [...current.streakDays, day].sort()
   return {
-    bestWpm: Math.max(current.bestWpm, runWpm(run)),
+    // Totals, sessions and streaks take every run; only the best is gated.
+    bestWpm: isProgressionEligible(run) ? Math.max(current.bestWpm, runWpm(run)) : current.bestWpm,
     totalSessions: current.totalSessions + 1,
     totalChars: current.totalChars + run.chars,
     totalElapsedMs: current.totalElapsedMs + run.elapsedMs,
@@ -239,6 +267,7 @@ export function streakStats(dayKeys: string[], now: Date = new Date()): { curren
 }
 
 export function wpmDistribution(runs: RunResult[]): { label: string; count: number }[] {
+  const eligible = runs.filter(isProgressionEligible)
   const bins = [
     { label: '0-20', min: 0, max: 20, count: 0 },
     { label: '20-40', min: 20, max: 40, count: 0 },
@@ -246,7 +275,7 @@ export function wpmDistribution(runs: RunResult[]): { label: string; count: numb
     { label: '60-80', min: 60, max: 80, count: 0 },
     { label: '80+', min: 80, max: Number.POSITIVE_INFINITY, count: 0 },
   ]
-  for (const run of runs) {
+  for (const run of eligible) {
     const wpm = runWpm(run)
     const bin = bins.find((candidate) => wpm >= candidate.min && wpm < candidate.max)
     if (bin) bin.count += 1

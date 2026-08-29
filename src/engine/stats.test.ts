@@ -9,6 +9,8 @@ import {
   mergeMoraStats,
   slowestMoras,
   weakAfterRun,
+  isProgressionEligible,
+  runMode,
   mergeTimingStats,
   newlyReachedMilestones,
   recentDayKeys,
@@ -584,5 +586,54 @@ describe('weakAfterRun', () => {
     const r = run({ kanaStats: { か: rec(2, 1), き: rec(2, 2) } })
     expect(weakAfterRun(r, new Map(), 1)).toHaveLength(1)
     expect(weakAfterRun(run(), new Map())).toEqual([])
+  })
+})
+
+describe('run mode and progression eligibility', () => {
+  const timed = (durationMs: number) => ({ kind: 'timed' as const, durationMs })
+
+  /* Every run predating time mode was a passage run, so absence is not unknown. */
+  it('reads a run with no mode as a passage run', () => {
+    expect(runMode(run())).toEqual({ kind: 'passage' })
+  })
+
+  /*
+   * Passage runs always count, however long the passage. They already vary from
+   * three items to thirty across different sources and error settings, so length
+   * was never what made them comparable.
+   */
+  it('counts every passage run toward progression', () => {
+    expect(isProgressionEligible(run({ chars: 20 }))).toBe(true)
+    expect(isProgressionEligible(run({ chars: 400 }))).toBe(true)
+  })
+
+  /*
+   * A fifteen-second sprint is a different test from a sixty-second run. Pooled,
+   * the shorter one takes the record for reasons that have nothing to do with
+   * typing — you can hold a sprint pace you could not hold for a minute.
+   */
+  it('counts a standard timed run but not a shorter sprint', () => {
+    expect(isProgressionEligible(run({ mode: timed(60_000) }))).toBe(true)
+    expect(isProgressionEligible(run({ mode: timed(15_000) }))).toBe(false)
+  })
+
+  it('does not let an ineligible run take the personal best', () => {
+    const before = { ...emptyLifetimeStats(), bestWpm: 40 }
+    const after = recordRunInLifetimeStats(before, run({ wpm: 120, mode: timed(15_000) }))
+    expect(after.bestWpm).toBe(40)
+  })
+
+  /* Ineligible for the *ranking*, but it still happened: totals and streaks take it. */
+  it('still counts an ineligible run toward totals and streaks', () => {
+    const after = recordRunInLifetimeStats(emptyLifetimeStats(), run({ chars: 50, mode: timed(15_000) }))
+    expect(after.totalSessions).toBe(1)
+    expect(after.totalChars).toBe(50)
+    expect(after.streakDays).toHaveLength(1)
+  })
+
+  it('keeps an ineligible run out of the speed distribution', () => {
+    const bins = wpmDistribution([run({ wpm: 30 }), run({ wpm: 90, mode: timed(15_000) })])
+    expect(bins.find((b) => b.label === '20-40')?.count).toBe(1)
+    expect(bins.find((b) => b.label === '80+')?.count).toBe(0)
   })
 })

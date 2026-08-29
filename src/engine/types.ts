@@ -39,6 +39,18 @@ export type Lesson = {
   items: readonly TextItem[]
 }
 
+/**
+ * How a run ended: at the end of its passage, or when a clock ran out.
+ *
+ * A discriminated union rather than a flag, because a timed run's duration is
+ * part of what it is — a fifteen-second sprint and a sixty-second run are not
+ * the same measurement and must not be pooled into one speed.
+ */
+export type RunMode = { kind: 'passage' } | { kind: 'timed'; durationMs: number }
+
+/** The standard timed duration. Only this one is progression-eligible. */
+export const STANDARD_TIMED_MS = 60_000
+
 export type RunResult = {
   source: SourceName
   chars: number
@@ -69,6 +81,11 @@ export type RunResult = {
    * no excess, which is the honest reading — the number cannot be reconstructed.
    */
   baselineMs?: number
+  /**
+   * Absent on every run recorded before time mode, which were all passage runs —
+   * so absence reads as `{ kind: 'passage' }` rather than as unknown.
+   */
+  mode?: RunMode
 }
 
 /** Shape that may arrive from localStorage — wpm is optional for legacy records. */

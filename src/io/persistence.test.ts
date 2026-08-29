@@ -704,3 +704,55 @@ describe('the practice toggles', () => {
     })
   })
 })
+
+describe('run mode on stored runs', () => {
+  const base = {
+    source: 'words',
+    mistakes: 0,
+    accuracy: 100,
+    wpm: 30,
+    elapsedMs: 5000,
+    date: '2026-08-01T00:00:00.000Z',
+  }
+  const store = (run: Record<string, unknown>) =>
+    localStorage.setItem(RUNS_KEY, JSON.stringify([{ ...base, ...run }]))
+
+  it('reads a run with no mode as a passage run', () => {
+    store({ chars: 40 })
+    expect(readRuns()[0].mode).toEqual({ kind: 'passage' })
+  })
+
+  it('keeps a timed run its duration', () => {
+    store({ chars: 40, mode: { kind: 'timed', durationMs: 60000 } })
+    expect(readRuns()[0].mode).toEqual({ kind: 'timed', durationMs: 60000 })
+  })
+
+  /*
+   * A mode we cannot interpret should not cost the typist the run — the rest of
+   * the record is still perfectly good data.
+   */
+  it('falls back to passage rather than dropping a run with an unknown mode', () => {
+    store({ chars: 40, mode: { kind: 'sideways' } })
+    expect(readRuns()[0].mode).toEqual({ kind: 'passage' })
+    store({ chars: 40, mode: { kind: 'timed', durationMs: -1 } })
+    expect(readRuns()[0].mode).toEqual({ kind: 'passage' })
+  })
+
+  /*
+   * A timed run can legitimately have typed nothing: the clock runs out while
+   * the typist idles, or every key they pressed was refused and so never entered
+   * the line. Reaching the end of a passage cannot happen without typing, so
+   * zero there is still corruption.
+   */
+  it('accepts a zero-character timed run but not a zero-character passage run', () => {
+    store({ chars: 0, mode: { kind: 'timed', durationMs: 60000 } })
+    expect(readRuns()).toHaveLength(1)
+    store({ chars: 0 })
+    expect(readRuns()).toHaveLength(0)
+  })
+
+  it('still rejects a negative character count', () => {
+    store({ chars: -5, mode: { kind: 'timed', durationMs: 60000 } })
+    expect(readRuns()).toHaveLength(0)
+  })
+})

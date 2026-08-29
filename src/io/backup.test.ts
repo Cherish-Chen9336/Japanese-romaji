@@ -194,3 +194,56 @@ describe('backupFilename', () => {
     expect(backupFilename(new Date('2026-08-22T13:00:00Z'))).toBe('kana-type-profile-2026-08-22.json')
   })
 })
+
+describe('backup version 2', () => {
+  const file = (version: number, runs: unknown[] = []) =>
+    JSON.stringify({
+      format: BACKUP_FORMAT,
+      version,
+      exportedAt: '2026-08-01T00:00:00.000Z',
+      records: { runs },
+      preferences: {},
+    })
+
+  it('exports the current version', () => {
+    expect(BACKUP_VERSION).toBe(2)
+  })
+
+  /*
+   * v1 is still readable because nothing in one is ambiguous: every run it can
+   * contain predates time mode, and so is a passage run.
+   */
+  it('still reads a version 1 file, reading its runs as passage runs', () => {
+    const v1 = file(1, [
+      {
+        source: 'words',
+        chars: 40,
+        mistakes: 0,
+        accuracy: 100,
+        wpm: 30,
+        elapsedMs: 5000,
+        date: '2026-08-01T00:00:00.000Z',
+      },
+    ])
+    const parsed = parseBackup(v1)
+    expect(parsed.ok).toBe(true)
+    if (!parsed.ok) return
+    expect(parsed.backup.records.runs[0].mode).toEqual({ kind: 'passage' })
+  })
+
+  /*
+   * The reason the version was bumped at all. A v1 *reader* given a file with
+   * timed runs would drop the field it does not know and read every timed run as
+   * a passage run, polluting personal bests with a measurement never comparable
+   * to them. Refusing what it cannot interpret is the point of the version.
+   */
+  it('refuses a version it does not know', () => {
+    expect(parseBackup(file(3))).toEqual({ ok: false, reason: 'unsupported-version' })
+    expect(parseBackup(file(0))).toEqual({ ok: false, reason: 'unsupported-version' })
+  })
+
+  it('refuses a version that is not a number at all', () => {
+    const bad = JSON.stringify({ format: BACKUP_FORMAT, version: '2', records: {}, preferences: {} })
+    expect(parseBackup(bad)).toEqual({ ok: false, reason: 'unsupported-version' })
+  })
+})

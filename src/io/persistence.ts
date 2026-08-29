@@ -9,6 +9,7 @@ import type {
   SourceName,
   TextItem,
   MoraTimingStat,
+  RunMode,
 } from '../engine/types'
 import type { RecordName, RecordStore } from './records'
 import { readJson, writeJson } from './storage'
@@ -44,6 +45,21 @@ function isStr(v: unknown): v is string {
   return typeof v === 'string'
 }
 
+/**
+ * A run's mode as stored. Absence means passage: every run recorded before time
+ * mode existed was one, so the missing field has a known meaning rather than an
+ * unknown one. Anything unrecognised also reads as passage rather than being
+ * rejected — a mode we cannot interpret should not cost the typist the run.
+ */
+function readRunMode(raw: unknown): RunMode {
+  if (!isRecord(raw)) return { kind: 'passage' }
+  const r = raw as Record<string, unknown>
+  if (r.kind === 'timed' && isNum(r.durationMs) && r.durationMs > 0) {
+    return { kind: 'timed', durationMs: r.durationMs }
+  }
+  return { kind: 'passage' }
+}
+
 function isValidRun(item: unknown): boolean {
   if (!item || typeof item !== 'object' || Array.isArray(item)) return false
   const r = item as Record<string, unknown>
@@ -51,7 +67,12 @@ function isValidRun(item: unknown): boolean {
     isStr(r.source) &&
     VALID_SOURCES.has(r.source) &&
     isNum(r.chars) &&
-    r.chars > 0 &&
+    // A timed run can legitimately have typed nothing: the clock runs out while
+    // the typist idles, or every key they pressed was refused and so never
+    // entered the line. A passage run cannot — reaching the end of a passage
+    // means characters were typed — so zero there is still corruption.
+    (r.chars > 0 || readRunMode(r.mode).kind === 'timed') &&
+    r.chars >= 0 &&
     isNum(r.mistakes) &&
     r.mistakes >= 0 &&
     isNum(r.accuracy) &&
@@ -78,6 +99,7 @@ function normalizeRun(item: unknown): RunResult {
     cpm: isNum(r.cpm) ? r.cpm : undefined,
     rawCpm: isNum(r.rawCpm) ? r.rawCpm : undefined,
     consistency: isNum(r.consistency) ? r.consistency : undefined,
+    mode: readRunMode(r.mode),
     elapsedMs: r.elapsedMs as number,
     date: r.date as string,
     keyStats: readTimingStats(r.keyStats),

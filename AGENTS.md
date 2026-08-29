@@ -264,6 +264,35 @@ Both are read by the same per-field fallback as every other setting, so a profil
 written before they existed keeps its own values and takes the defaults for
 these — rather than being rejected, or having them invented as off.
 
+### Run modes, and what may set a record
+
+`RunResult.mode` is `{ kind: 'passage' } | { kind: 'timed'; durationMs }`. It is
+optional, and **absence means passage** rather than unknown: every run recorded
+before time mode was one. A stored mode that cannot be interpreted also reads as
+passage rather than dropping the run — the rest of that record is still good data.
+
+`isProgressionEligible` is the single place deciding what may set a personal
+best, unlock a source, or join the speed distribution — rather than a `run.mode`
+check at each of the sites that care. A passage run always counts, however long
+its passage: those already run from three items to thirty across different
+sources and error settings, so length was never what made them comparable. A
+timed run counts only at `STANDARD_TIMED_MS`, because a fifteen-second sprint and
+a sixty-second run are different tests, and pooled the shorter one takes the
+record for reasons that have nothing to do with typing. **Every run still counts
+toward mastery, totals, sessions and streaks** — this gates ranking alone.
+
+A timed run may legitimately have `chars: 0`: the clock can run out while the
+typist idles, or every key they pressed may have been refused and so never
+entered the line. Validation allows zero *only* for timed runs, since reaching
+the end of a passage cannot happen without typing.
+
+**Backup is v2.** The bump is not for our own reader — `mode` is additive and
+absence is well defined — but for a *v1 reader given a v2 file*. It would drop
+the field it does not know and read every timed run as a passage run, quietly
+polluting personal bests with a measurement never comparable to them. Refusing a
+file it cannot interpret is the entire purpose of carrying a version. v1 files
+are still read here, because nothing in one is ambiguous.
+
 ### Dealing across passages
 
 `dealRandom` shuffles a fresh deck inside every call, so its guarantee — every
