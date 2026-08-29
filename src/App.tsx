@@ -69,6 +69,7 @@ import {
 import { createRecordStore, type RecordName } from './io/records'
 import { writeJson } from './io/storage'
 import { BottomNav } from './ui/BottomNav'
+import { MasteryMap } from './ui/MasteryMap'
 import { OnScreenKeyboard } from './ui/OnScreenKeyboard'
 import { Topbar } from './ui/Topbar'
 import { routeFromHash, type RouteName } from './ui/router'
@@ -868,32 +869,33 @@ function App() {
                 </div>
               </section>
 
-              <section class="panel">
-                <h2>weakest kana</h2>
-                <p class="muted">What drills pull from. Ordered by how often you miss them, weighted by how many times you've met them.</p>
-                <div class="bar-list">
-                  <For
-                    each={weakestMoras()}
-                    fallback={<p class="muted">Type a little more and the weak moras appear here.</p>}
-                  >
-                    {([kana, stat]) => (
-                      <div class="bar-row">
-                        <span class="bar-row__kana">{kana}</span>
-                        {/* Bar shows the score the list is ordered by. Drawing
-                            the raw rate instead made the panel contradict its
-                            own order — 6-in-10 sorted above 1-in-1 while
-                            displaying 60% above 100%. */}
-                        <meter
-                          min="0"
-                          max={Math.max(0.01, smoothedErrorRate(weakestMoras()[0]?.[1] ?? stat))}
-                          value={smoothedErrorRate(stat)}
-                        />
-                        <b>
-                          {stat.misses}/{stat.attempts} · {Math.round(stat.avgMs)} ms
-                        </b>
-                      </div>
-                    )}
-                  </For>
+              {/* Spans both columns: the chart is far wider than a bar list,
+                  and it is the page's primary answer to "what do I not know". */}
+              <section class="panel panel--wide">
+                <h2>kana typing mastery</h2>
+                <p class="muted">
+                  How hard each mora is for you to produce as romaji — not what you know, what you can
+                  type. Colour is accuracy; hover a cell for its timing.
+                </p>
+                <MasteryMap stats={kanaStats()} />
+                <div class="mastery-legend">
+                  <span>
+                    <i class="is-unseen" />
+                    not yet seen
+                  </span>
+                  <span>
+                    <i class="is-clean" />
+                    never missed
+                  </span>
+                  <span>
+                    <i class="is-weak" />
+                    missed — deeper is weaker
+                  </span>
+                  <Show when={weakestMoras().length > 0}>
+                    <span>
+                      weakest right now: <b>{weakestMoras().slice(0, 5).map(([kana]) => kana).join(' ')}</b>
+                    </span>
+                  </Show>
                 </div>
               </section>
 

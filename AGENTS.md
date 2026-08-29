@@ -179,6 +179,33 @@ get seen and all three planted weaknesses are found and fixed.
 Known limitation: selection filters but does not weight, so a weak mora appearing
 in one item gets less practice than an equally weak one appearing in ten.
 
+### The mastery map
+
+`engine/mastery.ts` lays the 五十音 chart out for display and `ui/MasteryMap.tsx`
+tints it. It is the Statistics page's primary answer to "what do I not know", and
+it replaced the weakest-kana bar list.
+
+Columns are derived from each mora's own spelling, never hardcoded, so the chart
+cannot drift from `gojuonBank`. The last vowel of the romaji picks the column:
+`ya`, `yu`, `yo` put や ゆ よ under a, u and o with gaps at i and e, which is
+where they belong and *not* where filling a row left to right puts them. ん has
+no vowel and gets a row of its own — filed under a column it would read as a form
+of わ. Three grids, because contracted rows spell only や, ゆ and よ and would
+otherwise carry two empty columns each.
+
+**Three cell states, not an opacity ramp.** Never met, met and never missed, and
+missed. A single ramp collapses the first two into the same pale cell, which
+tells a beginner they are fine at every kana they have yet to see. Only the
+missed cells carry colour.
+
+**Accuracy gets the colour; timing goes in the tooltip.** See "Deliberately not
+built" for why speed never gets a channel of its own here.
+
+Moras that are tracked but have no cell — sokuon, in practice, since 五十音 has no
+square for っこ — are rendered in an "also tracked" strip driven by what has
+actually been met. Dropping them would let the weakest-kana line, drawn from the
+same table, name a mora as your worst and then show it nowhere.
+
 ### The input model
 
 Typing runs against **kana tokens**, not a fixed romaji string. `engine/prompt.ts`
