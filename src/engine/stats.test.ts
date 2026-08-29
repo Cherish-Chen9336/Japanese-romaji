@@ -8,6 +8,7 @@ import {
   lifetimeStatsFromRuns,
   mergeMoraStats,
   slowestMoras,
+  weakAfterRun,
   mergeTimingStats,
   newlyReachedMilestones,
   recentDayKeys,
@@ -540,5 +541,48 @@ describe('slowestMoras', () => {
   it('respects the limit', () => {
     const stats = new Map([['か', mora(4, 10)], ['き', mora(4, 20)], ['く', mora(4, 30)]])
     expect(slowestMoras(stats, 2).map(([kana]) => kana)).toEqual(['く', 'き'])
+  })
+})
+
+describe('weakAfterRun', () => {
+  /* A run's own per-mora record, in the shape `buildRunResult` writes. */
+  const rec = (attempts: number, misses: number) => ({ attempts, misses, totalMs: 0, timingSamples: 0 })
+  const life = (attempts: number, misses: number) => ({
+    attempts, misses, totalMs: 0, timingSamples: attempts,
+    avgMs: 0, errorRate: misses / attempts, excessMs: 0, avgExcessMs: 0,
+  })
+
+  it('reports only the moras this run actually got wrong', () => {
+    const r = run({ kanaStats: { か: rec(3, 1), き: rec(4, 0) } })
+    expect(weakAfterRun(r, new Map()).map((w) => w.kana)).toEqual(['か'])
+  })
+
+  /*
+   * Ordered by lifetime weakness, not by misses in this run: drills pull in that
+   * order, so the list predicts what the next run targets instead of merely
+   * restating what this one did. か was fumbled three times but is fine overall;
+   * き has been missed nearly every time it has ever appeared.
+   */
+  it('orders by how weak a mora is overall, not by this run alone', () => {
+    const r = run({ kanaStats: { か: rec(40, 3), き: rec(2, 1) } })
+    const lifetime = new Map([['か', life(200, 3)], ['き', life(3, 2)]])
+    expect(weakAfterRun(r, lifetime).map((w) => w.kana)).toEqual(['き', 'か'])
+  })
+
+  /*
+   * Lifetime totals already include the run being reported, so more misses
+   * overall than in this run is precisely "you have missed this before".
+   */
+  it('separates a mora missed before from one fumbled only now', () => {
+    const r = run({ kanaStats: { か: rec(2, 1), き: rec(2, 1) } })
+    const lifetime = new Map([['か', life(20, 5)], ['き', life(2, 1)]])
+    const byKana = Object.fromEntries(weakAfterRun(r, lifetime).map((w) => [w.kana, w.recurring]))
+    expect(byKana).toEqual({ か: true, き: false })
+  })
+
+  it('respects the limit and survives a run with no kana stats', () => {
+    const r = run({ kanaStats: { か: rec(2, 1), き: rec(2, 2) } })
+    expect(weakAfterRun(r, new Map(), 1)).toHaveLength(1)
+    expect(weakAfterRun(run(), new Map())).toEqual([])
   })
 })

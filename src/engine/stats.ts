@@ -300,6 +300,52 @@ export function weakestKana(
     .slice(0, limit)
 }
 
+export type RunWeakness = {
+  kana: string
+  /** Misses in the run just finished. */
+  missed: number
+  attempts: number
+  /** Missed in earlier runs too, not only this one. */
+  recurring: boolean
+}
+
+/**
+ * What the run just finished got wrong, for the card the typist actually looks
+ * at when they stop.
+ *
+ * The mastery model is otherwise only visible on the Statistics page, somewhere
+ * you have to go looking, so the loop between typing and knowing what to fix was
+ * never closed where it mattered. Ordered by *lifetime* weakness rather than by
+ * misses in this run, because that is the order drills will pull in — the list
+ * predicts what the next run targets rather than merely restating this one.
+ *
+ * `recurring` separates a mora you keep failing from one you fumbled once.
+ * Lifetime totals include the run being reported, so having more misses overall
+ * than in this run is exactly what "you have missed this before" means.
+ */
+export function weakAfterRun(
+  run: RunResult,
+  lifetime: Map<string, AggregatedMoraStat>,
+  limit = 5,
+): RunWeakness[] {
+  return Object.entries(run.kanaStats ?? {})
+    .filter(([, stat]) => stat.misses > 0)
+    .map(([kana, stat]) => ({
+      kana,
+      missed: stat.misses,
+      attempts: stat.attempts,
+      recurring: (lifetime.get(kana)?.misses ?? stat.misses) > stat.misses,
+    }))
+    .sort((a, b) => {
+      const weakness = (item: RunWeakness) => {
+        const stat = lifetime.get(item.kana)
+        return stat === undefined ? 0 : smoothedErrorRate(stat)
+      }
+      return weakness(b) - weakness(a) || b.missed - a.missed || a.kana.localeCompare(b.kana)
+    })
+    .slice(0, limit)
+}
+
 /**
  * The moras that cost you the most time beyond what their spelling explains.
  *

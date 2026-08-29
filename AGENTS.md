@@ -242,6 +242,22 @@ sokuon. Chart groups are hardcoded, so a new `KanaGroup` needs adding in two
 places. Corpus-wide invariants read `allBankItems()` rather than a hand-listed
 set of banks, so a bank added later joins them by existing.
 
+### Closing the loop on the results card
+
+`weakAfterRun` feeds a "still weak" callout on the result screen. Without it the
+mastery model was only visible on the Statistics page, which you have to go
+looking for — so the app knew what to practise, aimed drills at it, and never
+told the typist any of that at the moment they had just finished and were
+deciding whether to go again.
+
+Ordered by **lifetime** weakness rather than by misses in this run, because that
+is the order drills pull in: the list predicts what the next run will target
+instead of restating what this one did. `recurring` separates a mora you keep
+failing from one you fumbled once — lifetime totals already include the run being
+reported, so having more misses overall than in this run is exactly what "missed
+this before" means. It is drawn with an underline and a border rather than a
+second fill colour, so it survives a red deficiency and a monochrome screen.
+
 ### The input model
 
 Typing runs against **kana tokens**, not a fixed romaji string. `engine/prompt.ts`

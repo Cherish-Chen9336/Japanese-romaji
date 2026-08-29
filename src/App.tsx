@@ -25,6 +25,7 @@ import {
   topTimingStats,
   mergeMoraStats,
   slowestMoras,
+  weakAfterRun,
   smoothedErrorRate,
   leastPractisedKana,
   unlockedMilestones,
@@ -161,6 +162,10 @@ function App() {
   const sourceStats = createMemo(() => sourceBreakdown(runs()))
   const dayStats = createMemo(() => dailyCounts(runs()))
   const resultRun = createMemo(() => lastRun() ?? runs()[0] ?? null)
+  const stillWeak = createMemo(() => {
+    const run = resultRun()
+    return run === null ? [] : weakAfterRun(run, kanaStats(), 5)
+  })
   const keyStats = createMemo(() => mergeTimingStats(runs(), 'keyStats'))
   const bigramStats = createMemo(() => mergeTimingStats(runs(), 'bigramStats'))
   const slowKeys = createMemo(() => topTimingStats(keyStats(), 12))
@@ -729,6 +734,42 @@ function App() {
                       <For each={resultUnlocks()}>
                         {(item) => <span class="achievement__chip">{item.label}</span>}
                       </For>
+                    </section>
+                  </Show>
+
+                  {/* The mastery model otherwise lives only on the Statistics
+                      page, which you have to go looking for. This is the card
+                      you are already on when you stop, so it is where knowing
+                      what to fix actually closes the loop. */}
+                  <Show when={stillWeak().length > 0}>
+                    <section class="still-weak">
+                      <span class="still-weak__title">still weak</span>
+                      <div class="still-weak__list">
+                        <For each={stillWeak()}>
+                          {(item) => (
+                            <span
+                              class="still-weak__chip"
+                              classList={{ 'still-weak__chip--recurring': item.recurring }}
+                              title={
+                                item.recurring
+                                  ? `${item.kana}: ${item.missed} of ${item.attempts} missed this run — and missed before`
+                                  : `${item.kana}: ${item.missed} of ${item.attempts} missed this run`
+                              }
+                            >
+                              <b>{item.kana}</b>
+                              <small>
+                                {item.missed}/{item.attempts}
+                              </small>
+                            </span>
+                          )}
+                        </For>
+                      </div>
+                      <p class="muted">
+                        Ordered by how weak each is overall — the same order drills pull in.
+                        <Show when={stillWeak().some((item) => item.recurring)}>
+                          {' '}Underlined ones you have missed before.
+                        </Show>
+                      </p>
                     </section>
                   </Show>
 
