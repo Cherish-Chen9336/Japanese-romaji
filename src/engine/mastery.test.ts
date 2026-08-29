@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { chartMoras, gojuonGrids } from './mastery'
-import { difficultBank, gojuonBank, quoteBank, wordBank } from './lessons'
+import { cellState, chartCoverage, chartMoras, gojuonGrids, offChartMoras, romajiFor, rowCells } from './mastery'
+import { allBankItems, gojuonBank } from './lessons'
 import { isMoraToken, tokenizeKana } from './romanization'
 
 describe('gojuonGrids', () => {
@@ -82,7 +82,7 @@ describe('gojuonGrids', () => {
    */
   it('covers all but the sokuon of what the corpus actually tracks', () => {
     const corpus = new Set(
-      [...wordBank, ...difficultBank, ...quoteBank, ...gojuonBank]
+      allBankItems()
         .flatMap((item) => tokenizeKana(item.reading ?? item.kana))
         .map((token) => token.kana)
         .filter(isMoraToken),
@@ -90,5 +90,109 @@ describe('gojuonGrids', () => {
     const chart = new Set(chartMoras())
     const missing = [...corpus].filter((kana) => !chart.has(kana))
     expect(missing.every((kana) => kana.startsWith('っ'))).toBe(true)
+  })
+})
+
+describe('cellState', () => {
+  /*
+   * "Never met" and "met and never missed" have to be different cells. Collapsed
+   * into one pale shade — which a single opacity ramp does — the chart tells a
+   * beginner they are fine at every kana they have not yet seen.
+   */
+  it('separates a mora never met from one met and never missed', () => {
+    expect(cellState(undefined)).toBe('unseen')
+    expect(cellState({ attempts: 0, misses: 0 })).toBe('unseen')
+    expect(cellState({ attempts: 6, misses: 0 })).toBe('clean')
+  })
+
+  it('calls a mora weak on a single miss, however many times it has been met', () => {
+    expect(cellState({ attempts: 100, misses: 1 })).toBe('weak')
+    expect(cellState({ attempts: 1, misses: 1 })).toBe('weak')
+  })
+})
+
+describe('offChartMoras', () => {
+  const stat = (attempts: number) => ({ attempts })
+
+  /*
+   * `weakestKana` reads the same table this chart is drawn from, so a mora with
+   * no cell would be named as the weakest and then shown nowhere. っこ is the
+   * real case: 五十音 has no square for a sokuon.
+   */
+  it('returns moras that have been met but have no cell', () => {
+    const stats = new Map([['か', stat(4)], ['っこ', stat(3)], ['しゃ', stat(2)]])
+    expect(offChartMoras(stats)).toEqual(['っこ'])
+  })
+
+  it('leaves out a mora that is on the chart, however weak', () => {
+    expect(offChartMoras(new Map([['か', stat(9)]]))).toEqual([])
+  })
+
+  /* Nothing is "also tracked" until it has actually been met once. */
+  it('leaves out an off-chart mora with no attempts', () => {
+    expect(offChartMoras(new Map([['っこ', stat(0)]]))).toEqual([])
+  })
+
+  it('is empty when every mora met is on the chart', () => {
+    expect(offChartMoras(new Map())).toEqual([])
+  })
+})
+
+describe('gojuonGrids caching', () => {
+  /*
+   * Built once. The map called `chartMoras` from two places and rebuilt the
+   * whole chart — twenty-six `compileStrict` compilations — on each, every time
+   * the stats changed.
+   */
+  it('returns the same object rather than rebuilding', () => {
+    expect(gojuonGrids()).toBe(gojuonGrids())
+    expect(chartMoras()).toBe(chartMoras())
+  })
+})
+
+describe('rowCells', () => {
+  /*
+   * A row that cannot be spelled is a broken table, not a runtime condition. The
+   * old `?? []` did not hide the failure so much as defer it into a
+   * `cells[0].romaji` type error naming neither the row nor the reason.
+   */
+  it('refuses a row whose romaji its kana cannot produce', () => {
+    expect(() => rowCells('あいうえお', 'zzzzz')).toThrow(/not typeable/)
+  })
+
+  it('compiles a real row to one cell per mora', () => {
+    expect(rowCells('かきくけこ', 'kakikukeko').map((c) => c.kana)).toEqual(['か', 'き', 'く', 'け', 'こ'])
+  })
+})
+
+describe('romajiFor', () => {
+  /*
+   * A folded form is exactly where a learner is least able to supply the romaji
+   * themselves, and it is the one kind of mora the chart has no square for — so
+   * dropping the hint left the "also tracked" strip as bare kana.
+   */
+  it('gives an off-chart sokuon its spelling', () => {
+    expect(romajiFor('っこ')).toBe('kko')
+    expect(romajiFor('って')).toBe('tte')
+  })
+
+  it('gives nothing for something that is not a single mora', () => {
+    expect(romajiFor('かき')).toBe('')
+  })
+})
+
+describe('chartCoverage', () => {
+  it('counts only moras actually met, against the whole chart', () => {
+    const total = chartMoras().length
+    expect(chartCoverage(new Map())).toEqual({ met: 0, total })
+    expect(chartCoverage(new Map([['か', { attempts: 3 }], ['き', { attempts: 0 }]]))).toEqual({
+      met: 1,
+      total,
+    })
+  })
+
+  /* An off-chart mora is met, but it is not chart coverage. */
+  it('does not count an off-chart mora toward coverage', () => {
+    expect(chartCoverage(new Map([['っこ', { attempts: 5 }]])).met).toBe(0)
   })
 })

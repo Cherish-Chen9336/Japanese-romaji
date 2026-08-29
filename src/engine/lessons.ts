@@ -152,6 +152,19 @@ export const sourceBanks: Record<
   words: wordBank,
 }
 
+/**
+ * Every bundled item, from one place.
+ *
+ * Invariants over "the whole corpus" — that each item is typeable, that the
+ * mastery chart covers what is actually tracked — were each written against a
+ * hand-listed set of banks, so a bank added later was simply outside them until
+ * someone remembered. Deriving the list from `sourceBanks` plus the chart makes
+ * a new bank join those invariants by existing.
+ */
+export function allBankItems(): TextItem[] {
+  return [...Object.values(sourceBanks).flat(), ...gojuonBank]
+}
+
 function stripMarkdownChars(text: string): string {
   return text
     .replace(/```[\s\S]*?```/g, ' ')

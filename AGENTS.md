@@ -204,7 +204,43 @@ built" for why speed never gets a channel of its own here.
 Moras that are tracked but have no cell — sokuon, in practice, since 五十音 has no
 square for っこ — are rendered in an "also tracked" strip driven by what has
 actually been met. Dropping them would let the weakest-kana line, drawn from the
-same table, name a mora as your worst and then show it nowhere.
+same table, name a mora as your worst and then show it nowhere. They carry their
+spelling too (`romajiFor` gets `kko` from the tokenizer): a folded form is
+exactly where a learner is least able to supply the romaji themselves.
+
+**The colour is weakness, not accuracy, and the palette transfer is separate from
+the statistic.** `smoothedErrorRate` is right for ranking — it distrusts one miss
+on one attempt — but its caution compressed the display: pulled toward the prior,
+a mora missed on all four attempts scores 0.75 and ten from ten only 0.875, so
+the top of the tint was unreachable at any real count. `severity` saturates at
+that 0.75 so the ramp is spent on the range that occurs. It stays absolute, never
+relative to the current worst — a kana must not change colour because a different
+kana entered the table. Say "weakness" in the copy, not "accuracy"; the plain
+rate belongs in the cell's own detail.
+
+**Accessibility is a requirement of this surface, not a polish pass.** Real
+`<table>`s with `<caption>` and scoped headers, so a screen reader gets the row
+and column of every cell — not `role="grid"`, which promises arrow-key navigation
+this does not implement. Every cell carries its full status as visually hidden
+text, because the stats once lived only in a `title` tooltip: invisible to a
+screen reader and unreachable on a touch screen, which is most of the timing
+model simply gone. Nothing in the copy may promise hovering. Weak cells carry a
+dot as well as colour, since colour cannot be the only carrier (WCAG 1.4.1), and
+the legend shows the dot or it teaches the wrong thing. Timing has its own
+"slowest moras" panel, which is where excess latency is visible to everyone.
+
+CSS uses `color-mix(in oklch, …)`, which older browsers drop **whole
+declarations** for. Every such rule is preceded by a flat `rgb()` fallback using
+`--color-error-rgb`; without one, a weak cell silently loses the only signal the
+map exists to show.
+
+Known gaps as the corpus grows: katakana and ー reach `isMoraToken` but not the
+token model, so the regex is ahead of what is really supported; ー should not
+become its own bucket, since its sound depends on the mora before it. The
+"also tracked" strip is one horizontal row and will not scale past a handful of
+sokuon. Chart groups are hardcoded, so a new `KanaGroup` needs adding in two
+places. Corpus-wide invariants read `allBankItems()` rather than a hand-listed
+set of banks, so a bank added later joins them by existing.
 
 ### The input model
 

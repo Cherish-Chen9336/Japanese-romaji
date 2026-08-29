@@ -24,6 +24,7 @@ import {
   streakStats,
   topTimingStats,
   mergeMoraStats,
+  slowestMoras,
   smoothedErrorRate,
   leastPractisedKana,
   unlockedMilestones,
@@ -69,6 +70,7 @@ import {
 import { createRecordStore, type RecordName } from './io/records'
 import { writeJson } from './io/storage'
 import { BottomNav } from './ui/BottomNav'
+import { chartCoverage } from './engine/mastery'
 import { MasteryMap } from './ui/MasteryMap'
 import { OnScreenKeyboard } from './ui/OnScreenKeyboard'
 import { Topbar } from './ui/Topbar'
@@ -165,6 +167,8 @@ function App() {
   const slowBigrams = createMemo(() => topTimingStats(bigramStats(), 8))
   const kanaStats = createMemo(() => mergeMoraStats(runs()))
   const weakestMoras = createMemo(() => weakestKana(kanaStats(), 8))
+  const slowMoras = createMemo(() => slowestMoras(kanaStats(), 6))
+  const coverage = createMemo(() => chartCoverage(kanaStats()))
   /*
    * Drill targets are the weakest moras *plus* the least-practised ones. Weakness
    * alone can't drive practice: a mora is only found weak once you have met it
@@ -873,9 +877,17 @@ function App() {
                   and it is the page's primary answer to "what do I not know". */}
               <section class="panel panel--wide">
                 <h2>kana typing mastery</h2>
+                {/* Not "accuracy": the colour is weakness weighted by how much
+                    evidence stands behind it, which is why one miss in a hundred
+                    barely shows. The plain rate is in each cell's own detail.
+                    And nothing here may promise hovering — on a touch screen
+                    there is no hover to offer. */}
                 <p class="muted">
                   How hard each mora is for you to produce as romaji — not what you know, what you can
-                  type. Colour is accuracy; hover a cell for its timing.
+                  type. Colour is weakness, weighted by how often you've met the mora.
+                </p>
+                <p class="muted">
+                  Met <b>{coverage().met}</b> of {coverage().total} chart moras.
                 </p>
                 <MasteryMap stats={kanaStats()} />
                 <div class="mastery-legend">
@@ -885,7 +897,7 @@ function App() {
                   </span>
                   <span>
                     <i class="is-clean" />
-                    never missed
+                    seen, never missed
                   </span>
                   <span>
                     <i class="is-weak" />
@@ -896,6 +908,32 @@ function App() {
                       weakest right now: <b>{weakestMoras().slice(0, 5).map(([kana]) => kana).join(' ')}</b>
                     </span>
                   </Show>
+                </div>
+              </section>
+
+              {/* Timing has to live somewhere a touch user can reach. It used to
+                  exist only in a `title` tooltip, which is no surface at all on a
+                  phone — and it stays off the chart's one colour channel. */}
+              <section class="panel">
+                <h2>slowest moras</h2>
+                <p class="muted">Time beyond what each spelling costs at your own cadence.</p>
+                <div class="bar-list">
+                  <For
+                    each={slowMoras()}
+                    fallback={<p class="muted">Nothing is slowing you down yet.</p>}
+                  >
+                    {([kana, stat]) => (
+                      <div class="bar-row">
+                        <span class="bar-row__kana">{kana}</span>
+                        <meter
+                          min="0"
+                          max={Math.max(1, slowMoras()[0]?.[1].avgExcessMs ?? 1)}
+                          value={stat.avgExcessMs}
+                        />
+                        <b>+{Math.round(stat.avgExcessMs)} ms</b>
+                      </div>
+                    )}
+                  </For>
                 </div>
               </section>
 

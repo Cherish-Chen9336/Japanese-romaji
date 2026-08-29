@@ -161,6 +161,9 @@ export type AggregatedTimingStat = TimingStat & {
  * than that, which is a real thing a well-known mora does.
  */
 export type AggregatedMoraStat = AggregatedTimingStat & {
+  /* Required here, unlike on a key: `mergeMoraStats` always counts it, so a
+     mora stat never falls back to `attempts` as its denominator. */
+  timingSamples: number
   excessMs: number
   avgExcessMs: number
 }

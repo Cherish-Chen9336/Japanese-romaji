@@ -1,4 +1,5 @@
 import { gojuonBank } from './lessons'
+import { tokenizeKana } from './romanization'
 import { compileStrict } from './prompt'
 import type { KanaGroup } from './types'
 
@@ -50,11 +51,39 @@ function labelOf(romaji: string): string {
   return vowel === null ? romaji : romaji.slice(0, -1)
 }
 
-function cellsOf(kana: string, romaji: string): MasteryCell[] {
+/**
+ * Compiles one chart row. Throws rather than falling back, because a row that
+ * cannot be spelled is a broken table and not a runtime condition — and the
+ * previous `?? []` did not hide the failure so much as defer it, turning it into
+ * a `cells[0].romaji` type error naming neither the row nor the reason.
+ */
+export function rowCells(kana: string, romaji: string): MasteryCell[] {
   const tokens = compileStrict({ kana, romaji })
-  // Every bundled row is typeable as written — `prompt.test.ts` pins that across
-  // all four banks — so this cannot be null for the chart's own rows.
-  return (tokens ?? []).map((token) => ({ kana: token.kana, romaji: token.candidates[0] }))
+  if (tokens === null || tokens.length === 0) {
+    throw new Error(`gojuon row is not typeable as written: ${kana}|${romaji}`)
+  }
+  return tokens.map((token) => ({ kana: token.kana, romaji: token.candidates[0] }))
+}
+
+/**
+ * The spelling to teach for a mora with no cell on the chart.
+ *
+ * Sokuon reach this: 五十音 has no square for っこ, but the tokenizer knows it is
+ * `kko`. Dropping the hint was backwards — a folded form is exactly where a
+ * learner is least able to supply the romaji themselves.
+ */
+export function romajiFor(kana: string): string {
+  const tokens = tokenizeKana(kana)
+  return tokens.length === 1 ? (tokens[0].candidates[0] ?? '') : ''
+}
+
+/** How much of the chart has been met at all, for a coverage read. */
+export function chartCoverage(stats: Map<string, { attempts: number }>): { met: number; total: number } {
+  const all = chartMoras()
+  return {
+    met: all.filter((kana) => (stats.get(kana)?.attempts ?? 0) > 0).length,
+    total: all.length,
+  }
 }
 
 /**
@@ -63,10 +92,10 @@ function cellsOf(kana: string, romaji: string): MasteryCell[] {
  * already groups them. Contracted rows carry only three columns, so they cannot
  * share a grid with the five-column ones without four empty columns per row.
  */
-export function gojuonGrids(): MasteryGrid[] {
+function buildGrids(): MasteryGrid[] {
   const groups: Exclude<KanaGroup, 'all'>[] = ['seion', 'dakuten', 'yoon']
   return groups.map((group) => {
-    const rows = gojuonBank.filter((row) => row.group === group).map((row) => cellsOf(row.kana, row.romaji))
+    const rows = gojuonBank.filter((row) => row.group === group).map((row) => rowCells(row.kana, row.romaji))
 
     // Only the columns this group actually uses, in chart order.
     const used = new Set<string>()
@@ -90,10 +119,54 @@ export function gojuonGrids(): MasteryGrid[] {
   })
 }
 
+/*
+ * Built once. `gojuonBank` is a static table, so the layout cannot change
+ * between calls — but the map called this from two places and rebuilt the whole
+ * chart, twenty-six `compileStrict` compilations, on each of them every time the
+ * stats changed.
+ */
+let grids: readonly MasteryGrid[] | null = null
+
+export function gojuonGrids(): readonly MasteryGrid[] {
+  grids ??= buildGrids()
+  return grids
+}
+
+let moras: readonly string[] | null = null
+
 /** Every mora the chart displays, for checking what it does and does not cover. */
-export function chartMoras(): string[] {
-  return gojuonGrids().flatMap((grid) => [
+export function chartMoras(): readonly string[] {
+  moras ??= gojuonGrids().flatMap((grid) => [
     ...grid.rows.flatMap((row) => row.cells.filter((c): c is MasteryCell => c !== null).map((c) => c.kana)),
     ...grid.extras.map((c) => c.kana),
   ])
+  return moras
+}
+
+/**
+ * How a cell should read. Three states rather than one opacity ramp, because
+ * "never met" and "met and never missed" are different facts: a single ramp
+ * renders both as the palest cell, telling a beginner they are fine at every
+ * kana they have yet to see.
+ */
+export type CellState = 'unseen' | 'clean' | 'weak'
+
+export function cellState(stat: { attempts: number; misses: number } | undefined): CellState {
+  if (stat === undefined || stat.attempts === 0) return 'unseen'
+  return stat.misses === 0 ? 'clean' : 'weak'
+}
+
+/**
+ * Moras that have been met but have no cell on the chart — sokuon in practice,
+ * since 五十音 has no square for っこ, and anything an upload introduces.
+ *
+ * Shown rather than dropped: `weakestKana` reads the same table, so hiding them
+ * lets the page name っこ as your worst and then show it nowhere.
+ */
+export function offChartMoras(stats: Map<string, { attempts: number }>): string[] {
+  const onChart = new Set(chartMoras())
+  return [...stats.entries()]
+    .filter(([kana, stat]) => !onChart.has(kana) && stat.attempts > 0)
+    .map(([kana]) => kana)
+    .sort()
 }
