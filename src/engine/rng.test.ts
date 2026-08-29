@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dealRandom, mulberry32, pickRandom } from './rng'
+import { dealFrom, dealRandom, mulberry32, newDeck, pickRandom } from './rng'
 
 describe('mulberry32', () => {
   it('is deterministic for a given seed', () => {
@@ -79,5 +79,58 @@ describe('dealRandom', () => {
 
   it('returns nothing when asked for nothing', () => {
     expect(dealRandom(['a'], 0, mulberry32(1))).toEqual([])
+  })
+})
+
+describe('dealFrom', () => {
+  const abc = ['a', 'b', 'c', 'd', 'e', 'f']
+
+  /*
+   * The bug this exists for. `dealRandom` shuffles a fresh deck inside every
+   * call, so two consecutive four-item deals from a six-item bank could repeat
+   * an item across the boundary while two of the six were never dealt at all —
+   * exactly the clustering dealing exists to prevent, just moved one level up.
+   */
+  it('carries the deck across calls so every item is dealt before any repeats', () => {
+    const rng = mulberry32(7)
+    const first = dealFrom(newDeck(abc), 4, rng)
+    const second = dealFrom(first.deck, 2, rng)
+    expect([...first.dealt, ...second.dealt].sort()).toEqual([...abc].sort())
+  })
+
+  it('reshuffles once the deck is spent, rather than running dry', () => {
+    const rng = mulberry32(3)
+    const { dealt } = dealFrom(newDeck(['a', 'b']), 5, rng)
+    expect(dealt).toHaveLength(5)
+    expect(new Set(dealt)).toEqual(new Set(['a', 'b']))
+  })
+
+  it('is deterministic for a given seed', () => {
+    const once = dealFrom(newDeck(abc), 4, mulberry32(11))
+    const twice = dealFrom(newDeck(abc), 4, mulberry32(11))
+    expect(once.dealt).toEqual(twice.dealt)
+  })
+
+  /*
+   * Over a *part-dealt* deck, which is the only case that can catch aliasing:
+   * a fresh deck's empty `remaining` is replaced by the reshuffle on the first
+   * iteration, so mutating it in place is indistinguishable from copying it.
+   */
+  it('leaves the deck it was given untouched', () => {
+    const partway = dealFrom(newDeck(abc), 2, mulberry32(2)).deck
+    expect(partway.remaining.length).toBeGreaterThan(0)
+    const before = [...partway.remaining]
+    const again = dealFrom(partway, 2, mulberry32(5))
+    expect(partway.remaining).toEqual(before)
+    // And dealing the same deck twice really does deal the same items.
+    expect(dealFrom(partway, 2, mulberry32(5)).dealt).toEqual(again.dealt)
+  })
+
+  it('deals nothing when asked for nothing', () => {
+    expect(dealFrom(newDeck(abc), 0, mulberry32(1)).dealt).toEqual([])
+  })
+
+  it('refuses a deck with nothing in it', () => {
+    expect(() => newDeck([])).toThrow('must not be empty')
   })
 })

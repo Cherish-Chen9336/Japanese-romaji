@@ -44,6 +44,47 @@ function shuffled<T>(items: readonly T[], rng: RandomSource): T[] {
  * deck guarantees every item appears once before any appears twice; when the
  * deck runs out it is reshuffled, so runs longer than the bank still vary.
  */
+/**
+ * A deck part-way through being dealt: what is left, and what it is a deck of.
+ *
+ * `dealRandom` builds its deck inside the call, so two consecutive calls each
+ * start from a full shuffle and can hand out the same item either side of the
+ * boundary — the very repetition dealing exists to prevent. That was invisible
+ * while one deal filled one whole run; a timed run deals several times.
+ */
+export type Deck<T> = {
+  readonly items: readonly T[]
+  readonly remaining: readonly T[]
+}
+
+export function newDeck<T>(items: readonly T[]): Deck<T> {
+  if (items.length === 0) {
+    throw new Error('newDeck: items must not be empty')
+  }
+  return { items, remaining: [] }
+}
+
+/**
+ * Deals `count` items and hands back the deck to deal from next time.
+ *
+ * The same guarantee `dealRandom` gives within one call — every item appears
+ * once before any appears twice — now holds *across* calls, which is what makes
+ * a run of several passages cover the bank rather than restarting it.
+ */
+export function dealFrom<T>(
+  deck: Deck<T>,
+  count: number,
+  rng: RandomSource = Math.random,
+): { dealt: T[]; deck: Deck<T> } {
+  const dealt: T[] = []
+  let remaining = [...deck.remaining]
+  while (dealt.length < count) {
+    if (remaining.length === 0) remaining = shuffled(deck.items, rng)
+    dealt.push(remaining.pop() as T)
+  }
+  return { dealt, deck: { items: deck.items, remaining } }
+}
+
 export function dealRandom<T>(
   items: readonly T[],
   count: number,

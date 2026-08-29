@@ -264,6 +264,24 @@ Both are read by the same per-field fallback as every other setting, so a profil
 written before they existed keeps its own values and takes the defaults for
 these — rather than being rejected, or having them invented as off.
 
+### Dealing across passages
+
+`dealRandom` shuffles a fresh deck inside every call, so its guarantee — every
+item dealt once before any is dealt twice — held only *within* one call. That was
+invisible while one deal filled one whole run. Deal twice and an item can repeat
+across the boundary while others in the bank are never seen, which is the
+clustering dealing exists to prevent, moved up one level.
+
+`newDeck` and `dealFrom` carry the deck between calls, so the guarantee holds
+across a run of several passages. `dealFrom` returns a new deck rather than
+mutating the one it was given.
+
+Note for testing this: an aliasing bug here is invisible over a *fresh* deck,
+because the empty `remaining` is replaced by the reshuffle on the first
+iteration. A test of "leaves the deck untouched" has to use a part-dealt deck or
+it cannot fail — one written the easy way passed against an implementation that
+aliased the caller's array outright.
+
 ### A run is not a passage
 
 They used to be the same thing, and `finishedAt` quietly meant both "the matcher
