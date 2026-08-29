@@ -589,6 +589,52 @@ describe('kana stats', () => {
     expect(done.kanaStats['しゃ'].totalMs).toBe(0)
   })
 
+  /*
+   * The mora being *started*, not the one just finished. After あ is complete
+   * the cursor sits between two moras: `expectedToken` knows it is waiting on か
+   * and the UI says so, but `pendingKana` still held あ, so the table charged the
+   * miss to the mora that was typed correctly and left the fumbled one clean.
+   * The first key of a mora is where recall happens, which makes this the most
+   * common miss there is — it inflated moras you know and hid the ones you don't,
+   * and `weakestKana` and drill selection both read the result.
+   */
+  it('charges a boundary fumble to the mora being started, not the one just finished', () => {
+    const tokens = tokenizeKana('あか')
+    const fumbled = applyTypeChar(type(tokens, 'a'), 'q', tokens, T0 + 200, true)
+    expect(fumbled.missed?.kana).toBe('か')
+    const done = type(tokens, 'ka', fumbled.session)
+    expect(done.kanaStats['あ'].misses).toBe(0)
+    expect(done.kanaStats['か'].misses).toBe(1)
+  })
+
+  /*
+   * The invariant behind that fix: whatever the UI names as the mora at fault is
+   * the mora the table charges. Anything else means the screen and the mastery
+   * model disagree about what you got wrong. Swept over every position of words
+   * chosen to cover a clean boundary, a yōon, a geminate and an ん boundary.
+   */
+  it('records a miss against the same mora it reports, at every position', () => {
+    for (const [kana, romaji] of [
+      ['あか', 'aka'],
+      ['でんしゃ', 'densha'],
+      ['がっこう', 'gakkou'],
+      ['さんねん', 'sannen'],
+    ]) {
+      for (let stop = 0; stop < romaji.length; stop += 1) {
+        const tokens = tokenizeKana(kana)
+        const before = type(tokens, romaji.slice(0, stop))
+        const fumbled = applyTypeChar(before, 'q', tokens, T0 + 1_000, true)
+        const reported = fumbled.missed?.kana
+        if (reported === undefined || reported === null) continue
+        const done = type(tokens, romaji.slice(stop), fumbled.session)
+        const blamed = Object.entries(done.kanaStats)
+          .filter(([, stat]) => stat.misses > 0)
+          .map(([mora]) => mora)
+        expect(blamed, `${kana} @ ${stop} reported ${reported}`).toEqual([reported])
+      }
+    }
+  })
+
   it('carries into the recorded run', () => {
     const item = { kana: 'し', romaji: 'shi' }
     const lesson = { kana: 'し', romaji: 'shi', source: 'words' as const, items: [item] }

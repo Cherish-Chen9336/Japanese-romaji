@@ -145,6 +145,19 @@ uploaded `日本語|nihongo` produced tokens named `n`, `i`, `h`, `o`, `g` — w
 landed in the table, could fill the weakest list, and then matched no Japanese
 item at all, silently stopping drills from targeting anything.
 
+**A miss is charged to the mora being started, not the one just finished.** At a
+mora boundary the cursor has completed あ and not yet opened か: `expectedToken`
+knows it is waiting on か and the screen says so, but the encounter being held was
+still あ, so the table charged the fumble to the mora typed correctly and left the
+fumbled one clean. The first key of a mora is where recall happens, which makes
+this the most common miss there is — it inflated the error rate of moras you know
+and hid the ones you don't, and both `weakestKana` and drill selection read the
+result. At an ん boundary it was worse than misplaced: one fumble was charged to
+ん *and* to the following mora. `carriedMiss` holds a miss that belongs to a mora
+which has not opened yet until it does. The invariant, swept over every position
+of four words in `session.test.ts`: whatever the UI names as the mora at fault is
+the mora the table charges.
+
 Attribution reads the state **after** each keystroke, not before. Before it, ん
 followed by anything is ambiguous — the next key could extend it to `nn` or open
 the following mora — and attributing on that pre-state discarded every keystroke

@@ -83,6 +83,16 @@ export type SessionState = {
    * misses survive, so the error signal, which is the primary one, is untouched.
    */
   timingBlocked: boolean
+  /**
+   * A miss that belongs to a mora which has not opened yet, held until it does.
+   *
+   * At a mora boundary the cursor has finished one mora and not started the
+   * next, so the miss belongs to neither the pending encounter nor any encounter
+   * that exists — `expectedToken` names the mora being *started*, and that is
+   * what the screen tells the typist. Marking the pending mora instead charged
+   * the fumble to the one they had just typed correctly.
+   */
+  carriedMiss: boolean
   /** Timestamp of the last committed keystroke, right or wrong. */
   lastKeyAt: number | null
   /**
@@ -139,6 +149,7 @@ export function emptySession(): SessionState {
     intervals: [],
     cleanIntervals: [],
     timingBlocked: false,
+    carriedMiss: false,
     lastKeyAt: null,
     rejected: null,
   }
@@ -311,10 +322,23 @@ export function applyTypeChar(
       ? (isMoraToken(expected.kana) ? expected.kana : null)
       : (state.pendingKana?.kana ?? null)
 
+  /*
+   * The same answer as `wasOn`, by token index rather than by name, so the table
+   * can charge the miss to one encounter rather than to every occurrence of a
+   * kana. These two must not diverge: `wasOn` is what the screen names as the
+   * mora at fault, and anything the table charges instead is the model and the
+   * UI disagreeing about what the typist got wrong.
+   */
+  const blameIndex =
+    expected !== null
+      ? (isMoraToken(expected.kana) ? expected.index : null)
+      : (state.pendingKana?.index ?? null)
+
   const landed = settledToken(tokens, step.state)
   let kanaStats = state.kanaStats
   let pendingKana = state.pendingKana
   let timingBlocked = state.timingBlocked
+  let carriedMiss = state.carriedMiss
 
   const bank = (pending: NonNullable<SessionState['pendingKana']>) =>
     updateMoraStat(kanaStats, pending)
@@ -328,7 +352,7 @@ export function applyTypeChar(
         ...pendingKana,
         ms: pendingKana.ms + (interval ?? 0),
         keystrokes: pendingKana.keystrokes + 1,
-        missed: pendingKana.missed || !step.correct,
+        missed: pendingKana.missed || (!step.correct && blameIndex === pendingKana.index),
         timed: false,
       }
     }
@@ -344,14 +368,26 @@ export function applyTypeChar(
         index: landed.index,
         kana: landed.kana,
         ms: (pendingKana?.ms ?? 0) + (interval ?? 0),
-        missed: (pendingKana?.missed ?? false) || !step.correct,
+        missed:
+          (pendingKana?.missed ?? false) ||
+          (!step.correct && blameIndex === landed.index) ||
+          // A fumble made at this mora's boundary, before it had opened.
+          carriedMiss,
         keystrokes: (pendingKana?.keystrokes ?? 0) + 1,
         // A mora opening straight out of an ambiguous boundary has lost its
         // first interval to that ambiguity, so it is not cleanly timed either.
         timed: (pendingKana?.timed ?? true) && interval !== null && !timingBlocked,
       }
+      carriedMiss = false
     }
     timingBlocked = false
+  }
+
+  // Blamed on a mora no encounter is holding yet — carry it to the one that
+  // opens next. Repeated fumbles at the same boundary stay one miss, because one
+  // encounter with a mora is one attempt however many keys it took to reach.
+  if (!step.correct && blameIndex !== null && blameIndex !== (pendingKana?.index ?? null)) {
+    carriedMiss = true
   }
 
   if (step.done && pendingKana !== null) {
@@ -390,6 +426,7 @@ export function applyTypeChar(
         ? [...state.cleanIntervals, interval]
         : state.cleanIntervals,
     timingBlocked,
+    carriedMiss,
     lastKeyAt: now,
   }
 
@@ -434,6 +471,7 @@ export function applyBackspace(state: SessionState, tokens: RomajiToken[]): Sess
     rejected: null,
     pendingKana: null,
     timingBlocked: false,
+    carriedMiss: false,
   }
 }
 
