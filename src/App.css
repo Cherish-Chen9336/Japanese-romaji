@@ -6,6 +6,15 @@
   flex-direction: column;
   margin: 0 auto;
   max-width: var(--container-max);
+}
+
+/*
+ * The dashboard gets the window. Widening the shell for every page would spread
+ * the practice line and the top bar too, and a reading column is worse for being
+ * wider — so this is opt-in per route rather than a new global width.
+ */
+.app--wide {
+  max-width: var(--stats-max);
   min-height: 100svh;
   padding: var(--space-5) var(--gutter) var(--space-6);
 }
@@ -656,6 +665,12 @@ input[type='range'] {
   gap: var(--space-4);
 }
 
+/* The statistics page is a dashboard, not prose: it wants the whole window,
+   where a reading column would be worse for being wider. */
+.stats-page {
+  max-width: var(--stats-max);
+}
+
 .avatar {
   align-items: center;
   background: var(--color-accent);
@@ -669,14 +684,55 @@ input[type='range'] {
   width: 44px;
 }
 
-.stats-page {
-  max-width: 1040px;
-}
-
-.stats-grid-2 {
+/*
+ * One dense twelve-column grid rather than a stack of rigid two-column rows.
+ *
+ * Panels here have wildly different natural sizes — a 26-row kana chart, a
+ * three-row keyboard, a two-item bar list — and giving each an equal half of the
+ * page left most of them mostly empty while the page ran to nearly five screens.
+ * Spans let each panel take roughly the width its content wants.
+ */
+.stats-grid {
   display: grid;
   gap: var(--space-4);
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  align-items: start;
+  /* Panels here differ a lot in height, so a strictly ordered flow leaves holes
+     under the short ones. Dense packing lets a later short panel fill a gap an
+     earlier tall one opened. */
+  grid-auto-flow: row dense;
+}
+
+.stats-grid > .panel {
+  /* Single column by default; the spans below apply only once there is room. */
+  grid-column: span 12;
+  min-width: 0;
+}
+
+/* Each of these has to out-specify `.stats-grid > .panel` above, or the
+   single-column default wins at every width and the spans never apply. */
+@media (min-width: 760px) {
+  .stats-grid > .panel--span-3,
+  .stats-grid > .panel--span-4,
+  .stats-grid > .panel--span-5,
+  .stats-grid > .panel--span-6 {
+    grid-column: span 6;
+  }
+}
+
+@media (min-width: 1120px) {
+  .stats-grid > .panel--span-3 { grid-column: span 3; }
+  .stats-grid > .panel--span-4 { grid-column: span 4; }
+  .stats-grid > .panel--span-5 { grid-column: span 5; }
+  .stats-grid > .panel--span-6 { grid-column: span 6; }
+  .stats-grid > .panel--span-12 { grid-column: span 12; }
+
+  /* The chart is wide and tall; the two panels beside it are short. Spanning
+     two rows lets them stack alongside instead of leaving the row half empty. */
+  .stats-grid > .panel--map {
+    grid-column: span 8;
+    grid-row: span 2;
+  }
 }
 
 .panel {
@@ -694,6 +750,9 @@ input[type='range'] {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  /* Ten fixed-width keys are wider than a phone. Scroll inside the panel
+     rather than pushing the whole page sideways. */
+  overflow-x: auto;
 }
 
 .mini-keyboard-row {
@@ -945,9 +1004,10 @@ meter::-webkit-meter-optimum-value {
     gap: var(--space-4);
   }
 
-  .stat-grid,
-  .stats-grid-2 {
-    grid-template-columns: 1fr;
+  /* Two up, not one. Four single-column cells pushed everything below them a
+     whole phone screen down for the sake of four short numbers. */
+  .stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .library-item {
@@ -1020,10 +1080,19 @@ meter::-webkit-meter-optimum-value {
   border: 0;
 }
 
+/*
+ * The three charts sit side by side, not stacked.
+ *
+ * Stacked, they ran 26 rows deep — about 1,200px of a 4,200px page — inside a
+ * full-width panel whose chart used barely a quarter of its width. Side by side
+ * the same information is roughly 700px wide and 500px tall, which is the shape
+ * the panel actually had to offer.
+ */
 .mastery {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-6);
+  flex-flow: row wrap;
+  align-items: flex-start;
+  gap: var(--space-5) var(--space-6);
 }
 
 .mastery-grid {

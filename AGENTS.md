@@ -179,6 +179,36 @@ get seen and all three planted weaknesses are found and fixed.
 Known limitation: selection filters but does not weight, so a weak mora appearing
 in one item gets less practice than an equally weak one appearing in ten.
 
+### The statistics page is a dashboard
+
+It is the one route that gets the whole window — `app--wide` raises the shell to
+`--stats-max` on that route only. Widening the shell globally would spread the
+practice line and the top bar too, and reading content is worse for being wider,
+so this is opt-in per route rather than a new global width.
+
+Panels sit in **one twelve-column grid** with per-panel spans, not a stack of
+rigid two-column rows. Their natural sizes differ enormously — a 26-row kana
+chart, a three-row keyboard, a two-item bar list — and giving each an equal half
+of the page left most of them mostly empty. `grid-auto-flow: dense` lets a later
+short panel fill a gap an earlier tall one opened.
+
+Two things that made the page nearly five screens long, both measured before and
+after: the mastery chart's three grids **stacked** (26 rows, ~1,200px) inside a
+full-width panel whose chart used a quarter of its width — they now sit side by
+side, ~700 × 500 — and every panel being full width. 4,238px → 2,541px on the
+same seeded profile, with content going 1,040px → 1,328px in a 1,440px window.
+
+Two traps here, both of which cost real time:
+
+- **Span rules must out-specify the single-column default.** `.stats-grid >
+  .panel` is two classes; a bare `.panel--span-4` is one, so it loses at every
+  width and nothing spans. The overrides are written `.stats-grid > .panel--span-N`.
+- **A stale Vite dev server can serve an empty stylesheet.** After many HMR
+  cycles App.css came back as a zero-byte style tag, so *every* rule appeared not
+  to apply and several correct edits looked broken. If a rule that used to work
+  stops applying, check `document.styleSheets` sizes before editing the CSS —
+  restarting Vite and clearing `node_modules/.vite` fixed it.
+
 ### The mastery map
 
 `engine/mastery.ts` lays the 五十音 chart out for display and `ui/MasteryMap.tsx`

@@ -170,7 +170,7 @@ function App() {
   })
   const keyStats = createMemo(() => mergeTimingStats(runs(), 'keyStats'))
   const bigramStats = createMemo(() => mergeTimingStats(runs(), 'bigramStats'))
-  const slowKeys = createMemo(() => topTimingStats(keyStats(), 12))
+  const slowKeys = createMemo(() => topTimingStats(keyStats(), 8))
   const slowBigrams = createMemo(() => topTimingStats(bigramStats(), 8))
   const kanaStats = createMemo(() => mergeMoraStats(runs()))
   const weakestMoras = createMemo(() => weakestKana(kanaStats(), 8))
@@ -563,7 +563,9 @@ function App() {
   // different passage under the typist's fingers after they have started.
   return (
     <Show when={ready()} fallback={<main class="app app--loading">loading…</main>}>
-      <main class="app" onClick={refocus}>
+      {/* The statistics page is a dashboard and wants the window; every other
+          page is reading content and is better off in a narrow column. */}
+      <main classList={{ app: true, 'app--wide': route() === 'stats' }} onClick={refocus}>
         <Topbar
           wpm={speed()}
           accuracy={accuracy()}
@@ -917,8 +919,8 @@ function App() {
               </div>
             </div>
 
-            <div class="stats-grid-2">
-              <section class="panel">
+            <div class="stats-grid">
+              <section class="panel panel--span-4">
                 <h2>missed keys</h2>
                 <div class="mini-keyboard">
                   <For each={['qwertyuiop', 'asdfghjkl', 'zxcvbnm']}>
@@ -965,7 +967,7 @@ function App() {
 
               {/* Spans both columns: the chart is far wider than a bar list,
                   and it is the page's primary answer to "what do I not know". */}
-              <section class="panel panel--wide">
+              <section class="panel panel--map">
                 <h2>kana typing mastery</h2>
                 {/* Not "accuracy": the colour is weakness weighted by how much
                     evidence stands behind it, which is why one miss in a hundred
@@ -1004,7 +1006,7 @@ function App() {
               {/* Timing has to live somewhere a touch user can reach. It used to
                   exist only in a `title` tooltip, which is no surface at all on a
                   phone — and it stays off the chart's one colour channel. */}
-              <section class="panel">
+              <section class="panel panel--span-4">
                 <h2>slowest moras</h2>
                 <p class="muted">Time beyond what each spelling costs at your own cadence.</p>
                 <div class="bar-list">
@@ -1027,7 +1029,7 @@ function App() {
                 </div>
               </section>
 
-              <section class="panel">
+              <section class="panel panel--span-4">
                 <h2>most confused</h2>
                 <div class="bar-list">
                   <For each={topConfusions()} fallback={<p class="muted">No confused pairs yet.</p>}>
@@ -1041,10 +1043,8 @@ function App() {
                   </For>
                 </div>
               </section>
-            </div>
 
-            <div class="stats-grid-2">
-              <section class="panel">
+              <section class="panel panel--span-4">
                 <h2>slowest letters</h2>
                 <div class="bar-list">
                   <For each={slowKeys()} fallback={<p class="muted">Complete a run to collect timing.</p>}>
@@ -1059,7 +1059,7 @@ function App() {
                 </div>
               </section>
 
-              <section class="panel">
+              <section class="panel panel--span-4">
                 <h2>slowest pairs</h2>
                 <div class="bar-list">
                   <For each={slowBigrams()} fallback={<p class="muted">No pair timing yet.</p>}>
@@ -1073,10 +1073,8 @@ function App() {
                   </For>
                 </div>
               </section>
-            </div>
 
-            <div class="stats-grid-2">
-              <section class="panel">
+              <section class="panel panel--span-5">
                 <h2>last 60 days</h2>
                 <div class="calendar-grid">
                   <For each={recentDayKeys(60)}>
@@ -1096,7 +1094,7 @@ function App() {
                 </div>
               </section>
 
-              <section class="panel">
+              <section class="panel panel--span-4">
                 <h2>source breakdown</h2>
                 <div class="bar-list">
                   <For each={sourceStats()} fallback={<p class="muted">No runs yet.</p>}>
@@ -1110,10 +1108,8 @@ function App() {
                   </For>
                 </div>
               </section>
-            </div>
 
-            <div class="stats-grid-2">
-              <section class="panel">
+              <section class="panel panel--span-3">
                 <h2>streaks</h2>
                 <div class="stat-grid stat-grid--compact">
                   <div>
@@ -1127,7 +1123,7 @@ function App() {
                 </div>
               </section>
 
-              <section class="panel">
+              <section class="panel panel--span-6">
                 <h2>wpm distribution</h2>
                 <div class="bar-list">
                   <For each={distribution()}>
@@ -1141,9 +1137,8 @@ function App() {
                   </For>
                 </div>
               </section>
-            </div>
 
-            <section class="panel">
+            <section class="panel panel--span-6">
               <h2>milestones</h2>
               <div class="milestone-grid">
                 <For each={milestones()}>
@@ -1156,7 +1151,7 @@ function App() {
               </div>
             </section>
 
-            <section class="panel">
+            <section class="panel panel--span-12">
               <h2>recent runs</h2>
               <div class="runs-table">
                 <For each={runs().slice(0, 12)} fallback={<p class="muted">No runs yet.</p>}>
@@ -1171,6 +1166,7 @@ function App() {
                 </For>
               </div>
             </section>
+            </div>
           </section>
         </Show>
 

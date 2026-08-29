@@ -45,6 +45,8 @@
   /* Reading column for the practice text. Both the kana line and the romaji
    * line share it so they line up on the same left edge. */
   --content-max: 900px;
+  /* Dashboards read across the window; reading columns do not. */
+  --stats-max: 1360px;
 
   --space-1: 4px;
   --space-2: 8px;
