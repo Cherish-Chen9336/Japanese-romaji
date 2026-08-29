@@ -22,7 +22,7 @@ import type { RomajiToken } from './romanization'
 import { mulberry32 } from './rng'
 import type { KanaRow, Settings, TextItem } from './types'
 
-const settings: Settings = { paragraphItems: 3, stopOnError: true }
+const settings: Settings = { paragraphItems: 3, stopOnError: true, confidenceMode: false, whitespaceMarkers: true }
 
 describe('parseLibraryText', () => {
   it('parses pipe-delimited kana|romaji lines', () => {
@@ -253,7 +253,7 @@ describe('generateLesson', () => {
   it('respects settings.paragraphItems for word count', () => {
     // Uses `difficult`, not `quotes` — quote-bank kana strings contain
     // internal spaces, which would make a naive split(' ') length check lie.
-    const lesson = generateLesson('difficult', { paragraphItems: 2, stopOnError: true }, [], [], 30, () => 0)
+    const lesson = generateLesson('difficult', { paragraphItems: 2, stopOnError: true, confidenceMode: false, whitespaceMarkers: true }, [], [], 30, () => 0)
     expect(lesson.kana.split(' ')).toHaveLength(2)
     expect(difficultBank.map((i) => i.kana)).toContain(lesson.kana.split(' ')[0])
   })
@@ -313,7 +313,7 @@ describe('kanaRows', () => {
 })
 
 describe('kana source', () => {
-  const settings: Settings = { paragraphItems: 4, stopOnError: true }
+  const settings: Settings = { paragraphItems: 4, stopOnError: true, confidenceMode: false, whitespaceMarkers: true }
 
   it('builds a lesson from the chart', () => {
     const lesson = generateLesson('kana', settings, [], [], 0, mulberry32(1), 'all')
@@ -382,7 +382,7 @@ describe('kanji is reachable, not just present', () => {
   })
 
   it('is what `auto` serves a brand-new user some of the time', () => {
-    const settings: Settings = { paragraphItems: 8, stopOnError: true }
+    const settings: Settings = { paragraphItems: 8, stopOnError: true, confidenceMode: false, whitespaceMarkers: true }
     const seen = new Set<string>()
     const rng = mulberry32(11)
     for (let i = 0; i < 30; i++) {

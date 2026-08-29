@@ -140,6 +140,19 @@ export function readRuns(): RunResult[] {
 
 const DEFAULT_PARAGRAPH_ITEMS = 8
 
+/* Defaults in one place, so `readSettings` and `parsePreferences` cannot drift
+   into disagreeing about what a missing field means. */
+const DEFAULT_SETTINGS: Settings = {
+  paragraphItems: DEFAULT_PARAGRAPH_ITEMS,
+  stopOnError: true,
+  confidenceMode: false,
+  whitespaceMarkers: true,
+}
+
+function bool(value: unknown, fallback: boolean): boolean {
+  return typeof value === 'boolean' ? value : fallback
+}
+
 function clampParagraphItems(value: unknown): number {
   return isNum(value)
     ? Math.max(3, Math.min(30, Math.round(value)))
@@ -148,11 +161,13 @@ function clampParagraphItems(value: unknown): number {
 
 export function readSettings(): Settings {
   const raw = readJson<unknown>(SETTINGS_KEY, null)
-  if (!isRecord(raw)) return { paragraphItems: DEFAULT_PARAGRAPH_ITEMS, stopOnError: true }
+  if (!isRecord(raw)) return DEFAULT_SETTINGS
   const r = raw as Record<string, unknown>
   return {
     paragraphItems: clampParagraphItems(r.paragraphItems),
-    stopOnError: typeof r.stopOnError === 'boolean' ? r.stopOnError : true,
+    stopOnError: bool(r.stopOnError, true),
+    confidenceMode: bool(r.confidenceMode, false),
+    whitespaceMarkers: bool(r.whitespaceMarkers, true),
   }
 }
 
@@ -430,7 +445,9 @@ export function parsePreferences(raw: unknown): Preferences {
   const stored = isRecord(r.settings) ? (r.settings as Record<string, unknown>) : {}
   const settings: Settings = {
     paragraphItems: clampParagraphItems(stored.paragraphItems),
-    stopOnError: typeof stored.stopOnError === 'boolean' ? stored.stopOnError : true,
+    stopOnError: bool(stored.stopOnError, DEFAULT_SETTINGS.stopOnError),
+    confidenceMode: bool(stored.confidenceMode, DEFAULT_SETTINGS.confidenceMode),
+    whitespaceMarkers: bool(stored.whitespaceMarkers, DEFAULT_SETTINGS.whitespaceMarkers),
   }
   return {
     settings,

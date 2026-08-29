@@ -82,6 +82,24 @@ export type Settings = {
    * input assembles a kana rather than filling a slot.
    */
   stopOnError: boolean
+  /**
+   * Disable backspace, so every keystroke commits.
+   *
+   * Off by default. It trains precision over correction, but a beginner who
+   * cannot take a key back has no way out of a mora they have half-assembled,
+   * and this matcher already refuses wrong keys — the two together would make a
+   * fumble unrecoverable rather than merely costly.
+   */
+  confidenceMode: boolean
+  /**
+   * Mark the spaces in the romaji line.
+   *
+   * On by default, because the space is a key you have to press and the kana
+   * above it shows no gap: 写真 and 友達 sit side by side with nothing between
+   * them, while the romaji demands `shashin tomodachi`. The marker is where that
+   * requirement becomes visible.
+   */
+  whitespaceMarkers: boolean
 }
 
 /**

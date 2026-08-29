@@ -1246,3 +1246,21 @@ meter::-webkit-meter-optimum-value {
   text-underline-offset: 3px;
   border-color: var(--color-error);
 }
+
+/*
+ * A space is a key you have to press, and the kana above it shows no gap —
+ * 写真 and 友達 sit side by side while the romaji demands `shashin tomodachi`.
+ * Overlaid rather than substituted so the character keeps its own width and the
+ * correct/incorrect colouring underneath still reads.
+ */
+.char--space {
+  position: relative;
+}
+
+.char--space::after {
+  content: '␣';
+  position: absolute;
+  inset: 0;
+  opacity: 0.32;
+  pointer-events: none;
+}

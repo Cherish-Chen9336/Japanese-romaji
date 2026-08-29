@@ -11,6 +11,7 @@ import {
   readLifetimeStats,
   readMissMap,
   readRuns,
+  parsePreferences,
   readSettings,
   readKanaGroup,
   readShowKeyboard,
@@ -141,12 +142,12 @@ describe('readRuns', () => {
 
 describe('readSettings', () => {
   it('returns the default when the key is absent', () => {
-    expect(readSettings()).toEqual({ paragraphItems: 8, stopOnError: true })
+    expect(readSettings()).toEqual({ paragraphItems: 8, stopOnError: true, confidenceMode: false, whitespaceMarkers: true })
   })
 
   it('returns the stored value when valid', () => {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify({ paragraphItems: 12 }))
-    expect(readSettings()).toEqual({ paragraphItems: 12, stopOnError: true })
+    expect(readSettings()).toEqual({ paragraphItems: 12, stopOnError: true, confidenceMode: false, whitespaceMarkers: true })
   })
 
   it('clamps paragraphItems below 3 back to 3', () => {
@@ -161,9 +162,9 @@ describe('readSettings', () => {
 
   it('falls back to the default for corrupt or non-object values', () => {
     localStorage.setItem(SETTINGS_KEY, 'null')
-    expect(readSettings()).toEqual({ paragraphItems: 8, stopOnError: true })
+    expect(readSettings()).toEqual({ paragraphItems: 8, stopOnError: true, confidenceMode: false, whitespaceMarkers: true })
     localStorage.setItem(SETTINGS_KEY, '"string"')
-    expect(readSettings()).toEqual({ paragraphItems: 8, stopOnError: true })
+    expect(readSettings()).toEqual({ paragraphItems: 8, stopOnError: true, confidenceMode: false, whitespaceMarkers: true })
   })
 })
 
@@ -642,5 +643,64 @@ describe('migrateLocalStorage', () => {
     localStorage.setItem(RUNS_KEY, JSON.stringify([legacyRun]))
     await migrateLocalStorage(new InMemoryRecordStore())
     expect(localStorage.getItem(RUNS_KEY)).not.toBeNull()
+  })
+})
+
+describe('the practice toggles', () => {
+  /*
+   * Defaults chosen rather than inherited. Confidence mode is off because this
+   * matcher already refuses wrong keys, and a beginner who can neither take a
+   * key back nor push a wrong one through has no way out of a half-assembled
+   * mora. Markers are on because the space is a key you must press and the kana
+   * above it shows no gap at all.
+   */
+  it('defaults confidence mode off and whitespace markers on', () => {
+    localStorage.removeItem(SETTINGS_KEY)
+    expect(readSettings()).toEqual({
+      paragraphItems: 8,
+      stopOnError: true,
+      confidenceMode: false,
+      whitespaceMarkers: true,
+    })
+  })
+
+  it('keeps whichever of them was actually stored', () => {
+    localStorage.setItem(
+      SETTINGS_KEY,
+      JSON.stringify({ paragraphItems: 8, stopOnError: true, confidenceMode: true, whitespaceMarkers: false }),
+    )
+    const back = readSettings()
+    expect(back.confidenceMode).toBe(true)
+    expect(back.whitespaceMarkers).toBe(false)
+  })
+
+  /* A profile written before these existed must not have them invented as off. */
+  it('falls back per field rather than rejecting an older settings object', () => {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ paragraphItems: 12, stopOnError: false }))
+    expect(readSettings()).toEqual({
+      paragraphItems: 12,
+      stopOnError: false,
+      confidenceMode: false,
+      whitespaceMarkers: true,
+    })
+  })
+
+  it('ignores a non-boolean and uses the default', () => {
+    localStorage.setItem(
+      SETTINGS_KEY,
+      JSON.stringify({ paragraphItems: 8, confidenceMode: 'yes', whitespaceMarkers: 0 }),
+    )
+    expect(readSettings().confidenceMode).toBe(false)
+    expect(readSettings().whitespaceMarkers).toBe(true)
+  })
+
+  /* An imported backup goes through a different reader; the two must agree. */
+  it('reads the same defaults out of an imported profile', () => {
+    expect(parsePreferences({ settings: { paragraphItems: 8 } }).settings).toEqual({
+      paragraphItems: 8,
+      stopOnError: true,
+      confidenceMode: false,
+      whitespaceMarkers: true,
+    })
   })
 })

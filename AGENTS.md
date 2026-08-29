@@ -242,6 +242,28 @@ sokuon. Chart groups are hardcoded, so a new `KanaGroup` needs adding in two
 places. Corpus-wide invariants read `allBankItems()` rather than a hand-listed
 set of banks, so a bank added later joins them by existing.
 
+### The practice toggles
+
+`Settings` defaults are chosen, not inherited, and each has a reason.
+
+**`confidenceMode` (off).** Backspace does nothing, so every keystroke commits.
+Off by default because this matcher already refuses wrong keys: a typist who can
+neither take a key back nor push a wrong one through has no way out of a
+half-assembled mora. The two together are a wall, not a discipline. The keydown
+handler still calls `preventDefault` on Backspace whether or not the mode is on,
+or the browser navigates back out of the app.
+
+**`whitespaceMarkers` (on).** A faint ␣ over each space in the romaji line. On by
+default because the space is a key you have to press and the kana above it shows
+no gap at all — 写真 and 友達 sit side by side while the romaji demands
+`shashin tomodachi`. Drawn as an overlay rather than substituted for the
+character, so the space keeps its own width and the correct/incorrect colouring
+underneath still reads.
+
+Both are read by the same per-field fallback as every other setting, so a profile
+written before they existed keeps its own values and takes the defaults for
+these — rather than being rejected, or having them invented as off.
+
 ### Finishing a run
 
 A completed run is **saved synchronously, at the moment it completes**; only the

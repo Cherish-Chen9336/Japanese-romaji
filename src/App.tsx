@@ -307,6 +307,18 @@ function App() {
       kanaGroup(),
     )
 
+  const setConfidenceMode = (confidenceMode: boolean) => {
+    const next = { ...settings(), confidenceMode }
+    persist(SETTINGS_KEY, next)
+    setSettings(next)
+  }
+
+  const setWhitespaceMarkers = (whitespaceMarkers: boolean) => {
+    const next = { ...settings(), whitespaceMarkers }
+    persist(SETTINGS_KEY, next)
+    setSettings(next)
+  }
+
   const setStopOnError = (stopOnError: boolean) => {
     const next = { ...settings(), stopOnError }
     setSettings(next)
@@ -512,8 +524,9 @@ function App() {
         return
       }
       if (event.key === 'Backspace') {
+        // Swallowed either way: the browser would navigate back otherwise.
         event.preventDefault()
-        backspace()
+        if (!settings().confidenceMode) backspace()
         return
       }
       if (event.key.length === 1) {
@@ -643,6 +656,7 @@ function App() {
                         char: true,
                         'char--correct': key.correct,
                         'char--incorrect': !key.correct,
+                        'char--space': settings().whitespaceMarkers && key.char === ' ',
                       }}
                     >
                       {key.char}
@@ -659,6 +673,7 @@ function App() {
                         // character to colour. The signal goes on the one still
                         // being waited for.
                         'char--rejected': index() === 0 && session().rejected !== null,
+                        'char--space': settings().whitespaceMarkers && char === ' ',
                       }}
                     >
                       {char}
@@ -1222,6 +1237,22 @@ function App() {
                 onChange={(event) => setStopOnError(event.currentTarget.checked)}
               />
               <span>stop on error — refuse a wrong key instead of typing it</span>
+            </label>
+            <label class="check-row">
+              <input
+                type="checkbox"
+                checked={settings().confidenceMode}
+                onChange={(event) => setConfidenceMode(event.currentTarget.checked)}
+              />
+              <span>confidence mode — no backspace, every keystroke commits</span>
+            </label>
+            <label class="check-row">
+              <input
+                type="checkbox"
+                checked={settings().whitespaceMarkers}
+                onChange={(event) => setWhitespaceMarkers(event.currentTarget.checked)}
+              />
+              <span>mark the spaces between words</span>
             </label>
             <label class="check-row">
               <input
