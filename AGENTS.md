@@ -264,6 +264,47 @@ Both are read by the same per-field fallback as every other setting, so a profil
 written before they existed keeps its own values and takes the defaults for
 these — rather than being rejected, or having them invented as off.
 
+### A run is not a passage
+
+They used to be the same thing, and `finishedAt` quietly meant both "the matcher
+reached the last token" and "the run is over and rejects input". That held only
+because one passage had always been one run. A timed run outlives its passage, so
+`SessionState` now has two kinds of field:
+
+- **Passage-local**, reset when the passage is replaced: `keys`, `match`,
+  `pendingKana`, `timingBlocked`, `carriedMiss`, `rejected`, `lastKeyAt`.
+- **Run-wide**, carried across: `attempts`, `mistakes`, `startedAt`, the three
+  stat tables, `intervals`, `cleanIntervals`, and `completedChars` /
+  `completedCorrectChars`.
+
+`rollToNextPrompt` performs that split. `keys` was doing two jobs — the line on
+screen *and* the run's character count — so the count is banked into
+`completedChars` before the line is cleared, and `computeMetrics` and
+`buildRunResult` read the banked totals plus the current passage. `lastKeyAt` is
+cleared, because dealing and painting the next passage is not typing: charged to
+the first keystroke of the new passage it would land on that mora and make
+whatever came first look hard in every timed run.
+
+`finishRun` ends a run wherever the typist is. Passage completion never needed
+it — the run ended at a point where the final mora had just been banked — but a
+deadline lands anywhere, frequently mid-mora. **The cutoff is never evidence**: a
+mora interrupted while clean is not an attempt, because stopping a clock says
+nothing about whether the typist knew it. One that already carries a miss *is* a
+real encounter and is banked, with no duration, since a truncated mora was never
+timed. Without this, a genuine miss in the last second vanished, breaking the
+rule that what the screen blamed is what the table records.
+
+Rejected on the way: **appending the next passage's tokens** to the live array
+keeps token indices valid but makes `applyBackspace` replay the whole run
+(`matchFor` rebuilds from every surviving key), lets backspace reach into a
+passage that has scrolled away, and needs the display windowed anyway.
+Concatenating two compiled prompts also silently fuses the last mora of one to
+the first of the next, since `compilePrompt` only inserts separators *within* a
+call. **Merging independently completed sub-runs** fails on a narrower point:
+`RunResult` permits one `baselineMs` and `mergeMoraStats` applies it to every
+mora in the result, so passages with different baselines cannot be combined
+without losing information.
+
 ### Finishing a run
 
 A completed run is **saved synchronously, at the moment it completes**; only the

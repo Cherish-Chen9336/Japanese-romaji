@@ -3,6 +3,8 @@ import { compileItem } from './prompt'
 import { tokenizeKana } from './romanization'
 import {
   applyBackspace,
+  finishRun,
+  rollToNextPrompt,
   applyTypeChar,
   buildRunResult,
   computeMetrics,
@@ -641,5 +643,106 @@ describe('kana stats', () => {
     const s = type(compileItem(item), 'shi')
     const run = buildRunResult(s, lesson, computeMetrics(s, T0), () => '2026-01-01T00:00:00.000Z')
     expect(run.kanaStats?.['し'].attempts).toBe(1)
+  })
+})
+
+/*
+ * A run and a passage used to be the same thing. A timed run outlives its
+ * passage, so the two had to be separated: what the matcher and the screen own
+ * resets at a passage boundary, what the run owns does not.
+ */
+describe('rollToNextPrompt', () => {
+  it('clears the line and the matcher', () => {
+    const rolled = rollToNextPrompt(type(tokenizeKana('かき'), 'kaki'))
+    expect(rolled.keys).toEqual([])
+    expect(rolled.pendingKana).toBeNull()
+    expect(rolled.finishedAt).toBeNull()
+  })
+
+  it('keeps everything the run is counted from', () => {
+    const done = type(tokenizeKana('かき'), 'kaki')
+    const rolled = rollToNextPrompt(done)
+    expect(rolled.attempts).toBe(done.attempts)
+    expect(rolled.startedAt).toBe(done.startedAt)
+    expect(rolled.kanaStats).toEqual(done.kanaStats)
+    expect(rolled.cleanIntervals).toEqual(done.cleanIntervals)
+  })
+
+  /*
+   * `keys` is the line on screen, so it has to reset — but it was also the run's
+   * whole character count, and that half has to survive somewhere.
+   */
+  it('banks the finished passage rather than losing its characters', () => {
+    const first = type(tokenizeKana('かき'), 'kaki')
+    const rolled = rollToNextPrompt(first)
+    expect(rolled.completedChars).toBe(4)
+    expect(rolled.completedCorrectChars).toBe(4)
+    const second = type(tokenizeKana('くけ'), 'kuke', rolled)
+    const lesson = { kana: 'くけ', romaji: 'kuke', source: 'words' as const, items: [{ kana: 'くけ', romaji: 'kuke' }] }
+    const run = buildRunResult(second, lesson, computeMetrics(second, T0), () => '2026-01-01T00:00:00.000Z')
+    expect(run.chars).toBe(8)
+  })
+
+  it('counts only the correct characters toward net speed', () => {
+    const fumbled = type(tokenizeKana('かき'), 'kqaki')
+    const rolled = rollToNextPrompt(fumbled)
+    expect(rolled.completedChars).toBe(fumbled.keys.length)
+    expect(rolled.completedCorrectChars).toBe(fumbled.keys.filter((key) => key.correct).length)
+    // A wrong key stands in the line and so in `chars`, but never in net speed.
+    expect(rolled.completedCorrectChars).toBeLessThan(rolled.completedChars)
+  })
+
+  /*
+   * Dealing and painting the next passage is not typing. Charged to the first
+   * keystroke of the new passage it would land on that mora, making whatever
+   * happens to come first look hard in every timed run.
+   */
+  it('leaves the first keystroke of the next passage untimed', () => {
+    const rolled = rollToNextPrompt(type(tokenizeKana('かき'), 'kaki'))
+    expect(rolled.lastKeyAt).toBeNull()
+    const next = type(tokenizeKana('あ'), 'a', rolled)
+    expect(next.kanaStats['あ'].timingSamples).toBe(0)
+  })
+})
+
+describe('finishRun', () => {
+  /*
+   * A deadline lands anywhere, often mid-mora. Passage completion never had to
+   * deal with that — it ended where a mora had just been banked.
+   */
+  it('does not invent an attempt from a mora that was merely interrupted', () => {
+    const half = type(tokenizeKana('しゃ'), 'sh')
+    expect(half.pendingKana?.kana).toBe('しゃ')
+    expect(finishRun(half, T0 + 9_000).kanaStats['しゃ']).toBeUndefined()
+  })
+
+  /*
+   * The other half: a miss made in the last second is a real encounter, and
+   * abandoning the pending mora silently dropped it — the screen blamed a mora
+   * the table then never recorded.
+   */
+  it('keeps a miss the typist actually made before the clock stopped', () => {
+    const tokens = tokenizeKana('しゃ')
+    const afterS = type(tokens, 's')
+    const fumbled = applyTypeChar(afterS, 'q', tokens, T0 + 200, true).session
+    const stat = finishRun(fumbled, T0 + 9_000).kanaStats['しゃ']
+    expect(stat.attempts).toBe(1)
+    expect(stat.misses).toBe(1)
+    // Truncated, so it was never a measured duration.
+    expect(stat.timingSamples).toBe(0)
+  })
+
+  it('stops the clock at the moment it is given', () => {
+    expect(finishRun(type(tokenizeKana('か'), 'k'), T0 + 60_000).finishedAt).toBe(T0 + 60_000)
+  })
+
+  /* Nothing typed, nothing to record — and no run to end. */
+  it('leaves a run that never started unfinished', () => {
+    expect(finishRun(emptySession(), T0 + 60_000).finishedAt).toBeNull()
+  })
+
+  it('refuses to move a run that has already ended', () => {
+    const done = type(tokenizeKana('か'), 'ka')
+    expect(finishRun(done, T0 + 60_000)).toBe(done)
   })
 })

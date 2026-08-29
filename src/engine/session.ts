@@ -93,6 +93,19 @@ export type SessionState = {
    * the fumble to the one they had just typed correctly.
    */
   carriedMiss: boolean
+  /**
+   * Characters typed in passages already finished within this run.
+   *
+   * A run and a passage used to be the same thing, so `keys` was both the line
+   * on screen and the run's whole character count. A timed run outlives its
+   * passage: when one is exhausted the matcher and the visible line reset while
+   * the run keeps going, and what the finished passage contributed has to
+   * survive that reset somewhere. `keys` stays passage-local, so the display and
+   * backspace deal only with what is actually on screen.
+   */
+  completedChars: number
+  /** The correct half of `completedChars`, which is what net WPM counts. */
+  completedCorrectChars: number
   /** Timestamp of the last committed keystroke, right or wrong. */
   lastKeyAt: number | null
   /**
@@ -152,6 +165,8 @@ export function emptySession(): SessionState {
     carriedMiss: false,
     lastKeyAt: null,
     rejected: null,
+    completedChars: 0,
+    completedCorrectChars: 0,
   }
 }
 
@@ -475,6 +490,72 @@ export function applyBackspace(state: SessionState, tokens: RomajiToken[]): Sess
   }
 }
 
+/**
+ * Ends the run now, wherever the typist happens to be.
+ *
+ * Passage mode never needed this: the run ended by reaching the last token, at a
+ * point where the final mora had just been banked. A deadline lands anywhere —
+ * frequently mid-mora — so the encounter in progress has to be resolved
+ * deliberately rather than abandoned. Without that, a genuine miss made in the
+ * last second simply disappears, which breaks the rule that what the screen
+ * blamed is what the table records.
+ *
+ * The cutoff itself is never evidence: a mora interrupted while clean is not an
+ * attempt at all, because stopping the clock says nothing about whether the
+ * typist knew it. One that already carries a miss is a real encounter and is
+ * banked as such — with no duration, since a truncated mora was never timed.
+ */
+export function finishRun(state: SessionState, endedAt: number): SessionState {
+  if (state.finishedAt !== null) return state
+  const pending = state.pendingKana
+  const kanaStats =
+    pending !== null && pending.missed
+      ? updateMoraStat(state.kanaStats, { ...pending, timed: false })
+      : state.kanaStats
+  return {
+    ...state,
+    kanaStats,
+    pendingKana: null,
+    // A miss carried at a boundary belongs to a mora that never opened, and now
+    // never will. It cannot be charged to the mora before it — that is the very
+    // misattribution `carriedMiss` exists to prevent.
+    carriedMiss: false,
+    rejected: null,
+    finishedAt: state.startedAt === null ? null : endedAt,
+  }
+}
+
+/**
+ * Clears the passage and keeps the run.
+ *
+ * Everything the matcher and the screen own is reset — the typed line, the match
+ * positions, the mora in progress — while everything the run owns is kept:
+ * counters, the three stat tables, the interval samples the baseline is drawn
+ * from, and `startedAt`, because the clock has not stopped.
+ *
+ * `lastKeyAt` is cleared deliberately. Left set, the pause between finishing one
+ * passage and the first keystroke of the next — dealing, compiling, painting —
+ * would be charged to that keystroke and to the mora it opens, making the first
+ * mora of every passage look hard. It becomes untimed instead, exactly as the
+ * first key of a run and the key after a backspace already are.
+ */
+export function rollToNextPrompt(state: SessionState): SessionState {
+  return {
+    ...state,
+    completedChars: state.completedChars + state.keys.length,
+    completedCorrectChars:
+      state.completedCorrectChars + state.keys.filter((key) => key.correct).length,
+    keys: [],
+    match: initMatch(),
+    pendingKana: null,
+    timingBlocked: false,
+    carriedMiss: false,
+    rejected: null,
+    lastKeyAt: null,
+    finishedAt: null,
+  }
+}
+
 export function computeMetrics(state: SessionState, now: number): SessionMetrics {
   const elapsedMs = state.startedAt ? Math.max(0, (state.finishedAt ?? now) - state.startedAt) : 0
   const elapsedSec = elapsedMs / 1000
@@ -482,7 +563,8 @@ export function computeMetrics(state: SessionState, now: number): SessionMetrics
   // Net counts the characters standing correct on screen right now; raw and
   // accuracy count every keystroke ever made, so backspacing over a mistake
   // hides it from the line but not from the score.
-  const standing = state.keys.filter((key) => key.correct).length
+  const standing =
+    state.completedCorrectChars + state.keys.filter((key) => key.correct).length
   const accuracy =
     state.attempts === 0
       ? 100
@@ -533,7 +615,8 @@ export function buildRunResult(
     source: lesson.source,
     // What was actually typed, not the canonical spelling's length — a run
     // typed as `si` is one character shorter than the same run typed `shi`.
-    chars: state.keys.length,
+    // Spans every passage of the run, not just the one on screen when it ended.
+    chars: state.completedChars + state.keys.length,
     mistakes: state.mistakes,
     accuracy: metrics.accuracy,
     wpm: metrics.wpm,
