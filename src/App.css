@@ -609,10 +609,16 @@ input[type='range'] {
   padding: var(--space-2) 0;
 }
 
+/* Same hairline treatment as the panel grid below it, so the page reads as one
+   surface rather than a strip of cards sitting above a table of them. */
 .stat-grid {
   display: grid;
-  gap: var(--space-3);
+  gap: 1px;
   grid-template-columns: repeat(4, 1fr);
+  background: var(--color-border);
+  border: var(--bw-1) solid var(--color-border);
+  border-radius: 10px;
+  overflow: hidden;
 }
 
 .stat-grid--compact {
@@ -620,10 +626,8 @@ input[type='range'] {
 }
 
 .stat-grid div {
-  background: var(--color-surface);
-  border: var(--bw-1) solid var(--color-border);
-  border-radius: 8px;
-  padding: var(--space-4);
+  background: var(--color-bg);
+  padding: var(--space-5);
 }
 
 .stat-grid b {
@@ -696,11 +700,27 @@ input[type='range'] {
   display: grid;
   gap: var(--space-4);
   grid-template-columns: repeat(12, minmax(0, 1fr));
-  align-items: start;
   /* Panels here differ a lot in height, so a strictly ordered flow leaves holes
      under the short ones. Dense packing lets a later short panel fill a gap an
      earlier tall one opened. */
   grid-auto-flow: row dense;
+  /*
+   * Hairlines, not cards.
+   *
+   * Twelve bordered white boxes floating on a near-white page gave every panel
+   * the same visual weight and a shadowless outline that read as clutter rather
+   * than structure. The grid paints one continuous rule and the panels sit on
+   * the page colour over it, so the separation costs a single pixel and the
+   * sections read as one surface divided rather than as tiles scattered.
+   */
+  gap: 1px;
+  background: var(--color-border);
+  border: var(--bw-1) solid var(--color-border);
+  border-radius: 10px;
+  overflow: hidden;
+  /* Stretch, so the hairlines run the full height of each row and do not break
+     into fragments under the shorter panels. */
+  align-items: stretch;
 }
 
 .stats-grid > .panel {
@@ -736,37 +756,61 @@ input[type='range'] {
 }
 
 .panel {
-  background: var(--color-surface);
-  border: var(--bw-1) solid var(--color-border);
-  border-radius: 8px;
-  padding: var(--space-4);
+  background: var(--color-bg);
+  padding: var(--space-5);
+}
+
+/* Section names are signposts, not headlines: quiet, so the numbers lead. */
+.panel h2 {
+  color: var(--color-muted);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-medium);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .panel h2 {
   margin-bottom: var(--space-4);
 }
 
+/*
+ * Sized from the space it is given rather than from a fixed key width.
+ *
+ * Fixed 42px keys needed 492px for the top row, more than the panel had, so the
+ * keyboard scrolled sideways inside its own box — a keyboard you have to drag to
+ * read is not a heatmap, because the whole point is taking in the shape at a
+ * glance. The key size is now the tenth of the row that is actually available,
+ * clamped so it neither disappears on a phone nor bloats on a wide screen.
+ */
 .mini-keyboard {
+  --mk-gap: var(--space-2);
+  --mk-key: clamp(22px, calc((100% - 9 * var(--mk-gap)) / 10), 46px);
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  /* Ten fixed-width keys are wider than a phone. Scroll inside the panel
-     rather than pushing the whole page sideways. */
-  overflow-x: auto;
+  gap: var(--mk-gap);
 }
 
 .mini-keyboard-row {
   display: flex;
-  gap: var(--space-2);
+  gap: var(--mk-gap);
   justify-content: center;
 }
 
+/*
+ * Staggered like a real keyboard, with padding rather than a transform.
+ *
+ * A transform moves the whole row box, and the rows are full width, so any
+ * offset pushed the last row past the container and the keyboard scrolled
+ * sideways however small the keys got. Padding shifts the keys *inside* the row,
+ * which cannot overflow. Doubled because the keys are centred, so half of it
+ * lands on each side.
+ */
 .mini-keyboard-row:nth-child(2) {
-  transform: translateX(12px);
+  padding-left: calc(var(--mk-key) * 0.6);
 }
 
 .mini-keyboard-row:nth-child(3) {
-  transform: translateX(28px);
+  padding-left: calc(var(--mk-key) * 1.4);
 }
 
 .mini-key {
@@ -777,9 +821,11 @@ input[type='range'] {
   display: flex;
   flex-direction: column;
   font-family: var(--font-mono);
-  height: 42px;
+  height: var(--mk-key);
   justify-content: center;
-  min-width: 42px;
+  width: var(--mk-key);
+  flex: 0 0 auto;
+  overflow: hidden;
 }
 
 .mini-key small {
