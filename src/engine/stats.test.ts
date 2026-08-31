@@ -11,19 +11,20 @@ import {
   weakAfterRun,
   isProgressionEligible,
   runMode,
+  recentAccuracy,
+  weakMoraCount,
+  wpmTrend,
   mergeTimingStats,
   newlyReachedMilestones,
   recentDayKeys,
   recordRunInLifetimeStats,
   runRawWpm,
   runWpm,
-  sourceBreakdown,
   streakStats,
   topTimingStats,
   leastPractisedKana,
   unlockedMilestones,
   weakestKana,
-  wpmDistribution,
 } from './stats'
 import type { LifetimeStats, RunResult, StoredRunResult, TimingStat } from './types'
 
@@ -136,23 +137,6 @@ describe('recordRunInLifetimeStats / lifetimeStatsFromRuns', () => {
     const forward = lifetimeStatsFromRuns(runs)
     const reversed = lifetimeStatsFromRuns([...runs].reverse())
     expect(reversed).toEqual(forward)
-  })
-})
-
-describe('sourceBreakdown', () => {
-  it('groups by source, averages wpm, and sorts by count desc', () => {
-    const runs = [
-      run({ source: 'words', wpm: 20 }),
-      run({ source: 'words', wpm: 40 }),
-      run({ source: 'quotes', wpm: 10 }),
-    ]
-    const breakdown = sourceBreakdown(runs)
-    expect(breakdown[0]).toEqual({ source: 'words', count: 2, avg: 30 })
-    expect(breakdown[1]).toEqual({ source: 'quotes', count: 1, avg: 10 })
-  })
-
-  it('returns an empty array for no runs', () => {
-    expect(sourceBreakdown([])).toEqual([])
   })
 })
 
@@ -280,14 +264,6 @@ describe('streakStats', () => {
     ]
     const lifetime = lifetimeStatsFromRuns(runs)
     expect(streakStats(lifetime.streakDays, now)).toEqual({ current: 3, longest: 3 })
-  })
-})
-
-describe('wpmDistribution', () => {
-  it('bins runs by wpm into half-open ranges, with 80+ open-ended', () => {
-    const runs = [run({ wpm: 0 }), run({ wpm: 19 }), run({ wpm: 20 }), run({ wpm: 79 }), run({ wpm: 80 }), run({ wpm: 200 })]
-    const bins = Object.fromEntries(wpmDistribution(runs).map((b) => [b.label, b.count]))
-    expect(bins).toEqual({ '0-20': 2, '20-40': 1, '40-60': 0, '60-80': 1, '80+': 2 })
   })
 })
 
@@ -631,9 +607,71 @@ describe('run mode and progression eligibility', () => {
     expect(after.streakDays).toHaveLength(1)
   })
 
-  it('keeps an ineligible run out of the speed distribution', () => {
-    const bins = wpmDistribution([run({ wpm: 30 }), run({ wpm: 90, mode: timed(15_000) })])
-    expect(bins.find((b) => b.label === '20-40')?.count).toBe(1)
-    expect(bins.find((b) => b.label === '80+')?.count).toBe(0)
+  it('keeps an ineligible run out of the speed trend', () => {
+    const points = wpmTrend([run({ wpm: 30 }), run({ wpm: 90, mode: timed(15_000) })], 10)
+    expect(points.map((p) => p.wpm)).toEqual([30])
+  })
+})
+
+describe('recentAccuracy', () => {
+  /*
+   * The page used to show the live typing session's accuracy here. On the
+   * statistics route that session is empty, so it read 100% whatever the history
+   * said — a number that could not be wrong, and therefore measured nothing.
+   */
+  it('averages the most recent runs, newest first', () => {
+    const runs = [run({ accuracy: 90 }), run({ accuracy: 80 }), run({ accuracy: 40 })]
+    expect(recentAccuracy(runs, 2)).toBe(85)
+  })
+
+  it('is zero with no history rather than a flattering 100', () => {
+    expect(recentAccuracy([])).toBe(0)
+  })
+
+  it('ignores runs that cannot set a record', () => {
+    const runs = [run({ accuracy: 100, mode: { kind: 'timed', durationMs: 15_000 } }), run({ accuracy: 60 })]
+    expect(recentAccuracy(runs, 5)).toBe(60)
+  })
+})
+
+describe('weakMoraCount', () => {
+  it('counts only moras actually missed', () => {
+    const stat = (attempts: number, misses: number) => ({
+      attempts, misses, totalMs: 0, timingSamples: 0,
+      avgMs: 0, errorRate: misses / attempts, excessMs: 0, avgExcessMs: 0,
+    })
+    const stats = new Map([['か', stat(9, 0)], ['き', stat(4, 1)], ['く', stat(2, 2)]])
+    expect(weakMoraCount(stats)).toBe(2)
+    expect(weakMoraCount(new Map())).toBe(0)
+  })
+})
+
+describe('wpmTrend', () => {
+  const series = (...wpms: number[]) => wpms.map((wpm) => run({ wpm, accuracy: 90 }))
+
+  /* `runs` is newest-first; a trend has to read oldest-first or it runs backwards. */
+  it('returns the recent runs in chronological order', () => {
+    expect(wpmTrend(series(50, 40, 30), 3).map((p) => p.wpm)).toEqual([30, 40, 50])
+  })
+
+  it('takes only the most recent window', () => {
+    expect(wpmTrend(series(9, 8, 7, 6, 5), 2).map((p) => p.wpm)).toEqual([8, 9])
+  })
+
+  /*
+   * The median is what makes the line readable: one unlucky run swings a raw
+   * line hard enough to look like a trend that is not there. Here the 10 is that
+   * run, and the smoothed value barely moves.
+   */
+  it('smooths a single outlier instead of following it', () => {
+    const points = wpmTrend(series(40, 41, 10, 39, 40).reverse(), 5)
+    const dip = points[2]
+    expect(dip.wpm).toBe(10)
+    expect(dip.median).toBeGreaterThan(30)
+  })
+
+  it('has nothing to plot without eligible runs', () => {
+    expect(wpmTrend([])).toEqual([])
+    expect(wpmTrend([run({ wpm: 80, mode: { kind: 'timed', durationMs: 15_000 } })])).toEqual([])
   })
 })

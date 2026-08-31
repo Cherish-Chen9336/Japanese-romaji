@@ -181,25 +181,54 @@ in one item gets less practice than an equally weak one appearing in ten.
 
 ### The statistics page is a dashboard
 
-It is the one route that gets the whole window — `app--wide` raises the shell to
-`--stats-max` on that route only. Widening the shell globally would spread the
-practice line and the top bar too, and reading content is worse for being wider,
-so this is opt-in per route rather than a new global width.
+Three groups in fixed order, answering three questions: **which kana do I not
+know** (the mastery chart and the slow-mora list), **am I improving** (the speed
+trend, the practice calendar, recent runs), and **what are my fingers doing**
+(romaji keys, confusions, bigrams — labelled secondary, because none of it can
+name a mora). Thirteen equal modules made the reader scan everything to find
+anything.
 
-Panels sit in **one twelve-column grid** with per-panel spans, not a stack of
-rigid two-column rows. Their natural sizes differ enormously — a 26-row kana
-chart, a three-row keyboard, a two-item bar list — and giving each an equal half
-of the page left most of them mostly empty. `grid-auto-flow: dense` lets a later
-short panel fill a gap an earlier tall one opened.
+Cut, with reasons, so they are not proposed again:
 
-Two things that made the page nearly five screens long, both measured before and
-after: the mastery chart's three grids **stacked** (26 rows, ~1,200px) inside a
-full-width panel whose chart used a quarter of its width — they now sit side by
-side, ~700 × 500 — and every panel being full width. 4,238px → 2,541px on the
-same seeded profile, with content going 1,040px → 1,328px in a 1,440px window.
+- **slowest letters** — key timing is structurally confounded. Twelve consonants
+  are 100% mora-initial in this corpus, so they absorb all the kana-recall pause
+  and the list accuses the consonant row for every user forever.
+- **source breakdown** — average speed per bank mostly recovers the banks' own
+  designed difficulty, and `drills` deliberately selects weak moras, so a slow
+  drills average can mean the adaptation is working perfectly.
+- **wpm distribution** — five twenty-wpm bins describe a lifetime spread but not
+  a direction. Going 20→40 and going 40→20 drew the same picture. Replaced by
+  `wpmTrend`, a five-run rolling median with the raw runs behind it.
+- **milestones** — newly reached achievements already appear on the result
+  screen, at the moment they are earned.
+- **streaks** as its own panel — the current streak is in the overview and the
+  longest is one line under the calendar it describes.
+
+The **overview** is learner metrics, not leaderboard metrics: moras seen, weak
+moras, recent accuracy, day streak. It previously showed `avg wpm` averaged over
+every stored run while `best wpm` was progression-gated — the two disagreeing
+about which runs counted — and `current acc` read the *live typing session*,
+which on this route is empty, so it reported 100% whatever the history said.
+
+The **keyboard stays, but as a diagnostic and not a mastery surface**, titled
+"romaji key errors" under a note saying that one key types many moras and none of
+this can say which mora is at fault. It is the widest panel because legibility is
+its only problem; being bigger does not make it mean more.
+
+Panels sit in a twelve-column grid **inside each group**, with the groups in
+document order. Cards were removed: the grid paints one hairline and panels sit
+on the page colour over it, so a boundary costs one pixel. Note that with
+`align-items: stretch`, a panel with a stale `grid-row: span 2` leaves its second
+row's remaining columns uncovered, and the grid's own hairline colour shows
+through as a slab of background.
 
 Two traps here, both of which cost real time:
 
+- **The route gets the whole window.** `app--wide` raises the shell to
+  `--stats-max` on this route only; widening it globally would spread the
+  practice line and the top bar, and reading content is worse for being wider.
+  The mastery chart's three grids sit side by side, not stacked — stacked they
+  ran 26 rows deep inside a panel whose chart used a quarter of its width.
 - **Span rules must out-specify the single-column default.** `.stats-grid >
   .panel` is two classes; a bare `.panel--span-4` is one, so it loses at every
   width and nothing spans. The overrides are written `.stats-grid > .panel--span-N`.

@@ -747,11 +747,12 @@ input[type='range'] {
   .stats-grid > .panel--span-6 { grid-column: span 6; }
   .stats-grid > .panel--span-12 { grid-column: span 12; }
 
-  /* The chart is wide and tall; the two panels beside it are short. Spanning
-     two rows lets them stack alongside instead of leaving the row half empty. */
+  /* Eight columns beside the mora list, and one row. It used to span two, from
+     when three panels shared the row; with two, the second row had nothing in
+     its remaining columns and the grid's own hairline colour showed through as
+     a slab of background. */
   .stats-grid > .panel--map {
     grid-column: span 8;
-    grid-row: span 2;
   }
 }
 
@@ -784,7 +785,10 @@ input[type='range'] {
  */
 .mini-keyboard {
   --mk-gap: var(--space-2);
-  --mk-key: clamp(22px, calc((100% - 9 * var(--mk-gap)) / 10), 46px);
+  /* Upper bound raised with the panel: at eight columns the row has room for
+     roughly 75px keys, and holding them at 46 left the heatmap adrift in a box
+     twice its size. */
+  --mk-key: clamp(22px, calc((100% - 9 * var(--mk-gap)) / 10), 64px);
   display: flex;
   flex-direction: column;
   gap: var(--mk-gap);
@@ -1378,4 +1382,92 @@ meter::-webkit-meter-optimum-value {
   inset: 0;
   opacity: 0.32;
   pointer-events: none;
+}
+
+/* --- statistics: semantic groups --------------------------------------- */
+
+/*
+ * Groups, not a uniform field of panels.
+ *
+ * Thirteen equal modules made the reader scan everything to find anything. The
+ * page now answers three questions in order — which kana do I not know, am I
+ * improving, and what are my fingers doing — and the rule plus the label say
+ * which one you are looking at.
+ */
+.stats-group + .stats-group {
+  border-top: var(--bw-1) solid var(--color-border);
+  margin-top: var(--space-8);
+  padding-top: var(--space-7);
+}
+
+.stats-group__label {
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: var(--fs-12);
+  letter-spacing: 0.1em;
+  margin-bottom: var(--space-4);
+  text-transform: uppercase;
+}
+
+.stats-group__note {
+  color: var(--color-muted);
+  font-size: var(--fs-13);
+  margin: calc(-1 * var(--space-2)) 0 var(--space-4);
+  max-width: 62ch;
+}
+
+/* The keyboard is the widest thing in its group and the only one that gains
+   from the width, so it takes two thirds and the two lists stack beside it. */
+@media (min-width: 1120px) {
+  .stats-grid > .panel--keyboard {
+    grid-column: span 8;
+    grid-row: span 2;
+  }
+}
+
+@media (min-width: 760px) and (max-width: 1119px) {
+  .stats-grid > .panel--keyboard {
+    grid-column: span 12;
+  }
+}
+
+/* --- speed trend -------------------------------------------------------- */
+
+.spark {
+  margin: 0;
+}
+
+.spark svg {
+  display: block;
+  height: 96px;
+  width: 100%;
+}
+
+.spark__line {
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+/* The runs the line is drawn from, kept visible but quiet: the smoothing is a
+   claim, and the reader should be able to see the evidence for it. */
+.spark__dot {
+  fill: var(--color-accent);
+  opacity: 0.28;
+}
+
+.spark figcaption {
+  align-items: baseline;
+  display: flex;
+  gap: var(--space-3);
+  justify-content: space-between;
+  margin-top: var(--space-3);
+}
+
+.spark figcaption b {
+  color: var(--color-accent);
+  font-size: var(--fs-22);
 }

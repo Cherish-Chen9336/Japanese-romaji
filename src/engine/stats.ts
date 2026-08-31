@@ -4,7 +4,6 @@ import type {
   LifetimeStats,
   RunMode,
   RunResult,
-  SourceName,
   TimingStat,
   Unlock,
 } from './types'
@@ -93,19 +92,6 @@ export function recordRunInLifetimeStats(current: LifetimeStats, run: RunResult)
  */
 export function lifetimeStatsFromRuns(runs: RunResult[]): LifetimeStats {
   return runs.reduce(recordRunInLifetimeStats, emptyLifetimeStats())
-}
-
-export function sourceBreakdown(runs: RunResult[]): { source: SourceName; count: number; avg: number }[] {
-  const grouped = new Map<SourceName, { count: number; total: number }>()
-  for (const run of runs) {
-    const current = grouped.get(run.source) ?? { count: 0, total: 0 }
-    current.count += 1
-    current.total += runWpm(run)
-    grouped.set(run.source, current)
-  }
-  return [...grouped.entries()]
-    .map(([source, data]) => ({ source, count: data.count, avg: Math.round(data.total / data.count) }))
-    .sort((a, b) => b.count - a.count)
 }
 
 export function dailyCounts(runs: RunResult[]): Map<string, number> {
@@ -266,21 +252,52 @@ export function streakStats(dayKeys: string[], now: Date = new Date()): { curren
   return { current, longest }
 }
 
-export function wpmDistribution(runs: RunResult[]): { label: string; count: number }[] {
-  const eligible = runs.filter(isProgressionEligible)
-  const bins = [
-    { label: '0-20', min: 0, max: 20, count: 0 },
-    { label: '20-40', min: 20, max: 40, count: 0 },
-    { label: '40-60', min: 40, max: 60, count: 0 },
-    { label: '60-80', min: 60, max: 80, count: 0 },
-    { label: '80+', min: 80, max: Number.POSITIVE_INFINITY, count: 0 },
-  ]
-  for (const run of eligible) {
-    const wpm = runWpm(run)
-    const bin = bins.find((candidate) => wpm >= candidate.min && wpm < candidate.max)
-    if (bin) bin.count += 1
-  }
-  return bins
+/**
+ * Accuracy over the last few runs, which is what "how accurate am I" means.
+ *
+ * The statistics page used to show the *live typing session's* accuracy here —
+ * an empty session on that route, so it read 100% however the history actually
+ * looked. A number that cannot be wrong is not a measurement.
+ */
+export function recentAccuracy(runs: RunResult[], count = 10): number {
+  const recent = runs.filter(isProgressionEligible).slice(0, count)
+  if (recent.length === 0) return 0
+  return Math.round(recent.reduce((sum, run) => sum + run.accuracy, 0) / recent.length)
+}
+
+/** Moras met and got wrong at least once — the size of the practice backlog. */
+export function weakMoraCount(stats: Map<string, AggregatedMoraStat>): number {
+  return [...stats.values()].filter((stat) => stat.misses > 0).length
+}
+
+/**
+ * Speed over the last runs, oldest first, for a trend line.
+ *
+ * Replaces a histogram of five twenty-wpm bins. That could describe a lifetime
+ * spread but not a direction: moving from 20 wpm to 40 and moving from 40 back
+ * to 20 produced exactly the same picture, and "am I improving" is the question
+ * the surface exists to answer.
+ *
+ * The median is over a five-run window, because a single unlucky run swings a
+ * raw line enough to read as a trend that is not there. Gated the same way the
+ * histogram was, so a short sprint cannot bend the line it is not comparable to.
+ */
+export function wpmTrend(
+  runs: RunResult[],
+  count = 24,
+): { wpm: number; accuracy: number; median: number }[] {
+  const recent = runs.filter(isProgressionEligible).slice(0, count).reverse()
+  return recent.map((run, index) => {
+    const from = Math.max(0, index - 4)
+    const window = recent.slice(from, index + 1).map(runWpm).sort((a, b) => a - b)
+    const mid = Math.floor(window.length / 2)
+    return {
+      wpm: runWpm(run),
+      accuracy: run.accuracy,
+      median:
+        window.length % 2 === 1 ? window[mid] : Math.round((window[mid - 1] + window[mid]) / 2),
+    }
+  })
 }
 
 /**

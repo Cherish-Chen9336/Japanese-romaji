@@ -20,17 +20,17 @@ import {
   recordRunInLifetimeStats,
   runRawWpm,
   runWpm,
-  sourceBreakdown,
   streakStats,
   topTimingStats,
   mergeMoraStats,
   slowestMoras,
+  recentAccuracy,
+  weakMoraCount,
+  wpmTrend,
   weakAfterRun,
   smoothedErrorRate,
   leastPractisedKana,
-  unlockedMilestones,
   weakestKana,
-  wpmDistribution,
 } from './engine/stats'
 import { KANA_GROUPS, KEYBOARD_LAYOUT_NAMES } from './engine/types'
 import type {
@@ -73,6 +73,7 @@ import { writeJson } from './io/storage'
 import { BottomNav } from './ui/BottomNav'
 import { chartCoverage } from './engine/mastery'
 import { MasteryMap } from './ui/MasteryMap'
+import { Sparkline } from './ui/Sparkline'
 import { OnScreenKeyboard } from './ui/OnScreenKeyboard'
 import { Topbar } from './ui/Topbar'
 import { routeFromHash, type RouteName } from './ui/router'
@@ -152,16 +153,9 @@ function App() {
       .sort((a, b) => b[1] - a[1])
       .slice(0, 8),
   )
-  const averageCpm = createMemo(() => {
-    const history = runs()
-    if (history.length === 0) return 0
-    return Math.round(history.reduce((sum, run) => sum + runWpm(run), 0) / history.length)
-  })
   const bestWpm = createMemo(() => lifetimeStats().bestWpm)
-  const milestones = createMemo(() => unlockedMilestones(lifetimeStats()))
   const totalMinutes = createMemo(() => Math.round(lifetimeStats().totalElapsedMs / 60_000))
   const totalSessions = createMemo(() => lifetimeStats().totalSessions)
-  const sourceStats = createMemo(() => sourceBreakdown(runs()))
   const dayStats = createMemo(() => dailyCounts(runs()))
   const resultRun = createMemo(() => lastRun() ?? runs()[0] ?? null)
   const stillWeak = createMemo(() => {
@@ -170,12 +164,14 @@ function App() {
   })
   const keyStats = createMemo(() => mergeTimingStats(runs(), 'keyStats'))
   const bigramStats = createMemo(() => mergeTimingStats(runs(), 'bigramStats'))
-  const slowKeys = createMemo(() => topTimingStats(keyStats(), 8))
   const slowBigrams = createMemo(() => topTimingStats(bigramStats(), 8))
   const kanaStats = createMemo(() => mergeMoraStats(runs()))
   const weakestMoras = createMemo(() => weakestKana(kanaStats(), 8))
   const slowMoras = createMemo(() => slowestMoras(kanaStats(), 6))
   const coverage = createMemo(() => chartCoverage(kanaStats()))
+  const weakMoras = createMemo(() => weakMoraCount(kanaStats()))
+  const recentAcc = createMemo(() => recentAccuracy(runs(), 10))
+  const trend = createMemo(() => wpmTrend(runs(), 24))
   /*
    * Drill targets are the weakest moras *plus* the least-practised ones. Weakness
    * alone can't drive practice: a mora is only found weak once you have met it
@@ -187,7 +183,6 @@ function App() {
     ...leastPractisedKana(kanaStats(), drillMoras, 4),
   ])
   const streaks = createMemo(() => streakStats(lifetimeStats().streakDays))
-  const distribution = createMemo(() => wpmDistribution(runs()))
 
   /**
    * Every write goes through here so a failure is visible. `writeJson` already
@@ -901,27 +896,149 @@ function App() {
             </div>
 
             <div class="stat-grid">
+              {/* Learner metrics, not leaderboard metrics. `avg wpm` averaged
+                  every stored run while `best wpm` was progression-gated, so the
+                  two disagreed about which runs counted; and `current acc` read
+                  the *live typing session*, which on this route is empty and so
+                  reported 100% whatever the history said. Speed now lives in the
+                  progress section, where a trend can give it context. */}
               <div>
-                <b>{bestWpm()}</b>
-                <span>best wpm</span>
+                <b>{coverage().met}</b>
+                <span>moras seen · of {coverage().total}</span>
               </div>
               <div>
-                <b>{averageCpm()}</b>
-                <span>avg wpm</span>
+                <b>{weakMoras()}</b>
+                <span>weak moras</span>
               </div>
               <div>
-                <b>{accuracy()}%</b>
-                <span>current acc</span>
+                <b>{recentAcc()}%</b>
+                <span>accuracy · last 10 runs</span>
               </div>
               <div>
                 <b>{streaks().current}</b>
-                <span>current streak</span>
+                <span>day streak</span>
               </div>
             </div>
 
-            <div class="stats-grid">
+            <div class="stats-group">
+              <p class="stats-group__label">kana learning</p>
+              <div class="stats-grid">
+              <section class="panel panel--map">
+                <h2>kana typing mastery</h2>
+                {/* Not "accuracy": the colour is weakness weighted by how much
+                    evidence stands behind it, which is why one miss in a hundred
+                    barely shows. The plain rate is in each cell's own detail.
+                    And nothing here may promise hovering — on a touch screen
+                    there is no hover to offer. */}
+                <p class="muted">
+                  How hard each mora is for you to produce as romaji — not what you know, what you can
+                  type. Colour is weakness, weighted by how often you've met the mora.
+                </p>
+                <p class="muted">
+                  Met <b>{coverage().met}</b> of {coverage().total} chart moras.
+                </p>
+                <MasteryMap stats={kanaStats()} />
+                <div class="mastery-legend">
+                  <span>
+                    <i class="is-unseen" />
+                    not yet seen
+                  </span>
+                  <span>
+                    <i class="is-clean" />
+                    seen, never missed
+                  </span>
+                  <span>
+                    <i class="is-weak" />
+                    missed — deeper is weaker
+                  </span>
+                  <Show when={weakestMoras().length > 0}>
+                    <span>
+                      weakest right now: <b>{weakestMoras().slice(0, 5).map(([kana]) => kana).join(' ')}</b>
+                    </span>
+                  </Show>
+                </div>
+              </section>
               <section class="panel panel--span-4">
-                <h2>missed keys</h2>
+                <h2>slowest moras</h2>
+                <p class="muted">Time beyond what each spelling costs at your own cadence.</p>
+                <div class="bar-list">
+                  <For
+                    each={slowMoras()}
+                    fallback={<p class="muted">Nothing is slowing you down yet.</p>}
+                  >
+                    {([kana, stat]) => (
+                      <div class="bar-row">
+                        <span class="bar-row__kana">{kana}</span>
+                        <meter
+                          min="0"
+                          max={Math.max(1, slowMoras()[0]?.[1].avgExcessMs ?? 1)}
+                          value={stat.avgExcessMs}
+                        />
+                        <b>+{Math.round(stat.avgExcessMs)} ms</b>
+                      </div>
+                    )}
+                  </For>
+                </div>
+              </section>
+              </div>
+            </div>
+
+            <div class="stats-group">
+              <p class="stats-group__label">recent progress</p>
+              <div class="stats-grid">
+                <section class="panel panel--span-6">
+                  <h2>speed trend</h2>
+                  <Sparkline points={trend()} />
+                </section>
+              <section class="panel panel--span-6">
+                <h2>last 60 days</h2>
+                <div class="calendar-grid">
+                  <For each={recentDayKeys(60)}>
+                    {(key) => {
+                      const count = () => dayStats().get(key) ?? 0
+                      const max = () => Math.max(1, ...dayStats().values())
+                      return (
+                        <span
+                          class="calendar-cell"
+                          classList={{ active: count() > 0 }}
+                          style={{ opacity: String(count() === 0 ? 0.24 : 0.35 + count() / max()) }}
+                          title={`${key}: ${count()} runs`}
+                        />
+                      )
+                    }}
+                  </For>
+                </div>
+                <p class="muted">
+                  Longest streak <b>{streaks().longest}</b> days.
+                </p>
+              </section>
+            <section class="panel panel--span-12">
+              <h2>recent runs</h2>
+              <div class="runs-table">
+                <For each={runs().slice(0, 12)} fallback={<p class="muted">No runs yet.</p>}>
+                  {(run) => (
+                    <div class="run-row">
+                      <span>{new Date(run.date).toLocaleDateString()}</span>
+                      <span>{run.source}</span>
+                      <span>{run.accuracy}%</span>
+                      <b>{runWpm(run)} wpm</b>
+                    </div>
+                  )}
+                </For>
+              </div>
+            </section>
+              </div>
+            </div>
+
+            <div class="stats-group">
+              <p class="stats-group__label">typing mechanics</p>
+              <p class="stats-group__note">
+                Romaji keys, not kana. One key types many moras, so none of this can say which
+                mora is at fault — that is the chart above.
+              </p>
+              <div class="stats-grid">
+              <section class="panel panel--keyboard">
+                <h2>romaji key errors</h2>
                 <div class="mini-keyboard">
                   <For each={['qwertyuiop', 'asdfghjkl', 'zxcvbnm']}>
                     {(row) => (
@@ -964,71 +1081,6 @@ function App() {
                   </For>
                 </div>
               </section>
-
-              {/* Spans both columns: the chart is far wider than a bar list,
-                  and it is the page's primary answer to "what do I not know". */}
-              <section class="panel panel--map">
-                <h2>kana typing mastery</h2>
-                {/* Not "accuracy": the colour is weakness weighted by how much
-                    evidence stands behind it, which is why one miss in a hundred
-                    barely shows. The plain rate is in each cell's own detail.
-                    And nothing here may promise hovering — on a touch screen
-                    there is no hover to offer. */}
-                <p class="muted">
-                  How hard each mora is for you to produce as romaji — not what you know, what you can
-                  type. Colour is weakness, weighted by how often you've met the mora.
-                </p>
-                <p class="muted">
-                  Met <b>{coverage().met}</b> of {coverage().total} chart moras.
-                </p>
-                <MasteryMap stats={kanaStats()} />
-                <div class="mastery-legend">
-                  <span>
-                    <i class="is-unseen" />
-                    not yet seen
-                  </span>
-                  <span>
-                    <i class="is-clean" />
-                    seen, never missed
-                  </span>
-                  <span>
-                    <i class="is-weak" />
-                    missed — deeper is weaker
-                  </span>
-                  <Show when={weakestMoras().length > 0}>
-                    <span>
-                      weakest right now: <b>{weakestMoras().slice(0, 5).map(([kana]) => kana).join(' ')}</b>
-                    </span>
-                  </Show>
-                </div>
-              </section>
-
-              {/* Timing has to live somewhere a touch user can reach. It used to
-                  exist only in a `title` tooltip, which is no surface at all on a
-                  phone — and it stays off the chart's one colour channel. */}
-              <section class="panel panel--span-4">
-                <h2>slowest moras</h2>
-                <p class="muted">Time beyond what each spelling costs at your own cadence.</p>
-                <div class="bar-list">
-                  <For
-                    each={slowMoras()}
-                    fallback={<p class="muted">Nothing is slowing you down yet.</p>}
-                  >
-                    {([kana, stat]) => (
-                      <div class="bar-row">
-                        <span class="bar-row__kana">{kana}</span>
-                        <meter
-                          min="0"
-                          max={Math.max(1, slowMoras()[0]?.[1].avgExcessMs ?? 1)}
-                          value={stat.avgExcessMs}
-                        />
-                        <b>+{Math.round(stat.avgExcessMs)} ms</b>
-                      </div>
-                    )}
-                  </For>
-                </div>
-              </section>
-
               <section class="panel panel--span-4">
                 <h2>most confused</h2>
                 <div class="bar-list">
@@ -1043,22 +1095,6 @@ function App() {
                   </For>
                 </div>
               </section>
-
-              <section class="panel panel--span-4">
-                <h2>slowest letters</h2>
-                <div class="bar-list">
-                  <For each={slowKeys()} fallback={<p class="muted">Complete a run to collect timing.</p>}>
-                    {([letter, stat]) => (
-                      <div class="bar-row">
-                        <span>{letter === ' ' ? 'space' : letter}</span>
-                        <meter min="0" max={Math.max(1, slowKeys()[0]?.[1].avgMs ?? 1)} value={stat.avgMs} />
-                        <b>{Math.round(stat.avgMs)} ms</b>
-                      </div>
-                    )}
-                  </For>
-                </div>
-              </section>
-
               <section class="panel panel--span-4">
                 <h2>slowest pairs</h2>
                 <div class="bar-list">
@@ -1073,99 +1109,7 @@ function App() {
                   </For>
                 </div>
               </section>
-
-              <section class="panel panel--span-5">
-                <h2>last 60 days</h2>
-                <div class="calendar-grid">
-                  <For each={recentDayKeys(60)}>
-                    {(key) => {
-                      const count = () => dayStats().get(key) ?? 0
-                      const max = () => Math.max(1, ...dayStats().values())
-                      return (
-                        <span
-                          class="calendar-cell"
-                          classList={{ active: count() > 0 }}
-                          style={{ opacity: String(count() === 0 ? 0.24 : 0.35 + count() / max()) }}
-                          title={`${key}: ${count()} runs`}
-                        />
-                      )
-                    }}
-                  </For>
-                </div>
-              </section>
-
-              <section class="panel panel--span-4">
-                <h2>source breakdown</h2>
-                <div class="bar-list">
-                  <For each={sourceStats()} fallback={<p class="muted">No runs yet.</p>}>
-                    {(item) => (
-                      <div class="bar-row">
-                        <span>{item.source}</span>
-                        <meter min="0" max={runs().length || 1} value={item.count} />
-                        <b>{item.avg} wpm</b>
-                      </div>
-                    )}
-                  </For>
-                </div>
-              </section>
-
-              <section class="panel panel--span-3">
-                <h2>streaks</h2>
-                <div class="stat-grid stat-grid--compact">
-                  <div>
-                    <b>{streaks().current}</b>
-                    <span>current</span>
-                  </div>
-                  <div>
-                    <b>{streaks().longest}</b>
-                    <span>longest</span>
-                  </div>
-                </div>
-              </section>
-
-              <section class="panel panel--span-6">
-                <h2>wpm distribution</h2>
-                <div class="bar-list">
-                  <For each={distribution()}>
-                    {(bin) => (
-                      <div class="bar-row">
-                        <span>{bin.label}</span>
-                        <meter min="0" max={Math.max(1, ...distribution().map((item) => item.count))} value={bin.count} />
-                        <b>{bin.count}</b>
-                      </div>
-                    )}
-                  </For>
-                </div>
-              </section>
-
-            <section class="panel panel--span-6">
-              <h2>milestones</h2>
-              <div class="milestone-grid">
-                <For each={milestones()}>
-                  {(item) => (
-                    <span class="milestone" classList={{ reached: item.reached }}>
-                      {item.label}
-                    </span>
-                  )}
-                </For>
               </div>
-            </section>
-
-            <section class="panel panel--span-12">
-              <h2>recent runs</h2>
-              <div class="runs-table">
-                <For each={runs().slice(0, 12)} fallback={<p class="muted">No runs yet.</p>}>
-                  {(run) => (
-                    <div class="run-row">
-                      <span>{new Date(run.date).toLocaleDateString()}</span>
-                      <span>{run.source}</span>
-                      <span>{run.accuracy}%</span>
-                      <b>{runWpm(run)} wpm</b>
-                    </div>
-                  )}
-                </For>
-              </div>
-            </section>
             </div>
           </section>
         </Show>
