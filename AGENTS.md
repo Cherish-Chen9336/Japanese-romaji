@@ -251,6 +251,50 @@ Two traps here, both of which cost real time:
   stops applying, check `document.styleSheets` sizes before editing the CSS —
   restarting Vite and clearing `node_modules/.vite` fixed it.
 
+### The progress chart
+
+`ui/ProgressChart.tsx` draws speed and accuracy as **two stacked plots sharing an
+x-axis** — never one plot with two y-scales. 0–120 wpm and 88–100% have no honest
+common axis, and pinning them against each other invents a correlation out of
+where the two scales happen to sit. Stacked, the reader still gets the
+relationship they want ("faster without getting sloppier?") from the shared x
+while each measure keeps a scale that suits it.
+
+Speed starts at zero. **Accuracy cannot**: a competent typist lives in a
+twelve-point band, and on 0–100 that is a flat line saying nothing. `accuracyFloor`
+rounds down in fives with headroom below the worst run, and the axis is always
+drawn with its ticks — a truncated scale is honest when it is labelled and
+misleading when it is not.
+
+**Runs are compared only within a cohort.** `cohortOf` keys a run by source *and*
+mode *and* timed duration, because the banks differ in difficulty by construction
+and `drills` deliberately serves the moras you are worst at — a line from a drills
+run to a quotes run asserts a comparison that does not exist. Smoothing does not
+repair this: it reduces noise, it does not make unlike tasks alike. The default is
+the **latest** run's cohort, not the largest, or the page would answer a question
+about practice the typist may have stopped doing.
+
+Raw runs are drawn as dots behind the five-run rolling median. The smoothing is a
+claim, and the reader should be able to see the evidence for it.
+
+### Reading the page
+
+Hierarchy comes from type and space, not boxes — but it has to *exist*. Group
+headings (`h2`) are 18px and dark; panel headings (`h3`) are 14px and dark; only
+captions and axes are muted. When both levels were small muted uppercase the page
+had no hierarchy at all, which is what made it read as bare rather than clean.
+
+**Colour means state.** Teal is "known" — a clean mora, an active practice day, the
+selected cohort, the trend line. Red is "missed" — weak moras and key errors.
+Neither is decoration: every overview number used to be teal, which spent the
+page's only signal on ornament, and the key heatmap faded *teal* for errors while
+teal meant clean two sections above.
+
+Diagnostics that cannot name a mora — the key heatmap, confusions, bigrams — sit
+behind a disclosure. Exact run figures likewise: the chart answers "am I
+improving", and a table answers "what exactly was that run", which is a question
+you ask occasionally and never on arrival.
+
 ### The mastery map
 
 `engine/mastery.ts` lays the 五十音 chart out for display and `ui/MasteryMap.tsx`

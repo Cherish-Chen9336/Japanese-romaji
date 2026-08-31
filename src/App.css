@@ -631,10 +631,16 @@ input[type='range'] {
   padding-left: 0;
 }
 
+/* Not accent. Colour on this page means *state* — teal is "known", red is
+   "missed" — and painting every headline number teal spent the one signal the
+   reader has on decoration. */
 .stat-grid b {
-  color: var(--color-accent);
+  color: var(--color-text);
   display: block;
   font-size: var(--fs-24);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-medium);
 }
 
 .stat-grid span,
@@ -737,53 +743,21 @@ input[type='range'] {
 }
 
 .panel {
-  /* Single column by default; the spans below apply only once there is room. */
-  grid-column: span 12;
-  min-width: 0;
-}
-
-/* Each of these has to out-specify `.stats-grid > .panel` above, or the
-   single-column default wins at every width and the spans never apply. */
-@media (min-width: 760px) {
-  .stats-grid > .panel--span-3,
-  .stats-grid > .panel--span-4,
-  .stats-grid > .panel--span-5,
-  .stats-grid > .panel--span-6 {
-    grid-column: span 6;
-  }
-}
-
-@media (min-width: 1120px) {
-  .stats-grid > .panel--span-3 { grid-column: span 3; }
-  .stats-grid > .panel--span-4 { grid-column: span 4; }
-  .stats-grid > .panel--span-5 { grid-column: span 5; }
-  .stats-grid > .panel--span-6 { grid-column: span 6; }
-  .stats-grid > .panel--span-12 { grid-column: span 12; }
-
-  /* Eight columns beside the mora list, and one row. It used to span two, from
-     when three panels shared the row; with two, the second row had nothing in
-     its remaining columns and the grid's own hairline colour showed through as
-     a slab of background. */
-  .stats-grid > .panel--map {
-    grid-column: span 8;
-  }
-}
-
-.panel {
   padding: 0;
 }
 
-/* Section names are signposts, not headlines: quiet, so the numbers lead. */
-.panel h2 {
-  color: var(--color-muted);
-  font-size: var(--fs-12);
-  font-weight: var(--fw-medium);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.panel h2 {
+/*
+ * Panel headings sit *below* group headings in the hierarchy, and have to look
+ * it. Both were small muted uppercase, which flattened the page into one long
+ * list of equal labels — the reason it read as bare rather than structured.
+ */
+.panel h3 {
+  color: var(--color-text);
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0;
   margin-bottom: var(--space-4);
+  text-transform: none;
 }
 
 /*
@@ -819,11 +793,24 @@ input[type='range'] {
   justify-content: center;
 }
 
+/*
+ * Error intensity in the error colour.
+ *
+ * These keys were tinted with the accent, which on this page means the opposite:
+ * teal is "known, never missed" on the kana chart. The same hue cannot mean
+ * mastery in one section and failure in the next.
+ */
 .mini-key {
   align-items: center;
-  background: var(--color-accent);
-  border-radius: 6px;
-  color: var(--color-accent-fg);
+  background: rgb(var(--color-error-rgb) / calc(0.08 + var(--mk-heat, 0) * 0.62));
+  background: color-mix(
+    in oklch,
+    var(--color-error) calc(8% + var(--mk-heat, 0) * 62%),
+    var(--color-surface)
+  );
+  border: var(--bw-1) solid var(--color-border);
+  border-radius: 5px;
+  color: var(--color-text);
   display: flex;
   flex-direction: column;
   font-family: var(--font-mono);
@@ -852,15 +839,13 @@ input[type='range'] {
   grid-template-columns: 88px 1fr 72px;
 }
 
-.bar-row span,
-.run-row span {
+.bar-row span {
   color: var(--color-muted);
   font-family: var(--font-mono);
   font-size: var(--fs-12);
 }
 
-.bar-row b,
-.run-row b {
+.bar-row b {
   color: var(--color-text);
   font-family: var(--font-mono);
   font-size: var(--fs-12);
@@ -899,19 +884,6 @@ meter::-webkit-meter-optimum-value {
   background: var(--color-accent);
 }
 
-.runs-table {
-  display: flex;
-  flex-direction: column;
-}
-
-.run-row {
-  align-items: center;
-  border-top: var(--bw-1) solid var(--color-border);
-  display: grid;
-  gap: var(--space-3);
-  grid-template-columns: 1fr 1fr 1fr 1fr;
-  padding: var(--space-2) 0;
-}
 
 .field {
   display: flex;
@@ -1060,6 +1032,13 @@ meter::-webkit-meter-optimum-value {
      whole phone screen down for the sake of four short numbers. */
   .stat-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* `div + div` assumes one row. At two columns the third cell starts a new row
+     and its left border became a rule hanging in the middle of the strip. */
+  .stat-grid div:nth-child(odd) {
+    border-left: 0;
+    padding-left: 0;
   }
 
   .library-item {
@@ -1416,20 +1395,29 @@ meter::-webkit-meter-optimum-value {
   padding-top: var(--space-7);
 }
 
+/* The loud level. A group heading names a question the page answers; the panels
+   under it are its parts, and must read as subordinate. */
 .stats-group__label {
-  color: var(--color-muted);
-  font-family: var(--font-mono);
-  font-size: var(--fs-12);
-  letter-spacing: 0.1em;
-  margin-bottom: var(--space-4);
-  text-transform: uppercase;
+  color: var(--color-text);
+  font-size: var(--fs-18);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0;
+  margin-bottom: var(--space-5);
+  text-transform: none;
 }
 
+/* No negative top margin. It dated from when the group heading was a small muted
+   label; once the heading grew, pulling the note up put it on the heading. */
 .stats-group__note {
   color: var(--color-muted);
   font-size: var(--fs-13);
-  margin: calc(-1 * var(--space-2)) 0 var(--space-4);
+  margin: 0 0 var(--space-5);
   max-width: 62ch;
+}
+
+/* A heading followed by its note owns the gap to the note, not to the grid. */
+.stats-group__label:has(+ .stats-group__note) {
+  margin-bottom: var(--space-2);
 }
 
 /* The keyboard is the widest thing in its group and the only one that gains
@@ -1447,19 +1435,80 @@ meter::-webkit-meter-optimum-value {
   }
 }
 
-/* --- speed trend -------------------------------------------------------- */
 
-.spark {
-  margin: 0;
+/* --- progress chart ----------------------------------------------------- */
+
+.chart__cohorts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
 }
 
-.spark svg {
+/* The one place a control carries the accent: it marks the current selection,
+   which is state — the rule the rest of the page follows. */
+.chart__cohort {
+  background: none;
+  border: var(--bw-1) solid var(--color-border);
+  border-radius: 999px;
+  color: var(--color-muted);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: var(--fs-12);
+  padding: var(--space-1) var(--space-3);
+}
+
+.chart__cohort small {
+  color: var(--color-dim);
+  margin-left: var(--space-1);
+}
+
+.chart__cohort.is-active {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.chart__readout {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-bottom: var(--space-3);
+}
+
+.chart__readout b {
+  font-family: var(--font-mono);
+  font-size: var(--fs-22);
+  font-variant-numeric: tabular-nums;
+}
+
+.chart__axis-label {
+  color: var(--color-muted);
+  font-size: var(--fs-12);
+  margin: var(--space-3) 0 var(--space-1);
+}
+
+.chart__plot {
   display: block;
-  height: 96px;
+  height: auto;
+  touch-action: pan-y;
   width: 100%;
 }
 
-.spark__line {
+/* Recessive: hairline, solid, one step off the surface. */
+.chart__grid {
+  stroke: var(--color-border);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.chart__tick {
+  fill: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.chart__line {
   fill: none;
   stroke: var(--color-accent);
   stroke-width: 2;
@@ -1468,22 +1517,85 @@ meter::-webkit-meter-optimum-value {
   vector-effect: non-scaling-stroke;
 }
 
-/* The runs the line is drawn from, kept visible but quiet: the smoothing is a
-   claim, and the reader should be able to see the evidence for it. */
-.spark__dot {
+/* The raw runs the trend is drawn from — visible, because the smoothing is a
+   claim and the reader should be able to see the evidence for it. */
+.chart__dot {
+  fill: var(--color-dim);
+}
+
+.chart__crosshair {
+  stroke: var(--color-border);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+/* A surface ring keeps the marker legible where it crosses the line. */
+.chart__marker {
   fill: var(--color-accent);
-  opacity: 0.28;
+  stroke: var(--color-bg);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
 }
 
-.spark figcaption {
-  align-items: baseline;
-  display: flex;
-  gap: var(--space-3);
-  justify-content: space-between;
-  margin-top: var(--space-3);
+/* --- latest runs, folded away ------------------------------------------- */
+
+.run-details summary {
+  color: var(--color-text);
+  cursor: pointer;
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
 }
 
-.spark figcaption b {
-  color: var(--color-accent);
-  font-size: var(--fs-22);
+.runs-table {
+  border-collapse: collapse;
+  margin-top: var(--space-4);
+  width: 100%;
+}
+
+.runs-table th {
+  color: var(--color-muted);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-medium);
+  text-align: left;
+}
+
+.runs-table th,
+.runs-table td {
+  border-bottom: var(--bw-1) solid var(--color-border);
+  padding: var(--space-2) var(--space-3) var(--space-2) 0;
+}
+
+.runs-table .is-num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* The diagnostics group, folded. The summary carries the group heading so the
+   hierarchy is unchanged whether it is open or shut. */
+.stats-group__more > summary {
+  cursor: pointer;
+  list-style: none;
+  margin-bottom: var(--space-2);
+}
+
+.stats-group__more > summary::-webkit-details-marker {
+  display: none;
+}
+
+.stats-group__more > summary h2 {
+  display: inline;
+  margin: 0;
+}
+
+.stats-group__more > summary::before {
+  color: var(--color-muted);
+  content: '▸';
+  display: inline-block;
+  font-size: var(--fs-12);
+  margin-right: var(--space-2);
+}
+
+.stats-group__more[open] > summary::before {
+  content: '▾';
 }

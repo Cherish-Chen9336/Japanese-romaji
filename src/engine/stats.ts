@@ -8,6 +8,7 @@ import type {
   Unlock,
 } from './types'
 import { STANDARD_TIMED_MS } from './types'
+import type { SourceName } from './types'
 
 export function dayKey(dateString: string): string {
   return new Date(dateString).toISOString().slice(0, 10)
@@ -268,6 +269,114 @@ export function recentAccuracy(runs: RunResult[], count = 10): number {
 /** Moras met and got wrong at least once — the size of the practice backlog. */
 export function weakMoraCount(stats: Map<string, AggregatedMoraStat>): number {
   return [...stats.values()].filter((stat) => stat.misses > 0).length
+}
+
+/**
+ * Which comparable group a run belongs to.
+ *
+ * Runs are not interchangeable. The banks differ in difficulty by construction
+ * and `drills` deliberately serves the moras you are worst at, so a line drawn
+ * from a drills run to a quotes run asserts a comparison that does not exist.
+ * Smoothing does not fix this — it reduces noise, it does not make unlike tasks
+ * alike. A timed run is a different task again, and two durations are two tasks.
+ */
+export function cohortOf(run: RunResult): string {
+  const mode = runMode(run)
+  return mode.kind === 'timed' ? `${run.source}:timed:${mode.durationMs}` : `${run.source}:passage`
+}
+
+export type Cohort = { key: string; source: SourceName; label: string; count: number }
+
+const SECONDS = 1000
+
+/** Every cohort present in the history, most-practised first. */
+export function runCohorts(runs: RunResult[]): Cohort[] {
+  const seen = new Map<string, Cohort>()
+  for (const run of runs) {
+    const key = cohortOf(run)
+    const existing = seen.get(key)
+    if (existing !== undefined) {
+      existing.count += 1
+      continue
+    }
+    const mode = runMode(run)
+    seen.set(key, {
+      key,
+      source: run.source,
+      label:
+        mode.kind === 'timed' ? `${run.source} · ${Math.round(mode.durationMs / SECONDS)}s` : `${run.source}`,
+      count: 1,
+    })
+  }
+  return [...seen.values()].sort((a, b) => b.count - a.count || a.key.localeCompare(b.key))
+}
+
+/**
+ * The cohort to show by default: the one the most recent run belongs to.
+ *
+ * Not the largest. Falling back to whichever cohort has the most history would
+ * silently answer a question about a kind of practice the typist has stopped
+ * doing.
+ */
+export function defaultCohort(runs: RunResult[]): string | null {
+  return runs.length === 0 ? null : cohortOf(runs[0])
+}
+
+export type ProgressPoint = {
+  wpm: number
+  accuracy: number
+  /** Five-run rolling medians — the trend, with the raw values kept beside it. */
+  wpmMedian: number
+  accuracyMedian: number
+  date: string
+}
+
+const WINDOW = 5
+
+function median(values: number[]): number {
+  const sorted = [...values].sort((a, b) => a - b)
+  const mid = Math.floor(sorted.length / 2)
+  return sorted.length % 2 === 1 ? sorted[mid] : Math.round((sorted[mid - 1] + sorted[mid]) / 2)
+}
+
+/**
+ * One cohort's recent runs, oldest first, with both measures and their trends.
+ *
+ * Speed and accuracy are returned together but are meant to be drawn as two
+ * stacked plots sharing an x-axis, never as one plot with two y-scales: 0–120
+ * wpm and 88–100% have no honest common axis, and overlaying them invents a
+ * relationship out of where the two scales happen to be pinned.
+ */
+export function progressPoints(runs: RunResult[], cohort: string, limit = 24): ProgressPoint[] {
+  const recent = runs
+    .filter((run) => cohortOf(run) === cohort)
+    .slice(0, limit)
+    .reverse()
+  return recent.map((run, index) => {
+    const from = Math.max(0, index - (WINDOW - 1))
+    const window = recent.slice(from, index + 1)
+    return {
+      wpm: runWpm(run),
+      accuracy: run.accuracy,
+      wpmMedian: median(window.map(runWpm)),
+      accuracyMedian: median(window.map((r) => r.accuracy)),
+      date: run.date,
+    }
+  })
+}
+
+/**
+ * The accuracy axis, which cannot start at zero and stay useful.
+ *
+ * A competent typist lives between 88% and 100%, and on a 0–100 axis that is a
+ * flat line saying nothing. The floor is rounded down in fives with headroom
+ * below the worst run, and the axis is always drawn with its ticks — a truncated
+ * scale is honest when it is labelled and misleading when it is not.
+ */
+export function accuracyFloor(points: { accuracy: number }[]): number {
+  if (points.length === 0) return 90
+  const min = Math.min(...points.map((p) => p.accuracy))
+  return Math.max(0, Math.min(90, Math.floor((min - 2) / 5) * 5))
 }
 
 /**

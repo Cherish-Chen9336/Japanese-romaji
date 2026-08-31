@@ -14,6 +14,11 @@ import {
   recentAccuracy,
   weakMoraCount,
   wpmTrend,
+  accuracyFloor,
+  cohortOf,
+  defaultCohort,
+  progressPoints,
+  runCohorts,
   mergeTimingStats,
   newlyReachedMilestones,
   recentDayKeys,
@@ -26,7 +31,7 @@ import {
   unlockedMilestones,
   weakestKana,
 } from './stats'
-import type { LifetimeStats, RunResult, StoredRunResult, TimingStat } from './types'
+import type { LifetimeStats, RunResult, SourceName, StoredRunResult, TimingStat } from './types'
 
 function run(overrides: Partial<RunResult> = {}): RunResult {
   return {
@@ -673,5 +678,104 @@ describe('wpmTrend', () => {
   it('has nothing to plot without eligible runs', () => {
     expect(wpmTrend([])).toEqual([])
     expect(wpmTrend([run({ wpm: 80, mode: { kind: 'timed', durationMs: 15_000 } })])).toEqual([])
+  })
+})
+
+describe('cohorts', () => {
+  const timed = (durationMs: number) => ({ kind: 'timed' as const, durationMs })
+
+  /*
+   * Runs are not interchangeable. The banks differ in difficulty by
+   * construction and `drills` deliberately serves the moras you are worst at, so
+   * a line from a drills run to a quotes run asserts a comparison that does not
+   * exist. Smoothing does not repair that — it reduces noise, it does not make
+   * unlike tasks alike.
+   */
+  it('separates sources, and passage from timed', () => {
+    expect(cohortOf(run({ source: 'words' }))).toBe('words:passage')
+    expect(cohortOf(run({ source: 'quotes' }))).not.toBe(cohortOf(run({ source: 'words' })))
+    expect(cohortOf(run({ source: 'words', mode: timed(60_000) }))).not.toBe('words:passage')
+  })
+
+  /* Two durations are two different tests, not one test at two lengths. */
+  it('separates timed runs of different durations', () => {
+    expect(cohortOf(run({ source: 'words', mode: timed(60_000) }))).not.toBe(
+      cohortOf(run({ source: 'words', mode: timed(15_000) })),
+    )
+  })
+
+  it('lists the cohorts present, most practised first', () => {
+    const runs = [run({ source: 'words' }), run({ source: 'quotes' }), run({ source: 'words' })]
+    const cohorts = runCohorts(runs)
+    expect(cohorts.map((c) => c.key)).toEqual(['words:passage', 'quotes:passage'])
+    expect(cohorts[0].count).toBe(2)
+  })
+
+  it('labels a timed cohort with its duration', () => {
+    expect(runCohorts([run({ source: 'words', mode: timed(60_000) })])[0].label).toBe('words · 60s')
+  })
+
+  /*
+   * The most recent run's cohort, not the largest. Defaulting to whichever has
+   * the most history would answer a question about a kind of practice the typist
+   * may have stopped doing.
+   */
+  it('defaults to the cohort of the latest run, not the biggest', () => {
+    const runs = [run({ source: 'quotes' }), run({ source: 'words' }), run({ source: 'words' })]
+    expect(defaultCohort(runs)).toBe('quotes:passage')
+    expect(defaultCohort([])).toBeNull()
+  })
+})
+
+describe('progressPoints', () => {
+  const at = (wpm: number, accuracy: number, source: SourceName = 'words') => run({ wpm, accuracy, source })
+
+  it('returns only the chosen cohort, oldest first', () => {
+    const runs = [at(50, 95), at(40, 90, 'quotes'), at(30, 99)]
+    expect(progressPoints(runs, 'words:passage').map((p) => p.wpm)).toEqual([30, 50])
+  })
+
+  it('carries both measures without mixing them', () => {
+    const [point] = progressPoints([at(44, 91)], 'words:passage')
+    expect(point.wpm).toBe(44)
+    expect(point.accuracy).toBe(91)
+  })
+
+  /* One unlucky run should bend the raw dot, not the trend. */
+  it('smooths each measure over its own window', () => {
+    const runs = [at(40, 96), at(41, 95), at(10, 60), at(39, 95), at(40, 96)]
+    const points = progressPoints(runs.reverse(), 'words:passage')
+    expect(points[2].wpm).toBe(10)
+    expect(points[2].wpmMedian).toBeGreaterThan(30)
+    expect(points[2].accuracyMedian).toBeGreaterThan(90)
+  })
+
+  it('respects the limit', () => {
+    expect(progressPoints([at(1, 90), at(2, 90), at(3, 90)], 'words:passage', 2)).toHaveLength(2)
+  })
+})
+
+describe('accuracyFloor', () => {
+  /*
+   * A competent typist lives between 88% and 100%. On a 0-100 axis that is a
+   * flat line saying nothing, so the axis is truncated — and always drawn with
+   * ticks, because a truncated scale is honest when it is labelled and
+   * misleading when it is not.
+   */
+  it('rounds down in fives with headroom below the worst run', () => {
+    expect(accuracyFloor([{ accuracy: 96 }, { accuracy: 92 }])).toBe(90)
+    expect(accuracyFloor([{ accuracy: 96 }, { accuracy: 81 }])).toBe(75)
+  })
+
+  it('never rises above 90, however good the typist', () => {
+    expect(accuracyFloor([{ accuracy: 100 }, { accuracy: 100 }])).toBe(90)
+  })
+
+  it('never goes below zero, however bad', () => {
+    expect(accuracyFloor([{ accuracy: 1 }])).toBe(0)
+  })
+
+  it('has a sensible floor with nothing to plot', () => {
+    expect(accuracyFloor([])).toBe(90)
   })
 })

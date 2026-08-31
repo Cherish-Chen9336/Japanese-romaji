@@ -26,7 +26,9 @@ import {
   slowestMoras,
   recentAccuracy,
   weakMoraCount,
-  wpmTrend,
+  runCohorts,
+  defaultCohort,
+  progressPoints,
   weakAfterRun,
   smoothedErrorRate,
   leastPractisedKana,
@@ -73,7 +75,7 @@ import { writeJson } from './io/storage'
 import { BottomNav } from './ui/BottomNav'
 import { chartCoverage } from './engine/mastery'
 import { MasteryMap } from './ui/MasteryMap'
-import { Sparkline } from './ui/Sparkline'
+import { ProgressChart } from './ui/ProgressChart'
 import { OnScreenKeyboard } from './ui/OnScreenKeyboard'
 import { Topbar } from './ui/Topbar'
 import { routeFromHash, type RouteName } from './ui/router'
@@ -171,7 +173,19 @@ function App() {
   const coverage = createMemo(() => chartCoverage(kanaStats()))
   const weakMoras = createMemo(() => weakMoraCount(kanaStats()))
   const recentAcc = createMemo(() => recentAccuracy(runs(), 10))
-  const trend = createMemo(() => wpmTrend(runs(), 24))
+  const cohorts = createMemo(() => runCohorts(runs()))
+  const [pickedCohort, setCohort] = createSignal<string | null>(null)
+  /* The latest run's cohort until the reader picks another, and back to it if the
+     picked one disappears — a reset, or an import. */
+  const cohort = createMemo(() => {
+    const picked = pickedCohort()
+    if (picked !== null && cohorts().some((c) => c.key === picked)) return picked
+    return defaultCohort(runs())
+  })
+  const progress = createMemo(() => {
+    const key = cohort()
+    return key === null ? [] : progressPoints(runs(), key, 24)
+  })
   /*
    * Drill targets are the weakest moras *plus* the least-practised ones. Weakness
    * alone can't drive practice: a mora is only found weak once you have met it
@@ -921,21 +935,17 @@ function App() {
             </div>
 
             <div class="stats-group">
-              <p class="stats-group__label">kana learning</p>
+              <h2 class="stats-group__label">kana learning</h2>
               <div class="stats-grid">
               <section class="panel panel--map">
-                <h2>kana typing mastery</h2>
+                <h3>kana typing mastery</h3>
                 {/* Not "accuracy": the colour is weakness weighted by how much
                     evidence stands behind it, which is why one miss in a hundred
                     barely shows. The plain rate is in each cell's own detail.
                     And nothing here may promise hovering — on a touch screen
                     there is no hover to offer. */}
                 <p class="muted">
-                  How hard each mora is for you to produce as romaji — not what you know, what you can
-                  type. Colour is weakness, weighted by how often you've met the mora.
-                </p>
-                <p class="muted">
-                  Met <b>{coverage().met}</b> of {coverage().total} chart moras.
+                  Red is weakness, weighted by how often you've met the mora.
                 </p>
                 <MasteryMap stats={kanaStats()} />
                 <div class="mastery-legend">
@@ -959,7 +969,7 @@ function App() {
                 </div>
               </section>
               <section class="panel panel--span-4">
-                <h2>slowest moras</h2>
+                <h3>slowest moras</h3>
                 <p class="muted">Time beyond what each spelling costs at your own cadence.</p>
                 <div class="bar-list">
                   <For
@@ -984,14 +994,19 @@ function App() {
             </div>
 
             <div class="stats-group">
-              <p class="stats-group__label">recent progress</p>
+              <h2 class="stats-group__label">recent progress</h2>
               <div class="stats-grid">
-                <section class="panel panel--span-6">
-                  <h2>speed trend</h2>
-                  <Sparkline points={trend()} />
+                <section class="panel panel--span-12">
+                  <h3>speed and accuracy</h3>
+                  <ProgressChart
+                    points={progress()}
+                    cohorts={cohorts()}
+                    cohort={cohort()}
+                    onCohort={setCohort}
+                  />
                 </section>
               <section class="panel panel--span-6">
-                <h2>last 60 days</h2>
+                <h3>last 60 days</h3>
                 <div class="calendar-grid">
                   <For each={recentDayKeys(60)}>
                     {(key) => {
@@ -1012,33 +1027,55 @@ function App() {
                   Longest streak <b>{streaks().longest}</b> days.
                 </p>
               </section>
-            <section class="panel panel--span-12">
-              <h2>recent runs</h2>
-              <div class="runs-table">
-                <For each={runs().slice(0, 12)} fallback={<p class="muted">No runs yet.</p>}>
-                  {(run) => (
-                    <div class="run-row">
-                      <span>{new Date(run.date).toLocaleDateString()}</span>
-                      <span>{run.source}</span>
-                      <span>{run.accuracy}%</span>
-                      <b>{runWpm(run)} wpm</b>
-                    </div>
-                  )}
-                </For>
-              </div>
-            </section>
+              {/* Exact inspection, folded away. The chart answers "am I
+                  improving"; this answers "what exactly was that run", which is a
+                  question you ask occasionally and never on arrival. A real
+                  table, too — it was a stack of divs with no headers. */}
+              <section class="panel panel--span-12">
+                <details class="run-details">
+                  <summary>Latest runs</summary>
+                  <table class="runs-table">
+                    <thead>
+                      <tr>
+                        <th scope="col">Date</th>
+                        <th scope="col">Practice</th>
+                        <th scope="col">Accuracy</th>
+                        <th scope="col">Speed</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <For each={runs().slice(0, 5)}>
+                        {(item) => (
+                          <tr>
+                            <td>{new Date(item.date).toLocaleDateString()}</td>
+                            <td>{item.source}</td>
+                            <td class="is-num">{item.accuracy}%</td>
+                            <td class="is-num">{runWpm(item)} wpm</td>
+                          </tr>
+                        )}
+                      </For>
+                    </tbody>
+                  </table>
+                </details>
+              </section>
               </div>
             </div>
 
+            {/* Folded away. These are the least actionable surfaces on the page
+                for a kana learner, and none of them can name a mora — so they
+                should not compete with the chart for the first scan. */}
             <div class="stats-group">
-              <p class="stats-group__label">typing mechanics</p>
-              <p class="stats-group__note">
-                Romaji keys, not kana. One key types many moras, so none of this can say which
-                mora is at fault — that is the chart above.
-              </p>
-              <div class="stats-grid">
+              <details class="stats-group__more">
+                <summary>
+                  <h2 class="stats-group__label">typing mechanics</h2>
+                </summary>
+                <p class="stats-group__note">
+                  Romaji keys, not kana. One key types many moras, so none of this can say which
+                  mora is at fault — that is the chart above.
+                </p>
+                <div class="stats-grid">
               <section class="panel panel--keyboard">
-                <h2>romaji key errors</h2>
+                <h3>romaji key errors</h3>
                 <div class="mini-keyboard">
                   <For each={['qwertyuiop', 'asdfghjkl', 'zxcvbnm']}>
                     {(row) => (
@@ -1052,16 +1089,16 @@ function App() {
                                 class="mini-key"
                                 style={{
                                   /*
-                                   * Accuracy alone. This used to blend latency in
-                                   * as `avgMs / 600 + errorRate`, which made one
-                                   * shade stand for two different problems with an
-                                   * undocumented rate of exchange between them —
-                                   * and a dark key gave the reader no way to tell
-                                   * whether they were slow on it or wrong on it.
-                                   * Speed keeps its own panel and the tooltip.
+                                   * Accuracy alone, and in the error colour. This
+                                   * used to blend latency in as
+                                   * `avgMs / 600 + errorRate`, so one shade stood
+                                   * for two different problems; then it faded the
+                                   * accent, which elsewhere on this page means the
+                                   * opposite — teal is "never missed" on the kana
+                                   * chart. Speed keeps its own panel.
                                    */
-                                  opacity: String(
-                                    0.24 + 0.76 * (stat()?.misses ? smoothedErrorRate(stat()!) : 0),
+                                  '--mk-heat': String(
+                                    stat()?.misses ? smoothedErrorRate(stat()!) : 0,
                                   ),
                                 }}
                                 title={`${letter}: ${count()} misses · ${Math.round(
@@ -1082,7 +1119,7 @@ function App() {
                 </div>
               </section>
               <section class="panel panel--span-4">
-                <h2>most confused</h2>
+                <h3>most confused</h3>
                 <div class="bar-list">
                   <For each={topConfusions()} fallback={<p class="muted">No confused pairs yet.</p>}>
                     {([pair, count]) => (
@@ -1096,7 +1133,7 @@ function App() {
                 </div>
               </section>
               <section class="panel panel--span-4">
-                <h2>slowest pairs</h2>
+                <h3>slowest pairs</h3>
                 <div class="bar-list">
                   <For each={slowBigrams()} fallback={<p class="muted">No pair timing yet.</p>}>
                     {([pair, stat]) => (
@@ -1109,7 +1146,8 @@ function App() {
                   </For>
                 </div>
               </section>
-              </div>
+                </div>
+              </details>
             </div>
           </section>
         </Show>
