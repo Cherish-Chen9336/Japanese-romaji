@@ -609,25 +609,26 @@ input[type='range'] {
   padding: var(--space-2) 0;
 }
 
-/* Same hairline treatment as the panel grid below it, so the page reads as one
-   surface rather than a strip of cards sitting above a table of them. */
+/*
+ * Four numbers on the page, divided by a rule, not four little cards. The
+ * dividers are between the cells, so the strip reads as one row of facts.
+ */
 .stat-grid {
   display: grid;
-  gap: 1px;
+  gap: 0;
   grid-template-columns: repeat(4, 1fr);
-  background: var(--color-border);
-  border: var(--bw-1) solid var(--color-border);
-  border-radius: 10px;
-  overflow: hidden;
-}
-
-.stat-grid--compact {
-  grid-template-columns: repeat(2, 1fr);
 }
 
 .stat-grid div {
-  background: var(--color-bg);
-  padding: var(--space-5);
+  padding: var(--space-2) var(--space-5) var(--space-4);
+}
+
+.stat-grid div + div {
+  border-left: var(--bw-1) solid var(--color-border);
+}
+
+.stat-grid div:first-child {
+  padding-left: 0;
 }
 
 .stat-grid b {
@@ -696,34 +697,46 @@ input[type='range'] {
  * page left most of them mostly empty while the page ran to nearly five screens.
  * Spans let each panel take roughly the width its content wants.
  */
+/*
+ * Space, not boxes.
+ *
+ * Sections were bordered cards, then hairline-separated cells; both drew a rule
+ * around content that does not need one. A heading and a gap already say where
+ * one section ends and the next begins, and the page stops looking like a form.
+ */
 .stats-grid {
   display: grid;
-  gap: var(--space-4);
   grid-template-columns: repeat(12, minmax(0, 1fr));
-  /* Panels here differ a lot in height, so a strictly ordered flow leaves holes
-     under the short ones. Dense packing lets a later short panel fill a gap an
-     earlier tall one opened. */
-  grid-auto-flow: row dense;
-  /*
-   * Hairlines, not cards.
-   *
-   * Twelve bordered white boxes floating on a near-white page gave every panel
-   * the same visual weight and a shadowless outline that read as clutter rather
-   * than structure. The grid paints one continuous rule and the panels sit on
-   * the page colour over it, so the separation costs a single pixel and the
-   * sections read as one surface divided rather than as tiles scattered.
-   */
-  gap: 1px;
-  background: var(--color-border);
-  border: var(--bw-1) solid var(--color-border);
-  border-radius: 10px;
-  overflow: hidden;
-  /* Stretch, so the hairlines run the full height of each row and do not break
-     into fragments under the shorter panels. */
-  align-items: stretch;
+  gap: var(--space-6) var(--space-7);
+  align-items: start;
 }
 
 .stats-grid > .panel {
+  grid-column: span 12;
+  min-width: 0;
+}
+
+/* Each of these has to out-specify `.stats-grid > .panel` above, or the
+   single-column default wins at every width and the spans never apply. */
+@media (min-width: 760px) {
+  .stats-grid > .panel--span-3,
+  .stats-grid > .panel--span-4,
+  .stats-grid > .panel--span-5,
+  .stats-grid > .panel--span-6 {
+    grid-column: span 6;
+  }
+}
+
+@media (min-width: 1120px) {
+  .stats-grid > .panel--span-3 { grid-column: span 3; }
+  .stats-grid > .panel--span-4 { grid-column: span 4; }
+  .stats-grid > .panel--span-5 { grid-column: span 5; }
+  .stats-grid > .panel--span-6 { grid-column: span 6; }
+  .stats-grid > .panel--span-12 { grid-column: span 12; }
+  .stats-grid > .panel--map { grid-column: span 8; }
+}
+
+.panel {
   /* Single column by default; the spans below apply only once there is room. */
   grid-column: span 12;
   min-width: 0;
@@ -757,8 +770,7 @@ input[type='range'] {
 }
 
 .panel {
-  background: var(--color-bg);
-  padding: var(--space-5);
+  padding: 0;
 }
 
 /* Section names are signposts, not headlines: quiet, so the numbers lead. */
@@ -775,46 +787,36 @@ input[type='range'] {
 }
 
 /*
- * Sized from the space it is given rather than from a fixed key width.
+ * Sized from the space it is given, and square.
  *
- * Fixed 42px keys needed 492px for the top row, more than the panel had, so the
- * keyboard scrolled sideways inside its own box — a keyboard you have to drag to
- * read is not a heatmap, because the whole point is taking in the shape at a
- * glance. The key size is now the tenth of the row that is actually available,
- * clamped so it neither disappears on a phone nor bloats on a wide screen.
+ * Fixed 42px keys needed 492px in a panel that had about 400, so the keyboard
+ * scrolled sideways inside its own box — and a heatmap you have to drag to read
+ * is not a heatmap, since the point is taking in the shape at a glance.
+ *
+ * The width is a tenth of the row actually available. The *height* comes from
+ * `aspect-ratio`, not from the same variable: `--mk-key` contains a percentage,
+ * and a percentage resolves against the axis it is used on, so the identical
+ * token gave a correct width and a collapsed height — 64px wide by 23px tall,
+ * which is what made the keys read as slabs rather than keys.
  */
 .mini-keyboard {
-  --mk-gap: var(--space-2);
-  /* Upper bound raised with the panel: at eight columns the row has room for
-     roughly 75px keys, and holding them at 46 left the heatmap adrift in a box
-     twice its size. */
-  --mk-key: clamp(22px, calc((100% - 9 * var(--mk-gap)) / 10), 64px);
+  --mk-gap: 4px;
+  --mk-key: clamp(20px, calc((100% - 9 * var(--mk-gap)) / 10), 52px);
   display: flex;
   flex-direction: column;
   gap: var(--mk-gap);
 }
 
+/*
+ * Rows are centred and not staggered. The offset was there to suggest a real
+ * keyboard, but with only the three letter rows it read as three misaligned
+ * strips — and every way of expressing it, transform or padding, fought the
+ * width the keys were sized from.
+ */
 .mini-keyboard-row {
   display: flex;
   gap: var(--mk-gap);
   justify-content: center;
-}
-
-/*
- * Staggered like a real keyboard, with padding rather than a transform.
- *
- * A transform moves the whole row box, and the rows are full width, so any
- * offset pushed the last row past the container and the keyboard scrolled
- * sideways however small the keys got. Padding shifts the keys *inside* the row,
- * which cannot overflow. Doubled because the keys are centred, so half of it
- * lands on each side.
- */
-.mini-keyboard-row:nth-child(2) {
-  padding-left: calc(var(--mk-key) * 0.6);
-}
-
-.mini-keyboard-row:nth-child(3) {
-  padding-left: calc(var(--mk-key) * 1.4);
 }
 
 .mini-key {
@@ -825,9 +827,9 @@ input[type='range'] {
   display: flex;
   flex-direction: column;
   font-family: var(--font-mono);
-  height: var(--mk-key);
   justify-content: center;
   width: var(--mk-key);
+  aspect-ratio: 1;
   flex: 0 0 auto;
   overflow: hidden;
 }
@@ -1215,10 +1217,19 @@ meter::-webkit-meter-optimum-value {
   color: var(--color-dim);
 }
 
-/* Met, never missed. */
+/*
+ * Met, and never missed — in the theme colour.
+ *
+ * It was plain white, which is what an unstyled cell looks like, so the one
+ * state worth being pleased about read as "nothing here". The chart now says
+ * three things at a glance: green you have, red you are getting wrong, outlined
+ * you have not met.
+ */
 .mastery-cell--clean {
-  background: var(--color-surface);
-  border-color: var(--color-border);
+  background: rgb(var(--color-accent-rgb) / 0.14);
+  background: color-mix(in oklch, var(--color-accent) 16%, var(--color-surface));
+  border-color: rgb(var(--color-accent-rgb) / 0.32);
+  border-color: color-mix(in oklch, var(--color-accent) 34%, var(--color-border));
 }
 
 /*
@@ -1298,7 +1309,12 @@ meter::-webkit-meter-optimum-value {
 }
 
 .mastery-legend i.is-unseen { border-style: dashed; }
-.mastery-legend i.is-clean { background: var(--color-surface); }
+.mastery-legend i.is-clean {
+  background: rgb(var(--color-accent-rgb) / 0.14);
+  background: color-mix(in oklch, var(--color-accent) 16%, var(--color-surface));
+  border-color: rgb(var(--color-accent-rgb) / 0.32);
+  border-color: color-mix(in oklch, var(--color-accent) 34%, var(--color-border));
+}
 .mastery-legend i.is-weak {
   background: rgb(var(--color-error-rgb) / 0.42);
   background: color-mix(in oklch, var(--color-error) 55%, var(--color-surface));

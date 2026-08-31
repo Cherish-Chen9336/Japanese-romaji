@@ -12,6 +12,7 @@
   --color-muted: #68746f;
   --color-dim: #9aa49f;
   --color-accent: #178f7b;
+  --color-accent-rgb: 23 143 123;
   --color-accent-fg: #ffffff;
   --color-error: #c4473d;
   /* Channels, for the rgb() fallbacks that run where color-mix does not. */

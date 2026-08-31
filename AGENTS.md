@@ -216,11 +216,24 @@ this can say which mora is at fault. It is the widest panel because legibility i
 its only problem; being bigger does not make it mean more.
 
 Panels sit in a twelve-column grid **inside each group**, with the groups in
-document order. Cards were removed: the grid paints one hairline and panels sit
-on the page colour over it, so a boundary costs one pixel. Note that with
-`align-items: stretch`, a panel with a stale `grid-row: span 2` leaves its second
-row's remaining columns uncovered, and the grid's own hairline colour shows
-through as a slab of background.
+document order, and carry **no chrome at all** — no border, no fill, no radius.
+A heading and a gap already say where one section ends; drawing a box around
+every one of them made the page look like a form. This went through cards, then
+hairline-separated cells, before landing on plain space, which is what the
+reference does too.
+
+The **五十音 chart uses the theme colour for "seen, never missed"**. It was plain
+white, indistinguishable from an unstyled cell, so the one state worth being
+pleased about read as "nothing here". Three states now: green you have, red you
+are getting wrong, outlined you have not met.
+
+The **keyboard keys are square via `aspect-ratio`, never via the width token**.
+`--mk-key` contains a percentage, and a percentage resolves against the axis it
+is used on — so feeding the same token to `width` and `height` gave a correct
+width and a collapsed height, 64px by 23px, which read as slabs rather than keys.
+The rows are centred and **not staggered**: with only the three letter rows an
+offset read as three misaligned strips, and every way of expressing it fought the
+width the keys were sized from.
 
 Two traps here, both of which cost real time:
 
