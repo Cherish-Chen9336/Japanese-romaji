@@ -308,19 +308,17 @@ Neither is decoration: every overview number used to be teal, which spent the
 page's only signal on ornament, and the key heatmap faded *teal* for errors while
 teal meant clean two sections above.
 
-The mastery chart is the page's subject and shares its row with **slowest
-moras**, drawn as columns. The two answer different questions and neither
-replaces the other: the chart's colour says what you get *wrong*, the columns say
-what you have to *think about*, and after the columns were cut for a while kana
-timing survived only inside `title` text. The row is `auto minmax(220px, 1fr)`
-rather than twelve columns, so the chart takes exactly the width it needs and is
-never squeezed to fit a grid it does not care about.
+The mastery chart is the page's subject, alone on its row, and **that one row is
+allowed to be wider than the column** (`stats-group--wide`). Everything else
+stays in the column: letting every row reach the window edges made the page read
+as scattered rather than as one surface. The bleed is clamped against the space
+actually available, so it is zero once the window is no wider than the column.
 
-The statistics route has **no width cap at all** — neither the shell nor the
-page. The dashboard is meant to spread; a ceiling left a wide screen with two
-empty margins. One consequence: the top bar's bleed has to be zeroed under
-`.app--wide`, because that shell is already the full window and the negative
-margin would push the bar off the page.
+**Slow-mora information lives on the chart, not beside it.** Each cell already
+carries its own excess in its detail; the legend carries the ranking, which a
+grid cannot show — "weakest" and "slowest" side by side. A separate column chart
+was tried and removed: it restated in a second surface what the chart's own cells
+already hold, and earned none of the width it took.
 
 The progress plots, the key heatmap and the calendar pair off in rows beneath.
 Confusions and bigrams — the only surfaces left that cannot name a mora — sit

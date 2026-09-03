@@ -76,7 +76,6 @@ import { BottomNav } from './ui/BottomNav'
 import { chartCoverage } from './engine/mastery'
 import { MasteryMap } from './ui/MasteryMap'
 import { ProgressChart } from './ui/ProgressChart'
-import { SlowMoraChart } from './ui/SlowMoraChart'
 import { OnScreenKeyboard } from './ui/OnScreenKeyboard'
 import { Topbar } from './ui/Topbar'
 import { routeFromHash, type RouteName } from './ui/router'
@@ -949,10 +948,10 @@ function App() {
               </div>
             </div>
 
-            <div class="stats-group">
+            <div class="stats-group stats-group--wide">
               <h2 class="stats-group__label">kana learning</h2>
               <div class="stats-grid">
-              <section class="panel panel--map">
+              <section class="panel panel--span-12 panel--map">
                 <h3>kana typing mastery</h3>
                 {/* Not "accuracy": the colour is weakness weighted by how much
                     evidence stands behind it, which is why one miss in a hundred
@@ -978,15 +977,19 @@ function App() {
                   </span>
                   <Show when={weakestMoras().length > 0}>
                     <span>
-                      weakest right now: <b>{weakestMoras().slice(0, 5).map(([kana]) => kana).join(' ')}</b>
+                      weakest: <b>{weakestMoras().slice(0, 5).map(([kana]) => kana).join(' ')}</b>
+                    </span>
+                  </Show>
+                  {/* The chart's colour says what you get *wrong*; this says what
+                      you have to *think about*. Each cell already carries its own
+                      excess in its detail — this is the ranking, which a grid
+                      cannot show. */}
+                  <Show when={slowMoras().length > 0}>
+                    <span>
+                      slowest: <b>{slowMoras().slice(0, 5).map(([kana]) => kana).join(' ')}</b>
                     </span>
                   </Show>
                 </div>
-              </section>
-
-              <section class="panel panel--slow">
-                <h3>slowest moras</h3>
-                <SlowMoraChart moras={slowMoras()} />
               </section>
               </div>
             </div>
