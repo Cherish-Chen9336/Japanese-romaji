@@ -913,7 +913,6 @@ function App() {
         <Show when={route() === 'stats'}>
           <section class="page stats-page">
             <div class="profile-id">
-              <div class="avatar">YOU</div>
               <div>
                 <h1>your statistics</h1>
                 <p class="muted">
@@ -1104,7 +1103,7 @@ function App() {
                     {([pair, count]) => (
                       <div class="bar-row">
                         <span>{pair}</span>
-                        <meter min="0" max={Math.max(1, topConfusions()[0]?.[1] ?? 1)} value={count} />
+                        <meter class="meter--error" min="0" max={Math.max(1, topConfusions()[0]?.[1] ?? 1)} value={count} />
                         <b>{count}</b>
                       </div>
                     )}
@@ -1118,7 +1117,7 @@ function App() {
                     {([pair, stat]) => (
                       <div class="bar-row">
                         <span>{pair.replaceAll(' ', '␣')}</span>
-                        <meter min="0" max={Math.max(1, slowBigrams()[0]?.[1].avgMs ?? 1)} value={stat.avgMs} />
+                        <meter class="meter--neutral" min="0" max={Math.max(1, slowBigrams()[0]?.[1].avgMs ?? 1)} value={stat.avgMs} />
                         <b>{Math.round(stat.avgMs)} ms</b>
                       </div>
                     )}

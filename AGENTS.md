@@ -253,12 +253,13 @@ Two traps here, both of which cost real time:
 
 ### The progress chart
 
-`ui/ProgressChart.tsx` draws speed and accuracy as **two stacked plots sharing an
-x-axis** — never one plot with two y-scales. 0–120 wpm and 88–100% have no honest
-common axis, and pinning them against each other invents a correlation out of
-where the two scales happen to sit. Stacked, the reader still gets the
-relationship they want ("faster without getting sloppier?") from the shared x
-while each measure keeps a scale that suits it.
+`ui/ProgressChart.tsx` draws speed and accuracy as **two plots side by side** —
+never one plot with two y-scales. 0–120 wpm and 88–100% have no honest common
+axis, and pinning them against each other invents a correlation out of where the
+two scales happen to sit. They were stacked and sharing an x-axis, which made
+"faster without getting sloppier?" a straight vertical read; side by side, that
+correspondence is carried by a shared `hover` signal driving the crosshair,
+marker and readout in both plots at once, with the readout naming the run.
 
 Speed starts at zero. **Accuracy cannot**: a competent typist lives in a
 twelve-point band, and on 0–100 that is a flat line saying nothing. `accuracyFloor`
@@ -281,7 +282,24 @@ claim, and the reader should be able to see the evidence for it.
 
 Hierarchy comes from type and space, not boxes — but it has to *exist*. Group
 headings (`h2`) are 18px and dark; panel headings (`h3`) are 14px and dark; only
-captions and axes are muted. When both levels were small muted uppercase the page
+captions and axes are muted. The group-heading rule is scoped **`.page
+.stats-group__label`**, because `.page h2` is a class plus an element and
+out-specifies a bare class: unscoped, the whole rule lost the cascade and group
+headings rendered at 16px/500 *against* panel headings at 14px/600 — the
+hierarchy inverted, and the page read flat for it. That is the second time this
+exact pair has bitten; the stats-grid spans were the first.
+
+A meter is a magnitude, not a verdict: `meter--error` for confusions, which are
+mistakes, and `meter--neutral` for latency, which is neither good nor bad. All of
+them were accent, so a list of errors read as green-for-good. The "YOU" avatar is
+gone for the same reason — it was the page's strongest teal object and carried no
+state at all.
+
+The top bar **bleeds past the content column** toward the window edges. Held to
+`--container-max` like everything else, the brand and the counters read as
+huddled toward the middle with empty margins either side. The bleed is clamped
+against the space actually available, so it is zero as soon as the window is no
+wider than the column and can never push the page sideways. When both levels were small muted uppercase the page
 had no hierarchy at all, which is what made it read as bare rather than clean.
 
 **Colour means state.** Teal is "known" — a clean mora, an active practice day, the

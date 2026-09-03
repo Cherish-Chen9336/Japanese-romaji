@@ -343,7 +343,7 @@ function median(values: number[]): number {
  * One cohort's recent runs, oldest first, with both measures and their trends.
  *
  * Speed and accuracy are returned together but are meant to be drawn as two
- * stacked plots sharing an x-axis, never as one plot with two y-scales: 0–120
+ * separate plots over the same run order, never as one plot with two y-scales: 0–120
  * wpm and 88–100% have no honest common axis, and overlaying them invents a
  * relationship out of where the two scales happen to be pinned.
  */

@@ -2,13 +2,13 @@ import { For, Show, createMemo, createSignal } from 'solid-js'
 import { accuracyFloor, type Cohort, type ProgressPoint } from '../engine/stats'
 
 /**
- * Speed and accuracy over recent runs, as two stacked plots sharing an x-axis.
+ * Speed and accuracy over recent runs, as two plots side by side.
  *
  * Deliberately **not** one plot with two y-scales. 0–120 wpm and 88–100% have no
  * honest common axis, and pinning them against each other invents a correlation
- * out of where the two scales happen to sit. Stacked and aligned, the reader gets
- * the relationship — "faster without getting sloppier?" — from the shared x,
- * while each measure keeps a scale that suits it.
+ * out of where the two scales happen to sit. Two plots over the same run order
+ * give the reader the relationship — "faster without getting sloppier?" — while
+ * each measure keeps a scale that suits it.
  *
  * The speed axis starts at zero. The accuracy axis cannot: a competent typist
  * lives in a twelve-point band, and on 0–100 that is a flat line saying nothing.
@@ -19,8 +19,10 @@ import { accuracyFloor, type Cohort, type ProgressPoint } from '../engine/stats'
 /*
  * Side by side, and small. Stacked they shared an x-axis, which made "faster
  * without getting sloppier" a straight vertical read; side by side that has to
- * come from the matching run order instead. Still two plots and never one plot
- * with two y-scales, which is the part that would actually mislead.
+ * be carried by the shared hover instead — one `hover` signal drives the
+ * crosshair, the marker and the readout in both plots, and the readout names the
+ * run. Still two plots and never one plot with two y-scales, which is the part
+ * that would actually mislead.
  */
 const W = 360
 const H = 132
@@ -152,8 +154,13 @@ export function ProgressChart(props: {
           <span>
             <b>{active()?.accuracy ?? props.points[props.points.length - 1].accuracy}%</b> accuracy
           </span>
+          {/* Names the run both plots are showing. Side by side they no longer
+              share an x-axis, so the correspondence has to be said rather than
+              seen — hovering either plot marks the same run in both. */}
           <span class="muted">
-            {active() ? dateLabel(active()!.date) : `${props.points.length} runs, oldest to newest`}
+            {active()
+              ? `run ${hover()! + 1} of ${props.points.length} · ${dateLabel(active()!.date)}`
+              : `${props.points.length} runs, oldest to newest`}
           </span>
         </div>
         <div class="chart__plots">
