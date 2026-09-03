@@ -251,6 +251,23 @@ Two traps here, both of which cost real time:
   stops applying, check `document.styleSheets` sizes before editing the CSS —
   restarting Vite and clearing `node_modules/.vite` fixed it.
 
+### Tooltips
+
+`ui/Tooltip.tsx` is one shared element for the whole page, driven by a signal —
+the kana chart alone has over a hundred cells and none of their tooltips are
+visible at once.
+
+They were native `title` attributes, which the operating system draws: unstylable
+by CSS, delayed, and **absent entirely on touch**. Since the numbers on the kana
+chart, the key heatmap and the calendar live only in their tooltip, that made
+them unreachable on a phone. The replacement opens on pointer, on `pointerdown`
+so a tap works, and on focus — the cells carry `tabindex` for it — and it is
+clamped inside the viewport, because the interesting kana tend to be at the edges.
+
+Tooltip text is joined with ` · `. The first segment is the thing being described
+and gets its own line; the rest are its numbers, quieter and monospaced. The same
+string is the cell's screen-reader text, where the separator reads as a pause.
+
 ### The progress chart
 
 `ui/ProgressChart.tsx` draws speed and accuracy as **two plots side by side** —

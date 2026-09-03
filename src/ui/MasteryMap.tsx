@@ -8,6 +8,7 @@ import {
   type MasteryCell,
 } from '../engine/mastery'
 import { smoothedErrorRate } from '../engine/stats'
+import { tipFor } from './Tooltip'
 import type { AggregatedMoraStat } from '../engine/types'
 
 /**
@@ -51,14 +52,20 @@ export function severity(stat: AggregatedMoraStat): number {
   return Math.min(1, smoothedErrorRate(stat) / SATURATION)
 }
 
+/*
+ * Segments joined with ` · `, which is what the tooltip splits on: the mora gets
+ * its own line and the numbers sit beneath it, quieter. The same string is the
+ * cell's screen-reader text, where the separator reads as a pause.
+ */
 function statusText(cell: MasteryCell, stat: AggregatedMoraStat | undefined): string {
-  const head = [cell.kana, cell.romaji].filter((part) => part !== '').join(', ')
-  if (stat === undefined || stat.attempts === 0) return `${head}; not yet seen`
+  const head = [cell.kana, cell.romaji].filter((part) => part !== '').join('  ')
+  if (stat === undefined || stat.attempts === 0) return `${head} · not yet seen`
+  const rate = Math.round(stat.errorRate * 100)
   const timing =
     stat.timingSamples > 0
       ? `${Math.abs(Math.round(stat.avgExcessMs))} ms ${stat.avgExcessMs >= 0 ? 'slower' : 'faster'} than your cadence`
       : 'not timed'
-  return `${head}; ${stat.misses} of ${stat.attempts} missed; ${timing}`
+  return `${head} · ${stat.misses} of ${stat.attempts} missed (${rate}%) · ${timing}`
 }
 
 export function MasteryMap(props: { stats: Map<string, AggregatedMoraStat> }) {
@@ -74,7 +81,8 @@ export function MasteryMap(props: { stats: Map<string, AggregatedMoraStat> }) {
       <td
         class={`mastery-cell mastery-cell--${state}`}
         style={state === 'weak' && stat ? { '--weakness': String(severity(stat)) } : {}}
-        title={statusText(cell, stat)}
+        tabindex="0"
+        {...tipFor(() => statusText(cell, stat))}
       >
         <b aria-hidden="true">{cell.kana}</b>
         <Show when={cell.romaji}>

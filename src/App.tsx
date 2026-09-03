@@ -76,6 +76,7 @@ import { BottomNav } from './ui/BottomNav'
 import { chartCoverage } from './engine/mastery'
 import { MasteryMap } from './ui/MasteryMap'
 import { ProgressChart } from './ui/ProgressChart'
+import { TooltipLayer, tipFor } from './ui/Tooltip'
 import { OnScreenKeyboard } from './ui/OnScreenKeyboard'
 import { Topbar } from './ui/Topbar'
 import { routeFromHash, type RouteName } from './ui/router'
@@ -1038,11 +1039,15 @@ function App() {
                                     stat()?.misses ? smoothedErrorRate(stat()!) : 0,
                                   ),
                                 }}
-                                title={`${letter}: ${count()} misses · ${Math.round(
-                                  (stat()?.errorRate ?? 0) * 100,
-                                )}% of ${stat()?.attempts ?? 0} · ${Math.round(
-                                  stat()?.avgMs ?? 0,
-                                )} ms avg`}
+                                tabindex="0"
+                                {...tipFor(
+                                  () =>
+                                    `${letter} · ${count()} misses, ${Math.round(
+                                      (stat()?.errorRate ?? 0) * 100,
+                                    )}% of ${stat()?.attempts ?? 0} · ${Math.round(
+                                      stat()?.avgMs ?? 0,
+                                    )} ms average`,
+                                )}
                               >
                                 {letter}
                                 <small>{count() || ''}</small>
@@ -1078,7 +1083,15 @@ function App() {
                                   style={{
                                     '--day-heat': String(count() === 0 ? 0 : 0.35 + count() / max()),
                                   }}
-                                  title={`${key}: ${count()} runs`}
+                                  tabindex="0"
+                                  {...tipFor(
+                                    () =>
+                                      `${new Date(`${key}T00:00:00Z`).toLocaleDateString(undefined, {
+                                        day: 'numeric',
+                                        month: 'short',
+                                        timeZone: 'UTC',
+                                      })} · ${count()} ${count() === 1 ? 'run' : 'runs'}`,
+                                  )}
                                 >
                                   <span class="sr-only">{`${key}: ${count()} runs`}</span>
                                 </span>
@@ -1290,6 +1303,7 @@ function App() {
         </Show>
 
         <BottomNav active={route()} onNavigate={navigate} />
+        <TooltipLayer />
       </main>
     </Show>
   )

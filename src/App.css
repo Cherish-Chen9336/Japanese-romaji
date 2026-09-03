@@ -1608,3 +1608,54 @@ meter::-webkit-meter-optimum-value {
   content: '▾';
 }
 
+
+/* --- tooltip ------------------------------------------------------------ */
+
+/*
+ * Replaces the native `title`, which the OS draws unstyled, after a delay, and
+ * not at all on touch. Dark on light so it reads as an overlay rather than as
+ * another panel, and it never takes the pointer — it follows one.
+ */
+.tooltip {
+  background: var(--color-text);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.16);
+  color: var(--color-bg);
+  display: flex;
+  flex-direction: column;
+  font-size: var(--fs-12);
+  gap: 2px;
+  line-height: 1.45;
+  max-width: 260px;
+  padding: var(--space-3) var(--space-4);
+  pointer-events: none;
+  position: fixed;
+  transform: translate(-50%, -100%);
+  white-space: nowrap;
+  z-index: 40;
+}
+
+/* The thing being described leads; its numbers follow, quieter. */
+.tooltip__lead {
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
+}
+
+.tooltip span:not(.tooltip__lead) {
+  color: color-mix(in oklch, var(--color-bg) 72%, var(--color-text));
+  font-family: var(--font-mono);
+}
+
+/* The surfaces that carry one are interactive, so they say so and take focus. */
+.mastery-cell:not(.mastery-cell--gap):not(.mastery-cell--label),
+.mini-key,
+.calendar-cell {
+  cursor: help;
+}
+
+.mastery-cell:focus-visible,
+.mini-key:focus-visible,
+.calendar-cell:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
