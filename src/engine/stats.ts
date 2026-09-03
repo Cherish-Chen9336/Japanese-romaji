@@ -502,28 +502,6 @@ export function weakAfterRun(
 }
 
 /**
- * The moras that cost you the most time beyond what their spelling explains.
- *
- * A visible companion to the map rather than a second colour on it. Excess is
- * already baseline-adjusted, so this ranks hesitation and not spelling length,
- * and it answers the question the chart's colour deliberately does not: the map
- * says what you get *wrong*, this says what you have to *think about*.
- *
- * Gated on timing samples, because a mora whose every encounter was missed or
- * untimed has no measured duration to rank — only zero, which would otherwise
- * park it at the bottom as though it had been measured and found fast.
- */
-export function slowestMoras(
-  stats: Map<string, AggregatedMoraStat>,
-  limit = 6,
-): [string, AggregatedMoraStat][] {
-  return [...stats.entries()]
-    .filter(([, stat]) => stat.timingSamples >= 2 && stat.avgExcessMs > 0)
-    .sort((a, b) => b[1].avgExcessMs - a[1].avgExcessMs)
-    .slice(0, limit)
-}
-
-/**
  * The moras met least often, including those never met at all.
  *
  * Weakness alone cannot drive practice, because a mora can only be found weak

@@ -16,13 +16,18 @@ import { accuracyFloor, type Cohort, type ProgressPoint } from '../engine/stats'
  * honest truncated scale from a misleading one.
  */
 
-const W = 720
-const H_WPM = 150
-const H_ACC = 96
-const PAD_L = 40
-const PAD_R = 16
+/*
+ * Side by side, and small. Stacked they shared an x-axis, which made "faster
+ * without getting sloppier" a straight vertical read; side by side that has to
+ * come from the matching run order instead. Still two plots and never one plot
+ * with two y-scales, which is the part that would actually mislead.
+ */
+const W = 360
+const H = 132
+const PAD_L = 38
+const PAD_R = 12
 const PAD_T = 12
-const PAD_B = 20
+const PAD_B = 18
 
 type Plot = { height: number; min: number; max: number; ticks: number[] }
 
@@ -41,12 +46,12 @@ export function ProgressChart(props: {
 
   const wpmPlot = createMemo<Plot>(() => {
     const max = niceMax(Math.max(1, ...props.points.map((p) => Math.max(p.wpm, p.wpmMedian))))
-    return { height: H_WPM, min: 0, max, ticks: [0, max / 2, max] }
+    return { height: H, min: 0, max, ticks: [0, max / 2, max] }
   })
 
   const accPlot = createMemo<Plot>(() => {
     const min = accuracyFloor(props.points)
-    return { height: H_ACC, min, max: 100, ticks: [min, Math.round((min + 100) / 2), 100] }
+    return { height: H, min, max: 100, ticks: [min, Math.round((min + 100) / 2), 100] }
   })
 
   const x = (i: number) =>
@@ -151,10 +156,16 @@ export function ProgressChart(props: {
             {active() ? dateLabel(active()!.date) : `${props.points.length} runs, oldest to newest`}
           </span>
         </div>
-        <p class="chart__axis-label">speed</p>
-        {plotSvg(wpmPlot, (p) => p.wpm, (p) => p.wpmMedian, 'Speed', '')}
-        <p class="chart__axis-label">accuracy</p>
-        {plotSvg(accPlot, (p) => p.accuracy, (p) => p.accuracyMedian, 'Accuracy', '%')}
+        <div class="chart__plots">
+          <figure>
+            <figcaption class="chart__axis-label">speed</figcaption>
+            {plotSvg(wpmPlot, (p) => p.wpm, (p) => p.wpmMedian, 'Speed', '')}
+          </figure>
+          <figure>
+            <figcaption class="chart__axis-label">accuracy</figcaption>
+            {plotSvg(accPlot, (p) => p.accuracy, (p) => p.accuracyMedian, 'Accuracy', '%')}
+          </figure>
+        </div>
       </Show>
     </div>
   )

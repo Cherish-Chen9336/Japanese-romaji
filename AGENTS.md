@@ -290,10 +290,21 @@ Neither is decoration: every overview number used to be teal, which spent the
 page's only signal on ornament, and the key heatmap faded *teal* for errors while
 teal meant clean two sections above.
 
-Diagnostics that cannot name a mora — the key heatmap, confusions, bigrams — sit
-behind a disclosure. Exact run figures likewise: the chart answers "am I
-improving", and a table answers "what exactly was that run", which is a question
-you ask occasionally and never on arrival.
+The mastery chart is the page's subject: full width and centred, with the
+progress plots, the key heatmap and the calendar paired off in rows beneath it.
+Confusions and bigrams — the only surfaces left that cannot name a mora — sit
+behind a disclosure.
+
+**The key heatmap follows the kana chart's palette exactly**: a key you have
+never missed is the same light teal as a clean mora, and one you miss is the
+error colour ramped by how badly. Two states, not a blend — compositing red over
+teal reads as muddy brown on screen, because the hues are near enough to
+complementary that mixing them lands on grey, so the worst keys looked dirty
+rather than wrong.
+
+The calendar labels every row with the day it starts. It had been unlabelled
+squares whose only date lived in a `title`, so it said "you practised sometimes"
+and nothing a reader could place in time.
 
 ### The mastery map
 

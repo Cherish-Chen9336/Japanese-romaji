@@ -739,7 +739,6 @@ input[type='range'] {
   .stats-grid > .panel--span-5 { grid-column: span 5; }
   .stats-grid > .panel--span-6 { grid-column: span 6; }
   .stats-grid > .panel--span-12 { grid-column: span 12; }
-  .stats-grid > .panel--map { grid-column: span 8; }
 }
 
 .panel {
@@ -774,8 +773,8 @@ input[type='range'] {
  * which is what made the keys read as slabs rather than keys.
  */
 .mini-keyboard {
-  --mk-gap: 4px;
-  --mk-key: clamp(20px, calc((100% - 9 * var(--mk-gap)) / 10), 52px);
+  --mk-gap: 6px;
+  --mk-key: clamp(24px, calc((100% - 9 * var(--mk-gap)) / 10), 60px);
   display: flex;
   flex-direction: column;
   gap: var(--mk-gap);
@@ -794,22 +793,20 @@ input[type='range'] {
 }
 
 /*
- * Error intensity in the error colour.
+ * A clean key is the theme colour; a key you get wrong is the error colour.
  *
- * These keys were tinted with the accent, which on this page means the opposite:
- * teal is "known, never missed" on the kana chart. The same hue cannot mean
- * mastery in one section and failure in the next.
+ * Two states, not one blend. Compositing red *over* teal looked right in the
+ * abstract and came out muddy brown on screen — the two hues are near enough to
+ * complementary that mixing them lands on grey, so the worst keys read as dirty
+ * rather than as wrong. This is the same split the kana chart already makes:
+ * teal for never-missed, red ramped by how badly, and nothing in between.
  */
 .mini-key {
   align-items: center;
-  background: rgb(var(--color-error-rgb) / calc(0.08 + var(--mk-heat, 0) * 0.62));
-  background: color-mix(
-    in oklch,
-    var(--color-error) calc(8% + var(--mk-heat, 0) * 62%),
-    var(--color-surface)
-  );
+  background: rgb(var(--color-accent-rgb) / 0.16);
+  background: color-mix(in oklch, var(--color-accent) 18%, var(--color-surface));
   border: var(--bw-1) solid var(--color-border);
-  border-radius: 5px;
+  border-radius: 6px;
   color: var(--color-text);
   display: flex;
   flex-direction: column;
@@ -819,6 +816,17 @@ input[type='range'] {
   aspect-ratio: 1;
   flex: 0 0 auto;
   overflow: hidden;
+}
+
+.mini-key--weak {
+  background: rgb(var(--color-error-rgb) / calc(0.12 + var(--mk-heat, 0) * 0.6));
+  background: color-mix(
+    in oklch,
+    var(--color-error) calc(12% + var(--mk-heat, 0) * 60%),
+    var(--color-surface)
+  );
+  border-color: rgb(var(--color-error-rgb) / 0.4);
+  border-color: color-mix(in oklch, var(--color-error) 40%, var(--color-border));
 }
 
 .mini-key small {
@@ -868,22 +876,53 @@ meter::-webkit-meter-optimum-value {
   border-radius: 999px;
 }
 
-.calendar-grid {
+/* --- practice calendar --------------------------------------------------- */
+
+.calendar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.calendar__row {
+  align-items: center;
   display: grid;
-  gap: 5px;
+  gap: var(--space-3);
+  grid-template-columns: 52px 1fr;
+}
+
+.calendar__date {
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: var(--fs-12);
+  text-align: right;
+}
+
+.calendar__days {
+  display: grid;
+  gap: 6px;
   grid-template-columns: repeat(10, 1fr);
 }
 
+/*
+ * The day's colour carries its own intensity rather than an `opacity` on the
+ * element, so the cell can hold a screen-reader label without fading that too.
+ */
 .calendar-cell {
   aspect-ratio: 1;
   background: var(--color-border);
-  border-radius: 3px;
+  border-radius: 4px;
+  position: relative;
 }
 
 .calendar-cell.active {
-  background: var(--color-accent);
+  background: rgb(var(--color-accent-rgb) / var(--day-heat, 0.4));
+  background: color-mix(
+    in oklch,
+    var(--color-accent) calc(var(--day-heat, 0.4) * 100%),
+    var(--color-surface)
+  );
 }
-
 
 .field {
   display: flex;
@@ -1123,7 +1162,9 @@ meter::-webkit-meter-optimum-value {
   display: flex;
   flex-flow: row wrap;
   align-items: flex-start;
-  gap: var(--space-5) var(--space-6);
+  /* Centred: it is the page's subject and now has the full width to sit in. */
+  justify-content: center;
+  gap: var(--space-5) var(--space-7);
 }
 
 .mastery-grid {
@@ -1147,9 +1188,10 @@ meter::-webkit-meter-optimum-value {
 }
 
 .mastery-cell {
+  --cell: 48px;
   position: relative;
-  width: 42px;
-  height: 42px;
+  width: var(--cell);
+  height: var(--cell);
   padding: 0;
   border-radius: 6px;
   border: 1px solid transparent;
@@ -1161,7 +1203,7 @@ meter::-webkit-meter-optimum-value {
 
 .mastery-cell b {
   display: block;
-  font-size: var(--fs-16);
+  font-size: var(--fs-18);
   font-weight: var(--fw-medium);
 }
 
@@ -1173,7 +1215,7 @@ meter::-webkit-meter-optimum-value {
 }
 
 .mastery-cell--label {
-  height: 22px;
+  height: 24px;
   font-size: var(--fs-12);
   font-family: var(--font-mono);
   font-weight: 400;
@@ -1480,6 +1522,18 @@ meter::-webkit-meter-optimum-value {
   font-family: var(--font-mono);
   font-size: var(--fs-22);
   font-variant-numeric: tabular-nums;
+}
+
+/* Two plots in a row, each half the width, wrapping on a narrow screen. */
+.chart__plots {
+  display: grid;
+  gap: var(--space-5);
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.chart__plots figure {
+  margin: 0;
+  min-width: 0;
 }
 
 .chart__axis-label {

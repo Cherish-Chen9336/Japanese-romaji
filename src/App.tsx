@@ -23,7 +23,6 @@ import {
   streakStats,
   topTimingStats,
   mergeMoraStats,
-  slowestMoras,
   recentAccuracy,
   weakMoraCount,
   runCohorts,
@@ -169,10 +168,24 @@ function App() {
   const slowBigrams = createMemo(() => topTimingStats(bigramStats(), 8))
   const kanaStats = createMemo(() => mergeMoraStats(runs()))
   const weakestMoras = createMemo(() => weakestKana(kanaStats(), 8))
-  const slowMoras = createMemo(() => slowestMoras(kanaStats(), 6))
   const coverage = createMemo(() => chartCoverage(kanaStats()))
   const weakMoras = createMemo(() => weakMoraCount(kanaStats()))
   const recentAcc = createMemo(() => recentAccuracy(runs(), 10))
+  /* Six rows of ten, each labelled with the day it begins. */
+  const calendarWeeks = createMemo(() => {
+    const days = recentDayKeys(60)
+    const rows: { label: string; days: string[] }[] = []
+    for (let i = 0; i < days.length; i += 10) {
+      const chunk = days.slice(i, i + 10)
+      const date = new Date(`${chunk[0]}T00:00:00Z`)
+      rows.push({
+        label: date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', timeZone: 'UTC' }),
+        days: chunk,
+      })
+    }
+    return rows
+  })
+
   const cohorts = createMemo(() => runCohorts(runs()))
   const [pickedCohort, setCohort] = createSignal<string | null>(null)
   /* The latest run's cohort until the reader picks another, and back to it if the
@@ -937,7 +950,7 @@ function App() {
             <div class="stats-group">
               <h2 class="stats-group__label">kana learning</h2>
               <div class="stats-grid">
-              <section class="panel panel--map">
+              <section class="panel panel--span-12 panel--map">
                 <h3>kana typing mastery</h3>
                 {/* Not "accuracy": the colour is weakness weighted by how much
                     evidence stands behind it, which is why one miss in a hundred
@@ -968,28 +981,6 @@ function App() {
                   </Show>
                 </div>
               </section>
-              <section class="panel panel--span-4">
-                <h3>slowest moras</h3>
-                <p class="muted">Time beyond what each spelling costs at your own cadence.</p>
-                <div class="bar-list">
-                  <For
-                    each={slowMoras()}
-                    fallback={<p class="muted">Nothing is slowing you down yet.</p>}
-                  >
-                    {([kana, stat]) => (
-                      <div class="bar-row">
-                        <span class="bar-row__kana">{kana}</span>
-                        <meter
-                          min="0"
-                          max={Math.max(1, slowMoras()[0]?.[1].avgExcessMs ?? 1)}
-                          value={stat.avgExcessMs}
-                        />
-                        <b>+{Math.round(stat.avgExcessMs)} ms</b>
-                      </div>
-                    )}
-                  </For>
-                </div>
-              </section>
               </div>
             </div>
 
@@ -1006,76 +997,11 @@ function App() {
                   />
                 </section>
               <section class="panel panel--span-6">
-                <h3>last 60 days</h3>
-                <div class="calendar-grid">
-                  <For each={recentDayKeys(60)}>
-                    {(key) => {
-                      const count = () => dayStats().get(key) ?? 0
-                      const max = () => Math.max(1, ...dayStats().values())
-                      return (
-                        <span
-                          class="calendar-cell"
-                          classList={{ active: count() > 0 }}
-                          style={{ opacity: String(count() === 0 ? 0.24 : 0.35 + count() / max()) }}
-                          title={`${key}: ${count()} runs`}
-                        />
-                      )
-                    }}
-                  </For>
-                </div>
-                <p class="muted">
-                  Longest streak <b>{streaks().longest}</b> days.
-                </p>
-              </section>
-              {/* Exact inspection, folded away. The chart answers "am I
-                  improving"; this answers "what exactly was that run", which is a
-                  question you ask occasionally and never on arrival. A real
-                  table, too — it was a stack of divs with no headers. */}
-              <section class="panel panel--span-12">
-                <details class="run-details">
-                  <summary>Latest runs</summary>
-                  <table class="runs-table">
-                    <thead>
-                      <tr>
-                        <th scope="col">Date</th>
-                        <th scope="col">Practice</th>
-                        <th scope="col">Accuracy</th>
-                        <th scope="col">Speed</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <For each={runs().slice(0, 5)}>
-                        {(item) => (
-                          <tr>
-                            <td>{new Date(item.date).toLocaleDateString()}</td>
-                            <td>{item.source}</td>
-                            <td class="is-num">{item.accuracy}%</td>
-                            <td class="is-num">{runWpm(item)} wpm</td>
-                          </tr>
-                        )}
-                      </For>
-                    </tbody>
-                  </table>
-                </details>
-              </section>
-              </div>
-            </div>
-
-            {/* Folded away. These are the least actionable surfaces on the page
-                for a kana learner, and none of them can name a mora — so they
-                should not compete with the chart for the first scan. */}
-            <div class="stats-group">
-              <details class="stats-group__more">
-                <summary>
-                  <h2 class="stats-group__label">typing mechanics</h2>
-                </summary>
-                <p class="stats-group__note">
-                  Romaji keys, not kana. One key types many moras, so none of this can say which
-                  mora is at fault — that is the chart above.
-                </p>
-                <div class="stats-grid">
-              <section class="panel panel--keyboard">
                 <h3>romaji key errors</h3>
+                <p class="muted">
+                  Romaji keys, not kana — one key types many moras, so this cannot say which
+                  mora is at fault. The chart above can.
+                </p>
                 <div class="mini-keyboard">
                   <For each={['qwertyuiop', 'asdfghjkl', 'zxcvbnm']}>
                     {(row) => (
@@ -1087,6 +1013,7 @@ function App() {
                             return (
                               <span
                                 class="mini-key"
+                                classList={{ 'mini-key--weak': (stat()?.misses ?? 0) > 0 }}
                                 style={{
                                   /*
                                    * Accuracy alone, and in the error colour. This
@@ -1118,7 +1045,59 @@ function App() {
                   </For>
                 </div>
               </section>
-              <section class="panel panel--span-4">
+              <section class="panel panel--span-6">
+                <h3>last 60 days</h3>
+                {/* Ten days a row, each row labelled with the day it starts.
+                    The grid was unlabelled squares whose only date lived in a
+                    `title`, so it said "you practised sometimes" and nothing a
+                    reader could place in time. */}
+                <div class="calendar">
+                  <For each={calendarWeeks()}>
+                    {(week) => (
+                      <div class="calendar__row">
+                        <span class="calendar__date">{week.label}</span>
+                        <div class="calendar__days">
+                          <For each={week.days}>
+                            {(key) => {
+                              const count = () => dayStats().get(key) ?? 0
+                              const max = () => Math.max(1, ...dayStats().values())
+                              return (
+                                <span
+                                  class="calendar-cell"
+                                  classList={{ active: count() > 0 }}
+                                  style={{
+                                    '--day-heat': String(count() === 0 ? 0 : 0.35 + count() / max()),
+                                  }}
+                                  title={`${key}: ${count()} runs`}
+                                >
+                                  <span class="sr-only">{`${key}: ${count()} runs`}</span>
+                                </span>
+                              )
+                            }}
+                          </For>
+                        </div>
+                      </div>
+                    )}
+                  </For>
+                </div>
+                <p class="muted">
+                  Longest streak <b>{streaks().longest}</b> days.
+                </p>
+              </section>
+
+              </div>
+            </div>
+
+            {/* Folded away. These are the least actionable surfaces on the page
+                for a kana learner, and none of them can name a mora — so they
+                should not compete with the chart for the first scan. */}
+            <div class="stats-group">
+              <details class="stats-group__more">
+                <summary>
+                  <h2 class="stats-group__label">typing mechanics</h2>
+                </summary>
+                <div class="stats-grid">
+              <section class="panel panel--span-6">
                 <h3>most confused</h3>
                 <div class="bar-list">
                   <For each={topConfusions()} fallback={<p class="muted">No confused pairs yet.</p>}>
@@ -1132,7 +1111,7 @@ function App() {
                   </For>
                 </div>
               </section>
-              <section class="panel panel--span-4">
+              <section class="panel panel--span-6">
                 <h3>slowest pairs</h3>
                 <div class="bar-list">
                   <For each={slowBigrams()} fallback={<p class="muted">No pair timing yet.</p>}>
