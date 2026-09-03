@@ -24,6 +24,7 @@ import {
   topTimingStats,
   mergeMoraStats,
   recentAccuracy,
+  slowestMoras,
   weakMoraCount,
   runCohorts,
   defaultCohort,
@@ -75,6 +76,7 @@ import { BottomNav } from './ui/BottomNav'
 import { chartCoverage } from './engine/mastery'
 import { MasteryMap } from './ui/MasteryMap'
 import { ProgressChart } from './ui/ProgressChart'
+import { SlowMoraChart } from './ui/SlowMoraChart'
 import { OnScreenKeyboard } from './ui/OnScreenKeyboard'
 import { Topbar } from './ui/Topbar'
 import { routeFromHash, type RouteName } from './ui/router'
@@ -186,6 +188,7 @@ function App() {
     return rows
   })
 
+  const slowMoras = createMemo(() => slowestMoras(kanaStats(), 8))
   const cohorts = createMemo(() => runCohorts(runs()))
   const [pickedCohort, setCohort] = createSignal<string | null>(null)
   /* The latest run's cohort until the reader picks another, and back to it if the
@@ -949,7 +952,7 @@ function App() {
             <div class="stats-group">
               <h2 class="stats-group__label">kana learning</h2>
               <div class="stats-grid">
-              <section class="panel panel--span-12 panel--map">
+              <section class="panel panel--map">
                 <h3>kana typing mastery</h3>
                 {/* Not "accuracy": the colour is weakness weighted by how much
                     evidence stands behind it, which is why one miss in a hundred
@@ -979,6 +982,11 @@ function App() {
                     </span>
                   </Show>
                 </div>
+              </section>
+
+              <section class="panel panel--slow">
+                <h3>slowest moras</h3>
+                <SlowMoraChart moras={slowMoras()} />
               </section>
               </div>
             </div>

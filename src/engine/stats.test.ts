@@ -11,6 +11,7 @@ import {
   isProgressionEligible,
   runMode,
   recentAccuracy,
+  slowestMoras,
   weakMoraCount,
   wpmTrend,
   accuracyFloor,
@@ -735,5 +736,46 @@ describe('accuracyFloor', () => {
 
   it('has a sensible floor with nothing to plot', () => {
     expect(accuracyFloor([])).toBe(90)
+  })
+})
+
+describe('slowestMoras', () => {
+  const mora = (samples: number, excess: number) => ({
+    attempts: samples,
+    misses: 0,
+    totalMs: 0,
+    timingSamples: samples,
+    avgMs: excess,
+    errorRate: 0,
+    excessMs: excess * samples,
+    avgExcessMs: excess,
+  })
+
+  it('ranks by how much time a mora costs beyond its spelling', () => {
+    const stats = new Map([['か', mora(4, 20)], ['しゃ', mora(4, 300)], ['き', mora(4, 120)]])
+    expect(slowestMoras(stats).map(([kana]) => kana)).toEqual(['しゃ', 'き', 'か'])
+  })
+
+  /*
+   * A mora typed at or faster than your own cadence is not slow, and listing it
+   * under "slowest" because the list was short would be inventing a problem.
+   */
+  it('leaves out moras that cost no extra time', () => {
+    expect(slowestMoras(new Map([['か', mora(4, 0)], ['き', mora(4, -50)]]))).toEqual([])
+  })
+
+  /*
+   * A mora whose every encounter was missed or untimed has no measured duration.
+   * Ranked on the zero it was never observed to take, it would sit at the bottom
+   * of the list as though it had been measured and found fast.
+   */
+  it('leaves out a mora with no timed samples', () => {
+    const stats = new Map([['か', { ...mora(0, 0), attempts: 5, timingSamples: 0, avgExcessMs: 0 }]])
+    expect(slowestMoras(stats)).toEqual([])
+  })
+
+  it('respects the limit', () => {
+    const stats = new Map([['か', mora(4, 10)], ['き', mora(4, 20)], ['く', mora(4, 30)]])
+    expect(slowestMoras(stats, 2).map(([kana]) => kana)).toEqual(['く', 'き'])
   })
 })

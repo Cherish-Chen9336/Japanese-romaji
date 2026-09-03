@@ -22,7 +22,10 @@
  * wider — so this is opt-in per route rather than a new global width.
  */
 .app--wide {
-  max-width: var(--stats-max);
+  /* No column cap. The dashboard is meant to spread — the kana chart and the
+     panel beside it want every pixel the window has, and a 1360px ceiling left
+     a wide screen with two empty margins instead. */
+  max-width: none;
   min-height: 100svh;
   padding: var(--space-5) var(--gutter) var(--space-6);
 }
@@ -49,6 +52,12 @@
   flex-wrap: wrap;
   gap: var(--space-3);
   justify-content: space-between;
+}
+
+/* The wide shell is already the full window, so there is nothing left to bleed
+   into — the negative margin would simply push the bar off the page. */
+.app--wide .topbar {
+  --bleed: 0px;
 }
 
 .logo {
@@ -701,9 +710,10 @@ input[type='range'] {
 }
 
 /* The statistics page is a dashboard, not prose: it wants the whole window,
-   where a reading column would be worse for being wider. */
+   where a reading column would be worse for being wider. No cap at all — the
+   kana chart and the panel beside it use whatever width there is. */
 .stats-page {
-  max-width: var(--stats-max);
+  max-width: none;
 }
 
 .avatar {
@@ -755,8 +765,22 @@ input[type='range'] {
 }
 
 @media (min-width: 1120px) {
-  .stats-grid >   .stats-grid >   .stats-grid >   .stats-grid > .panel--span-6 { grid-column: span 6; }
+  .stats-grid > .panel--span-6 { grid-column: span 6; }
   .stats-grid > .panel--span-12 { grid-column: span 12; }
+
+  /*
+   * The kana row is two columns, not twelve: the chart takes exactly the width
+   * it needs and the slow-mora columns take whatever is left. `auto` rather than
+   * a span, so the chart is never squeezed to fit a grid it does not care about.
+   */
+  .stats-grid:has(> .panel--map) {
+    grid-template-columns: auto minmax(220px, 1fr);
+  }
+
+  .stats-grid > .panel--map,
+  .stats-grid > .panel--slow {
+    grid-column: auto;
+  }
 }
 
 .panel {
@@ -1155,8 +1179,9 @@ meter::-webkit-meter-optimum-value {
   display: flex;
   flex-flow: row wrap;
   align-items: flex-start;
-  /* Centred: it is the page's subject and now has the full width to sit in. */
-  justify-content: center;
+  /* Left, not centred: it now shares its row, and centring pushed it away from
+     the chart that belongs beside it. */
+  justify-content: flex-start;
   gap: var(--space-5) var(--space-7);
 }
 
@@ -1587,4 +1612,65 @@ meter::-webkit-meter-optimum-value {
 
 .stats-group__more[open] > summary::before {
   content: '▾';
+}
+
+/* --- slowest moras, as columns ------------------------------------------ */
+
+.slow-chart {
+  align-items: flex-end;
+  display: flex;
+  gap: var(--space-4);
+  height: var(--slow-h);
+  /* Wide enough to scroll rather than squeeze the columns into slivers. */
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+/* A column is the hit target, so the value and the kana travel with it. */
+.slow-chart__col {
+  align-items: center;
+  background: none;
+  border: 0;
+  cursor: default;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: var(--space-2);
+  justify-content: flex-end;
+  padding: 0;
+  width: var(--slow-bar);
+}
+
+.slow-chart__value {
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: var(--fs-12);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Rounded at the data end, square at the baseline: the cap is the value, the
+   foot is the axis. */
+.slow-chart__bar {
+  background: var(--color-accent);
+  border-radius: 4px 4px 0 0;
+  display: block;
+  width: 100%;
+}
+
+.slow-chart__col.is-active .slow-chart__bar {
+  background: color-mix(in oklch, var(--color-accent) 82%, var(--color-text));
+}
+
+.slow-chart__col.is-active .slow-chart__value {
+  color: var(--color-text);
+}
+
+.slow-chart__kana {
+  color: var(--color-text);
+  font-size: var(--fs-16);
+}
+
+.slow-chart__note {
+  font-size: var(--fs-12);
+  margin-top: var(--space-3);
 }
