@@ -9,7 +9,6 @@ import {
   kanaRows,
   parseLibraryText,
   sourceOptions,
-  sourceUnlocked,
 } from './engine/lessons'
 import { compilePrompt, wordIndexForToken } from './engine/prompt'
 import { projectMatch } from './engine/romanization'
@@ -123,7 +122,7 @@ function App() {
   const [library, setLibrary] = createSignal<TextItem[]>([])
   const [source, setSource] = createSignal<SourceName>(readSource())
   const [lesson, setLesson] = createSignal<Lesson>(
-    generateLesson('words', readSettings(), [], [], 0, Math.random, 'all'),
+    generateLesson('words', readSettings(), [], [], Math.random, 'all'),
   )
   const [session, setSession] = createSignal<SessionState>(emptySession())
   const [tick, setTick] = createSignal(Date.now())
@@ -170,7 +169,6 @@ function App() {
       .sort((a, b) => b[1] - a[1])
       .slice(0, 8),
   )
-  const bestWpm = createMemo(() => lifetimeStats().bestWpm)
   const totalMinutes = createMemo(() => Math.round(lifetimeStats().totalElapsedMs / 60_000))
   const totalSessions = createMemo(() => lifetimeStats().totalSessions)
   const dayStats = createMemo(() => dailyCounts(runs()))
@@ -393,7 +391,7 @@ function App() {
   let plan: RunPlan | null = null
 
   const nextLesson = (nextSource: SourceName, nextSettings: Settings = settings()) => {
-    plan = planRun(nextSource, weakKana(), library(), bestWpm(), Math.random, kanaGroup())
+    plan = planRun(nextSource, weakKana(), library(), Math.random, kanaGroup())
     const dealt = dealLesson(plan, nextSettings, Math.random)
     plan = dealt.plan
     return dealt.lesson
@@ -408,7 +406,7 @@ function App() {
    * before repeating.
    */
   const retrySameText = () => {
-    plan = planRun(source(), weakKana(), library(), bestWpm(), Math.random, kanaGroup())
+    plan = planRun(source(), weakKana(), library(), Math.random, kanaGroup())
     resetRunState()
     navigate('practice')
   }
@@ -464,7 +462,6 @@ function App() {
   }
 
   const changeSource = (nextSource: SourceName) => {
-    if (!sourceUnlocked(nextSource, bestWpm())) return
     persist(SOURCE_KEY, nextSource)
     setSource(nextSource)
     setLesson(nextLesson(nextSource))
@@ -873,25 +870,14 @@ function App() {
                     <button
                       type="button"
                       class="source-button"
-                      disabled={!sourceUnlocked(option.value, bestWpm())}
-                      title={
-                        sourceUnlocked(option.value, bestWpm())
-                          ? option.label
-                          : `unlocks at ${option.unlockAt} wpm`
-                      }
-                      classList={{
-                        active: source() === option.value,
-                        locked: !sourceUnlocked(option.value, bestWpm()),
-                      }}
+                      title={option.label}
+                      classList={{ active: source() === option.value }}
                       onClick={(event) => {
                         event.stopPropagation()
                         changeSource(option.value)
                       }}
                     >
                       {option.label}
-                      <Show when={!sourceUnlocked(option.value, bestWpm())}>
-                        <small> {option.unlockAt}</small>
-                      </Show>
                     </button>
                   )}
                 </For>

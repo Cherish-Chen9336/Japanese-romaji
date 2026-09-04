@@ -30,7 +30,6 @@ import {
   unlockedMilestones,
   weakestKana,
 } from './stats'
-import { sourceOptions } from './lessons'
 import type { LifetimeStats, RunResult, SourceName, StoredRunResult, TimingStat } from './types'
 
 function run(overrides: Partial<RunResult> = {}): RunResult {
@@ -83,10 +82,16 @@ describe('unlockedMilestones / newlyReachedMilestones', () => {
   /* Thresholds read from the source table, not restated — restating them here
      is the same duplication the milestones themselves were guilty of. */
   it('gates wpm milestones on the best-ever wpm', () => {
-    const [first, second] = sourceOptions.filter((o) => o.unlockAt > 0)
-    const milestones = unlockedMilestones(lifetime({ bestWpm: first.unlockAt }))
-    expect(milestones.find((m) => m.id === `wpm${first.unlockAt}`)?.reached).toBe(true)
-    expect(milestones.find((m) => m.id === `wpm${second.unlockAt}`)?.reached).toBe(false)
+    const milestones = unlockedMilestones(lifetime({ bestWpm: 35 }))
+    expect(milestones.find((m) => m.id === 'wpm30')?.reached).toBe(true)
+    expect(milestones.find((m) => m.id === 'wpm50')?.reached).toBe(false)
+  })
+
+  /* Milestones mark speed reached. Nothing is unlocked by them any more, so
+     none of them may claim to be. */
+  it('does not promise that anything unlocks', () => {
+    const labels = unlockedMilestones(lifetime({ bestWpm: 999 })).map((m) => m.label)
+    expect(labels.some((label) => label.includes('unlocked'))).toBe(false)
   })
 
   it('gates chars1k on total-ever characters', () => {
@@ -94,11 +99,10 @@ describe('unlockedMilestones / newlyReachedMilestones', () => {
   })
 
   it('newlyReachedMilestones only reports milestones that flipped from unreached to reached', () => {
-    const gate = sourceOptions.filter((o) => o.unlockAt > 0)[0]
-    const before = lifetime({ totalSessions: 1, bestWpm: gate.unlockAt - 1 })
-    const after = lifetime({ totalSessions: 2, bestWpm: gate.unlockAt })
+    const before = lifetime({ totalSessions: 1, bestWpm: 20 })
+    const after = lifetime({ totalSessions: 2, bestWpm: 35 })
     const newly = newlyReachedMilestones(before, after)
-    expect(newly.map((m) => m.id)).toContain(`wpm${gate.unlockAt}`)
+    expect(newly.map((m) => m.id)).toContain('wpm30')
     expect(newly.map((m) => m.id)).not.toContain('first') // already reached in `before`
   })
 
@@ -755,33 +759,3 @@ describe('slowestMoras', () => {
   })
 })
 
-describe('milestones follow the source table', () => {
-  /*
-   * The thresholds and the source names used to be written out twice. Raising a
-   * source's `unlockAt` left a milestone promising the old number and naming an
-   * unlock that no longer happened there.
-   */
-  it('names a milestone for every gated source, at that source\'s threshold', () => {
-    const gated = sourceOptions.filter((option) => option.unlockAt > 0)
-    const labels = unlockedMilestones(emptyLifetimeStats()).map((m) => m.label)
-    for (const option of gated) {
-      expect(labels).toContain(`${option.unlockAt} wpm · ${option.label} unlocked`)
-    }
-  })
-
-  it('marks a source reached exactly when its own threshold is met', () => {
-    const gated = sourceOptions.filter((option) => option.unlockAt > 0)[0]
-    const at = unlockedMilestones({ ...emptyLifetimeStats(), bestWpm: gated.unlockAt })
-    const below = unlockedMilestones({ ...emptyLifetimeStats(), bestWpm: gated.unlockAt - 1 })
-    const id = `wpm${gated.unlockAt}`
-    expect(at.find((m) => m.id === id)?.reached).toBe(true)
-    expect(below.find((m) => m.id === id)?.reached).toBe(false)
-  })
-
-  it('does not invent a milestone for an ungated source', () => {
-    const labels = unlockedMilestones(emptyLifetimeStats()).map((m) => m.label)
-    for (const option of sourceOptions.filter((o) => o.unlockAt === 0)) {
-      expect(labels.some((l) => l.includes(`${option.label} unlocked`))).toBe(false)
-    }
-  })
-})

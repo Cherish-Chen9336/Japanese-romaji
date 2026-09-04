@@ -2,20 +2,18 @@ import { describe, expect, it } from 'vitest'
 import {
   dealLesson,
   planRun,
+  autoSources,
   difficultBank,
   drillBankFromWeakKana,
   drillMoras,
   itemMoras,
   drillFallbackBank,
-  explicitSourcesForBest,
   generateLesson,
   gojuonBank,
   kanaRows,
   sourceOptions,
   parseLibraryText,
   quoteBank,
-  sourceUnlockAt,
-  sourceUnlocked,
   wordBank,
 } from './lessons'
 import { acceptsSpelling, compileStrict } from './prompt'
@@ -125,73 +123,38 @@ describe('itemMoras', () => {
   })
 })
 
-describe('sourceUnlockAt / sourceUnlocked', () => {
-  it('drills, words, and auto are unlocked at 0 wpm', () => {
-    expect(sourceUnlockAt('drills')).toBe(0)
-    expect(sourceUnlockAt('words')).toBe(0)
-    expect(sourceUnlockAt('auto')).toBe(0)
-  })
-
-  it('difficult/quotes/library gate on increasing wpm thresholds', () => {
-    expect(sourceUnlockAt('difficult')).toBe(30)
-    expect(sourceUnlockAt('quotes')).toBe(50)
-    expect(sourceUnlockAt('library')).toBe(70)
-  })
-
-  it('sourceUnlocked is true only once best wpm reaches the threshold', () => {
-    expect(sourceUnlocked('quotes', 49)).toBe(false)
-    expect(sourceUnlocked('quotes', 50)).toBe(true)
-  })
-})
-
-describe('explicitSourcesForBest', () => {
-  it('excludes auto and library, always includes drills/words at 0 wpm', () => {
-    const sources = explicitSourcesForBest(0)
-    expect(sources).not.toContain('auto')
-    expect(sources).not.toContain('library')
-    expect(sources).toEqual(expect.arrayContaining(['drills', 'words']))
-    expect(sources).not.toContain('difficult')
-  })
-
-  it('adds difficult and quotes as wpm crosses their thresholds', () => {
-    expect(explicitSourcesForBest(30)).toContain('difficult')
-    expect(explicitSourcesForBest(50)).toEqual(expect.arrayContaining(['difficult', 'quotes']))
-  })
-})
-
 describe('generateLesson', () => {
-  it('falls back to words when the requested source is locked', () => {
-    const lesson = generateLesson('quotes', settings, [], [], 0, () => 0)
-    expect(lesson.source).toBe('words')
+  it('gives the requested source, whatever the typist\'s speed', () => {
+    expect(generateLesson('quotes', settings, [], [], () => 0).source).toBe('quotes')
   })
 
   it('falls back to words when library is requested but empty', () => {
-    const lesson = generateLesson('library', settings, [], [], 70, () => 0)
+    const lesson = generateLesson('library', settings, [], [], () => 0)
     expect(lesson.source).toBe('words')
   })
 
   it('uses the user library when requested and non-empty', () => {
     const library = [{ kana: 'てすと', romaji: 'tesuto' }]
-    const lesson = generateLesson('library', settings, [], library, 70, () => 0)
+    const lesson = generateLesson('library', settings, [], library, () => 0)
     expect(lesson.source).toBe('library')
     expect(lesson.kana.split(' ').every((part) => part === 'てすと')).toBe(true)
   })
 
   it('drills source pulls from the miss-weighted bank', () => {
-    const lesson = generateLesson('drills', settings, [], [], 0, () => 0)
+    const lesson = generateLesson('drills', settings, [], [], () => 0)
     expect(lesson.source).toBe('drills')
   })
 
-  it('auto picks among currently-unlocked explicit sources via the injected rng', () => {
-    // rng() = 0 always selects the first entry of explicitSourcesForBest(0),
-    // which is deterministic given the fixed sourceOptions order.
-    const expectedFirst = explicitSourcesForBest(0).filter((s) => s !== 'library')[0]
-    const lesson = generateLesson('auto', settings, [], [], 0, () => 0)
+  it('auto picks among the explicit sources via the injected rng', () => {
+    // rng() = 0 always selects the first entry, deterministic given the fixed
+    // `sourceOptions` order.
+    const expectedFirst = autoSources().filter((s) => s !== 'library')[0]
+    const lesson = generateLesson('auto', settings, [], [], () => 0)
     expect(lesson.source).toBe(expectedFirst)
   })
 
   it('requesting a source unlocked at the given wpm uses that source directly', () => {
-    const lesson = generateLesson('difficult', settings, [], [], 30, () => 0)
+    const lesson = generateLesson('difficult', settings, [], [], () => 0)
     expect(lesson.source).toBe('difficult')
     expect(difficultBank.map((i) => i.kana)).toContain(lesson.kana.split(' ')[0])
   })
@@ -199,7 +162,7 @@ describe('generateLesson', () => {
   it('respects settings.paragraphItems for word count', () => {
     // Uses `difficult`, not `quotes` — quote-bank kana strings contain
     // internal spaces, which would make a naive split(' ') length check lie.
-    const lesson = generateLesson('difficult', { paragraphItems: 2, stopOnError: true, confidenceMode: false, whitespaceMarkers: true, timedMode: false }, [], [], 30, () => 0)
+    const lesson = generateLesson('difficult', { paragraphItems: 2, stopOnError: true, confidenceMode: false, whitespaceMarkers: true, timedMode: false }, [], [], () => 0)
     expect(lesson.kana.split(' ')).toHaveLength(2)
     expect(difficultBank.map((i) => i.kana)).toContain(lesson.kana.split(' ')[0])
   })
@@ -262,26 +225,23 @@ describe('kana source', () => {
   const settings: Settings = { paragraphItems: 4, stopOnError: true, confidenceMode: false, whitespaceMarkers: true, timedMode: false }
 
   it('builds a lesson from the chart', () => {
-    const lesson = generateLesson('kana', settings, [], [], 0, mulberry32(1), 'all')
+    const lesson = generateLesson('kana', settings, [], [], mulberry32(1), 'all')
     expect(lesson.source).toBe('kana')
     expect(lesson.items.every((item) => gojuonBank.includes(item as KanaRow))).toBe(true)
   })
 
   it('honours the requested group', () => {
-    const lesson = generateLesson('kana', settings, [], [], 0, mulberry32(2), 'yoon')
+    const lesson = generateLesson('kana', settings, [], [], mulberry32(2), 'yoon')
     expect(lesson.items.every((item) => (item as KanaRow).group === 'yoon')).toBe(true)
   })
 
-  // Beginners need the chart most, so gating it behind a speed threshold would
-  // be exactly backwards.
-  it('is available from zero wpm', () => {
-    expect(sourceUnlocked('kana', 0)).toBe(true)
-    expect(generateLesson('kana', settings, [], [], 0, mulberry32(3), 'all').source).toBe('kana')
+  it('is available on request', () => {
+    expect(generateLesson('kana', settings, [], [], mulberry32(3), 'all').source).toBe('kana')
   })
 
   // The chart is a drill you choose, not something to be handed unasked.
   it('is never chosen by auto', () => {
-    expect(explicitSourcesForBest(999)).not.toContain('kana')
+    expect(autoSources()).not.toContain('kana')
   })
 })
 
@@ -313,9 +273,9 @@ describe('kanji is reachable, not just present', () => {
    * Every correctness test passed, because they all reached the content by
    * force-unlocking the source first.
    */
-  it('appears in a source available from zero wpm', () => {
+  it('appears in a source the typist can actually reach', () => {
     const openAtZero = sourceOptions
-      .filter((option) => option.unlockAt === 0 && option.value !== 'auto')
+      .filter((option) => option.value !== 'auto')
       .map((option) => option.value)
 
     const banks: Partial<Record<string, TextItem[]>> = {
@@ -332,7 +292,7 @@ describe('kanji is reachable, not just present', () => {
     const seen = new Set<string>()
     const rng = mulberry32(11)
     for (let i = 0; i < 30; i++) {
-      for (const item of generateLesson('auto', settings, [], [], 0, rng).items) {
+      for (const item of generateLesson('auto', settings, [], [], rng).items) {
         if (hasKanji(item.kana)) seen.add(item.kana)
       }
     }
@@ -391,7 +351,7 @@ describe('planRun and dealLesson', () => {
    * source. Resolving once is what keeps the run one kind of practice.
    */
   it('resolves auto once, and every passage comes from that source', () => {
-    const plan = planRun('auto', [], [], 100, mulberry32(3))
+    const plan = planRun('auto', [], [], mulberry32(3))
     let current = plan
     const sources: string[] = []
     for (let i = 0; i < 5; i += 1) {
@@ -408,7 +368,7 @@ describe('planRun and dealLesson', () => {
    * before repeating rather than restarting the shuffle each time.
    */
   it('carries the deck between passages', () => {
-    const plan = planRun('words', [], [], 100, mulberry32(5))
+    const plan = planRun('words', [], [], mulberry32(5))
     const first = dealLesson(plan, settings, mulberry32(1))
     const second = dealLesson(first.plan, settings, mulberry32(1))
     expect(first.plan.deck.remaining.length).not.toBe(plan.deck.remaining.length)
@@ -416,18 +376,41 @@ describe('planRun and dealLesson', () => {
     expect(second.lesson.romaji).not.toBe(first.lesson.romaji)
   })
 
-  it('falls back to words when the requested source is locked', () => {
-    expect(planRun('quotes', [], [], 0, mulberry32(1)).source).toBe('words')
-  })
-
-  it('falls back to words when the library is empty', () => {
-    expect(planRun('library', [], [], 100, mulberry32(1)).source).toBe('words')
-  })
-
   it('leaves the plan it was given untouched', () => {
-    const plan = planRun('words', [], [], 100, mulberry32(9))
+    const plan = planRun('words', [], [], mulberry32(9))
     const before = plan.deck.remaining.length
     dealLesson(plan, settings, mulberry32(2))
     expect(plan.deck.remaining.length).toBe(before)
+  })
+})
+
+describe('every source is available from the first run', () => {
+
+  /*
+   * `difficult`, `quotes` and `library` used to unlock at 30, 50 and 70 wpm.
+   * Nothing is withheld now — least of all `library`, which is the typist's own
+   * upload and was being kept from them until they were fast enough.
+   */
+  it('honours a request for a source that used to be gated', () => {
+    for (const source of ['difficult', 'quotes'] as const) {
+      expect(planRun(source, [], [], mulberry32(1)).source).toBe(source)
+    }
+  })
+
+  it('gives a typist their own library at any speed', () => {
+    const mine = [{ kana: 'ねこ', romaji: 'neko' }]
+    expect(planRun('library', [], mine, mulberry32(1)).source).toBe('library')
+  })
+
+  /* The one fallback left is real emptiness, not a permission. */
+  it('falls back to words only when the library is actually empty', () => {
+    expect(planRun('library', [], [], mulberry32(1)).source).toBe('words')
+  })
+
+  it('lets auto reach the formerly gated banks', () => {
+    const seen = new Set<string>()
+    for (let i = 0; i < 40; i += 1) seen.add(planRun('auto', [], [], mulberry32(i)).source)
+    expect(seen.has('difficult')).toBe(true)
+    expect(seen.has('quotes')).toBe(true)
   })
 })

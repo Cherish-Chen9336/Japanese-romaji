@@ -2,17 +2,26 @@ import { isMoraToken, tokenizeKana } from './romanization'
 import { dealFrom, newDeck, pickRandom, type Deck, type RandomSource } from './rng'
 import type { KanaGroup, KanaRow, Lesson, Settings, SourceName, TextItem } from './types'
 
-export const sourceOptions: { value: SourceName; label: string; unlockAt: number }[] = [
-  { value: 'auto', label: 'auto', unlockAt: 0 },
+/*
+ * Every source, available from the first run.
+ *
+ * `difficult`, `quotes` and `library` used to unlock at 30, 50 and 70 wpm. The
+ * gate is gone: a learner who wants harder material, or their own text, should
+ * not have to earn it at a speed they are not there to chase. `library` made the
+ * case plainest — it is the typist's own upload, withheld until they were fast
+ * enough to read back what they had already given the app.
+ */
+export const sourceOptions: { value: SourceName; label: string }[] = [
+  { value: 'auto', label: 'auto' },
   // First in the explicit list and never gated: the syllabary chart is what a
   // beginner needs most, so locking it behind a speed threshold would be exactly
   // backwards.
-  { value: 'kana', label: 'kana', unlockAt: 0 },
-  { value: 'drills', label: 'drills', unlockAt: 0 },
-  { value: 'words', label: 'words', unlockAt: 0 },
-  { value: 'difficult', label: 'difficult', unlockAt: 30 },
-  { value: 'quotes', label: 'quotes', unlockAt: 50 },
-  { value: 'library', label: 'library', unlockAt: 70 },
+  { value: 'kana', label: 'kana' },
+  { value: 'drills', label: 'drills' },
+  { value: 'words', label: 'words' },
+  { value: 'difficult', label: 'difficult' },
+  { value: 'quotes', label: 'quotes' },
+  { value: 'library', label: 'library' },
 ]
 
 /**
@@ -230,26 +239,17 @@ export function drillBankFromWeakKana(weak: readonly string[]): TextItem[] {
   return candidates.length > 0 ? candidates : drillFallbackBank
 }
 
-export function sourceUnlockAt(source: SourceName): number {
-  return sourceOptions.find((option) => option.value === source)?.unlockAt ?? 0
-}
-
-export function sourceUnlocked(source: SourceName, best: number): boolean {
-  return best >= sourceUnlockAt(source)
-}
-
 /**
  * What `auto` rotates through. `kana` is excluded deliberately: the syllabary
  * chart is a drill you choose, not something to be handed unasked in the middle
  * of word practice. `drills` already covers wanting syllabary work automatically.
  */
-export function explicitSourcesForBest(best: number): Exclude<SourceName, 'auto'>[] {
+export function autoSources(): Exclude<SourceName, 'auto'>[] {
   return sourceOptions
     .filter(
       (option) =>
         option.value !== 'auto' && option.value !== 'library' && option.value !== 'kana',
     )
-    .filter((option) => sourceUnlocked(option.value, best))
     .map((option) => option.value as Exclude<SourceName, 'auto'>)
 }
 
@@ -272,17 +272,17 @@ export function planRun(
   requestedSource: SourceName,
   weakKana: readonly string[],
   library: TextItem[],
-  bestWpmValue = 0,
   rng: RandomSource,
   kanaGroup: KanaGroup = 'all',
 ): RunPlan {
-  const usableSource: Exclude<SourceName, 'auto'> = !sourceUnlocked(requestedSource, bestWpmValue)
-    ? 'words'
-    : requestedSource === 'library' && library.length === 0
+  // The only fallback left is a library with nothing in it, which is a real
+  // emptiness rather than a permission.
+  const usableSource: Exclude<SourceName, 'auto'> =
+    requestedSource === 'library' && library.length === 0
       ? 'words'
       : requestedSource === 'auto'
         ? pickRandom<Exclude<SourceName, 'auto' | 'library'>>(
-            explicitSourcesForBest(bestWpmValue).filter(
+            autoSources().filter(
               (item): item is Exclude<SourceName, 'auto' | 'library'> => item !== 'library',
             ),
             rng,
@@ -324,10 +324,8 @@ export function generateLesson(
   settings: Settings,
   weakKana: readonly string[],
   library: TextItem[],
-  bestWpmValue = 0,
   rng: RandomSource,
   kanaGroup: KanaGroup = 'all',
 ): Lesson {
-  return dealLesson(planRun(requestedSource, weakKana, library, bestWpmValue, rng, kanaGroup), settings, rng)
-    .lesson
+  return dealLesson(planRun(requestedSource, weakKana, library, rng, kanaGroup), settings, rng).lesson
 }

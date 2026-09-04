@@ -521,12 +521,6 @@ rt {
   color: var(--color-accent);
 }
 
-.source-button.locked {
-  color: var(--color-dim);
-  cursor: not-allowed;
-  opacity: 0.58;
-}
-
 .source-button small {
   font-size: 10px;
 }

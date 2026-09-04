@@ -714,11 +714,17 @@ token's candidates, so the on-screen hint teaches what the item is written with.
 The 五十音 chart depends on it: だぢづでど is taught `dadidudedo`, because
 `ji`/`zu` are the keystrokes that produce じ/ず, not ぢ/づ.
 
-Unlock milestones are **derived from `sourceOptions`**, not restated. The
-thresholds and the source names were written out in both files, so raising a
-source's `unlockAt` left a milestone promising the old number and naming an
-unlock that no longer happened there. The tests derive them too — restating a
-threshold in a test is the same duplication one level down.
+**Every source is available from the first run.** `difficult`, `quotes` and
+`library` used to unlock at 30, 50 and 70 wpm; the gate is gone entirely, not
+zeroed — `sourceUnlockAt`, `sourceUnlocked` and the `unlockAt` column with it,
+because dormant gating logic is worse than none. A learner who wants harder
+material should not have to earn it at a speed they are not there to chase, and
+`library` made the case plainest: it is the typist's own upload, withheld until
+they were fast enough to read back what they had already given the app.
+
+The one fallback left is a library with nothing in it, which is real emptiness
+rather than a permission. Speed milestones survive as plain achievements and no
+longer claim anything unlocks, since nothing does.
 
 `gojuonBank` holds the chart, one row per item, tagged `seion` / `dakuten` /
 `yoon`, and backs the `kana` source. Never gate it on speed — a beginner needs

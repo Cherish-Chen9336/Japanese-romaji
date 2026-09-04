@@ -7,7 +7,6 @@ import type {
   TimingStat,
   Unlock,
 } from './types'
-import { sourceOptions } from './lessons'
 import { STANDARD_TIMED_MS } from './types'
 import type { SourceName } from './types'
 
@@ -28,18 +27,13 @@ export function unlockedMilestones(lifetime: LifetimeStats): Unlock[] {
   return [
     { id: 'first', label: 'first run', reached: sessions >= 1 },
     /*
-     * Derived from `sourceOptions`, not restated. The thresholds and the names
-     * were written out again here, so raising a source's `unlockAt` left a
-     * milestone promising the old number and naming an unlock that no longer
-     * happens there.
+     * Speed as an achievement, not a gate. These used to be derived from the
+     * source table because they named what each threshold unlocked; nothing
+     * unlocks now, so they are plain milestones and no longer claim otherwise.
      */
-    ...sourceOptions
-      .filter((option) => option.unlockAt > 0)
-      .map((option) => ({
-        id: `wpm${option.unlockAt}`,
-        label: `${option.unlockAt} wpm · ${option.label} unlocked`,
-        reached: best >= option.unlockAt,
-      })),
+    { id: 'wpm30', label: '30 wpm', reached: best >= 30 },
+    { id: 'wpm50', label: '50 wpm', reached: best >= 50 },
+    { id: 'wpm70', label: '70 wpm', reached: best >= 70 },
     { id: 'wpm100', label: '100 wpm · long-run mastery', reached: best >= 100 },
     { id: 'sessions10', label: '10 sessions', reached: sessions >= 10 },
     { id: 'sessions50', label: '50 sessions', reached: sessions >= 50 },
