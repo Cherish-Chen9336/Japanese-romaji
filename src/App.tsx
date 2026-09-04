@@ -350,7 +350,20 @@ function App() {
     const finished = finishRun(current, current.startedAt + STANDARD_TIMED_MS)
     setSession(finished)
     saveCurrentRun(finished, lesson())
-    navigate('result')
+    /*
+     * The result screen only if the typist is still here to see it. A deadline
+     * can land while they are reading their statistics, and pulling them out of
+     * that page into a result they did not ask for is the same rudeness the
+     * completion timer already avoids after a restart. The run is saved either
+     * way; when they come back, practice is fresh rather than a finished run
+     * they cannot type into.
+     */
+    if (route() === 'practice') {
+      navigate('result')
+      return
+    }
+    resetRunState()
+    setLesson(nextLesson(source()))
   }
 
   /** Arms the one-shot deadline once the typist has actually started. */

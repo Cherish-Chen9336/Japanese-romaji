@@ -522,6 +522,12 @@ Three things the deadline has to get right:
   A throttled or backgrounded tab fires timeouts seconds late, and without the
   check the typist keeps scoring into a run that is already over.
 - **The timer is cancelled with the run**, alongside the result-navigation timer.
+- **The result screen appears only if the typist is still on practice.** A
+  deadline can land while they are reading their statistics, and pulling them out
+  of that page into a result they did not ask for is the same rudeness the
+  completion timer already avoids after a restart. The run is saved either way;
+  if they were away, practice is reset so returning gives a fresh passage rather
+  than a finished run they cannot type into.
 
 When the passage runs out before the clock, that ends nothing: `rollToNextPrompt`
 clears the matcher and the line, the run's counters and stat tables carry on, and
