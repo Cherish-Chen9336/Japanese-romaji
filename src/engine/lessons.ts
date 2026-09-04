@@ -1,5 +1,5 @@
 import { isMoraToken, tokenizeKana } from './romanization'
-import { dealRandom, pickRandom, type RandomSource } from './rng'
+import { dealFrom, dealRandom, newDeck, pickRandom, type Deck, type RandomSource } from './rng'
 import type { KanaGroup, KanaRow, Lesson, Settings, SourceName, TextItem } from './types'
 
 export const sourceOptions: { value: SourceName; label: string; unlockAt: number }[] = [
@@ -268,6 +268,72 @@ export function explicitSourcesForBest(best: number): Exclude<SourceName, 'auto'
     .map((option) => option.value as Exclude<SourceName, 'auto'>)
 }
 
+/**
+ * The material a run is committed to, fixed at the moment it starts.
+ *
+ * A run that outlives its passage cannot re-resolve its source each time it
+ * deals: `auto` picks a bank per call, so one timed run would wander across
+ * words, drills and quotes while `RunResult` records a single source. The deck
+ * travels with the plan for the same reason dealing carries one at all — two
+ * deals from a fresh deck can repeat an item across the boundary.
+ */
+export type RunPlan = {
+  source: Exclude<SourceName, 'auto'>
+  deck: Deck<TextItem>
+}
+
+/** Resolves the source once — unlock gating, empty library, `auto` — and no more. */
+export function planRun(
+  requestedSource: SourceName,
+  weakKana: readonly string[],
+  library: TextItem[],
+  bestWpmValue = 0,
+  rng: RandomSource = Math.random,
+  kanaGroup: KanaGroup = 'all',
+): RunPlan {
+  const usableSource: Exclude<SourceName, 'auto'> = !sourceUnlocked(requestedSource, bestWpmValue)
+    ? 'words'
+    : requestedSource === 'library' && library.length === 0
+      ? 'words'
+      : requestedSource === 'auto'
+        ? pickRandom<Exclude<SourceName, 'auto' | 'library'>>(
+            explicitSourcesForBest(bestWpmValue).filter(
+              (item): item is Exclude<SourceName, 'auto' | 'library'> => item !== 'library',
+            ),
+            rng,
+          )
+        : requestedSource
+
+  const items =
+    usableSource === 'kana'
+      ? kanaRows(kanaGroup)
+      : usableSource === 'drills'
+        ? drillBankFromWeakKana(weakKana)
+        : usableSource === 'library'
+          ? library
+          : sourceBanks[usableSource]
+
+  return { source: usableSource, deck: newDeck(items) }
+}
+
+/** One passage from the plan, and the plan to deal the next one from. */
+export function dealLesson(
+  plan: RunPlan,
+  settings: Settings,
+  rng: RandomSource = Math.random,
+): { lesson: Lesson; plan: RunPlan } {
+  const { dealt, deck } = dealFrom(plan.deck, settings.paragraphItems, rng)
+  return {
+    lesson: {
+      kana: dealt.map((item) => item.kana).join(' '),
+      romaji: dealt.map((item) => item.romaji).join(' '),
+      source: plan.source,
+      items: dealt,
+    },
+    plan: { ...plan, deck },
+  }
+}
+
 export function generateLesson(
   requestedSource: SourceName,
   settings: Settings,
@@ -277,28 +343,6 @@ export function generateLesson(
   rng: RandomSource = Math.random,
   kanaGroup: KanaGroup = 'all',
 ): Lesson {
-  const usableSource =
-    !sourceUnlocked(requestedSource, bestWpmValue)
-      ? 'words'
-      : requestedSource === 'library' && library.length === 0
-        ? 'words'
-        : requestedSource === 'auto'
-          ? pickRandom<Exclude<SourceName, 'auto' | 'library'>>(
-              explicitSourcesForBest(bestWpmValue).filter(
-                (item): item is Exclude<SourceName, 'auto' | 'library'> => item !== 'library',
-              ),
-              rng,
-            )
-          : requestedSource
-
-  if (usableSource === 'kana') {
-    return buildParagraph(kanaRows(kanaGroup), 'kana', settings.paragraphItems, rng)
-  }
-  if (usableSource === 'drills') {
-    return buildParagraph(drillBankFromWeakKana(weakKana), 'drills', settings.paragraphItems, rng)
-  }
-  if (usableSource === 'library') {
-    return buildParagraph(library, 'library', settings.paragraphItems, rng)
-  }
-  return buildParagraph(sourceBanks[usableSource], usableSource, settings.paragraphItems, rng)
+  return dealLesson(planRun(requestedSource, weakKana, library, bestWpmValue, rng, kanaGroup), settings, rng)
+    .lesson
 }

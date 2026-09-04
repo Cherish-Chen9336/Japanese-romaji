@@ -1700,3 +1700,13 @@ meter::-webkit-meter-optimum-value {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
+
+/* The countdown leads the live row when a run is timed — it is the number that
+   decides what you do next — and turns urgent in the last ten seconds. */
+.live__clock {
+  order: -1;
+}
+
+.live__clock.is-low b {
+  color: var(--color-error);
+}

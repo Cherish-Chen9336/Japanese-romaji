@@ -502,6 +502,35 @@ iteration. A test of "leaves the deck untouched" has to use a part-dealt deck or
 it cannot fail — one written the easy way passed against an implementation that
 aliased the caller's array outright.
 
+### Time mode
+
+Off by default, and one duration only (`STANDARD_TIMED_MS`) — two durations are
+two different tests, and pooling their speeds would let the shorter one own the
+record.
+
+**The engine owns the deadline; the UI owns the scheduling.** `remainingMs` is
+pure arithmetic and nothing in `engine/` holds a timer. The clock starts on the
+first keystroke, not on page load: a run you have not begun is not running out.
+
+Three things the deadline has to get right:
+
+- **`finishRun` is given the deadline, not the moment the callback fired.** A
+  timer that runs 400 ms late would otherwise record a 60.4-second run and every
+  timed run would be a different length. Verified end to end in Chromium:
+  `elapsedMs` comes out at exactly 60,000.
+- **It is checked synchronously before every keystroke**, not only by the timer.
+  A throttled or backgrounded tab fires timeouts seconds late, and without the
+  check the typist keeps scoring into a run that is already over.
+- **The timer is cancelled with the run**, alongside the result-navigation timer.
+
+When the passage runs out before the clock, that ends nothing: `rollToNextPrompt`
+clears the matcher and the line, the run's counters and stat tables carry on, and
+`refill` deals the next passage. A `RunPlan` is what makes that honest — it
+resolves the source **once**, because `auto` picks a bank per call and one timed
+run would otherwise wander across words, drills and quotes while `RunResult`
+records a single source, and it carries the deck so consecutive passages cover
+the bank instead of restarting the shuffle.
+
 ### A run is not a passage
 
 They used to be the same thing, and `finishedAt` quietly meant both "the matcher

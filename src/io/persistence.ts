@@ -169,6 +169,7 @@ const DEFAULT_SETTINGS: Settings = {
   stopOnError: true,
   confidenceMode: false,
   whitespaceMarkers: true,
+  timedMode: false,
 }
 
 function bool(value: unknown, fallback: boolean): boolean {
@@ -190,6 +191,7 @@ export function readSettings(): Settings {
     stopOnError: bool(r.stopOnError, true),
     confidenceMode: bool(r.confidenceMode, false),
     whitespaceMarkers: bool(r.whitespaceMarkers, true),
+    timedMode: bool(r.timedMode, false),
   }
 }
 
@@ -470,6 +472,7 @@ export function parsePreferences(raw: unknown): Preferences {
     stopOnError: bool(stored.stopOnError, DEFAULT_SETTINGS.stopOnError),
     confidenceMode: bool(stored.confidenceMode, DEFAULT_SETTINGS.confidenceMode),
     whitespaceMarkers: bool(stored.whitespaceMarkers, DEFAULT_SETTINGS.whitespaceMarkers),
+    timedMode: bool(stored.timedMode, DEFAULT_SETTINGS.timedMode),
   }
   return {
     settings,

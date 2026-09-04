@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildParagraph,
+  dealLesson,
+  planRun,
   difficultBank,
   drillBankFromWeakKana,
   drillMoras,
@@ -22,7 +24,7 @@ import type { RomajiToken } from './romanization'
 import { mulberry32 } from './rng'
 import type { KanaRow, Settings, TextItem } from './types'
 
-const settings: Settings = { paragraphItems: 3, stopOnError: true, confidenceMode: false, whitespaceMarkers: true }
+const settings: Settings = { paragraphItems: 3, stopOnError: true, confidenceMode: false, whitespaceMarkers: true, timedMode: false }
 
 describe('parseLibraryText', () => {
   it('parses pipe-delimited kana|romaji lines', () => {
@@ -253,7 +255,7 @@ describe('generateLesson', () => {
   it('respects settings.paragraphItems for word count', () => {
     // Uses `difficult`, not `quotes` — quote-bank kana strings contain
     // internal spaces, which would make a naive split(' ') length check lie.
-    const lesson = generateLesson('difficult', { paragraphItems: 2, stopOnError: true, confidenceMode: false, whitespaceMarkers: true }, [], [], 30, () => 0)
+    const lesson = generateLesson('difficult', { paragraphItems: 2, stopOnError: true, confidenceMode: false, whitespaceMarkers: true, timedMode: false }, [], [], 30, () => 0)
     expect(lesson.kana.split(' ')).toHaveLength(2)
     expect(difficultBank.map((i) => i.kana)).toContain(lesson.kana.split(' ')[0])
   })
@@ -313,7 +315,7 @@ describe('kanaRows', () => {
 })
 
 describe('kana source', () => {
-  const settings: Settings = { paragraphItems: 4, stopOnError: true, confidenceMode: false, whitespaceMarkers: true }
+  const settings: Settings = { paragraphItems: 4, stopOnError: true, confidenceMode: false, whitespaceMarkers: true, timedMode: false }
 
   it('builds a lesson from the chart', () => {
     const lesson = generateLesson('kana', settings, [], [], 0, mulberry32(1), 'all')
@@ -382,7 +384,7 @@ describe('kanji is reachable, not just present', () => {
   })
 
   it('is what `auto` serves a brand-new user some of the time', () => {
-    const settings: Settings = { paragraphItems: 8, stopOnError: true, confidenceMode: false, whitespaceMarkers: true }
+    const settings: Settings = { paragraphItems: 8, stopOnError: true, confidenceMode: false, whitespaceMarkers: true, timedMode: false }
     const seen = new Set<string>()
     const rng = mulberry32(11)
     for (let i = 0; i < 30; i++) {
@@ -427,5 +429,61 @@ describe('drillMoras', () => {
   it('can serve a drill for every mora it lists', () => {
     const unreachable = drillMoras.filter((mora) => drillBankFromWeakKana([mora]) === drillFallbackBank)
     expect(unreachable).toEqual([])
+  })
+})
+
+describe('planRun and dealLesson', () => {
+  const settings = {
+    paragraphItems: 4,
+    stopOnError: true,
+    confidenceMode: false,
+    whitespaceMarkers: true,
+    timedMode: true,
+  }
+
+  /*
+   * `auto` picks a bank per call, so a run that deals more than once would
+   * wander across words, drills and quotes while `RunResult` records a single
+   * source. Resolving once is what keeps the run one kind of practice.
+   */
+  it('resolves auto once, and every passage comes from that source', () => {
+    const plan = planRun('auto', [], [], 100, mulberry32(3))
+    let current = plan
+    const sources: string[] = []
+    for (let i = 0; i < 5; i += 1) {
+      const dealt = dealLesson(current, settings, mulberry32(i + 1))
+      sources.push(dealt.lesson.source)
+      current = dealt.plan
+    }
+    expect(new Set(sources).size).toBe(1)
+    expect(sources[0]).toBe(plan.source)
+  })
+
+  /*
+   * The deck travels with the plan, so a run of several passages covers its bank
+   * before repeating rather than restarting the shuffle each time.
+   */
+  it('carries the deck between passages', () => {
+    const plan = planRun('words', [], [], 100, mulberry32(5))
+    const first = dealLesson(plan, settings, mulberry32(1))
+    const second = dealLesson(first.plan, settings, mulberry32(1))
+    expect(first.plan.deck.remaining.length).not.toBe(plan.deck.remaining.length)
+    // Same rng, but a carried deck, so the second passage is not the first again.
+    expect(second.lesson.romaji).not.toBe(first.lesson.romaji)
+  })
+
+  it('falls back to words when the requested source is locked', () => {
+    expect(planRun('quotes', [], [], 0, mulberry32(1)).source).toBe('words')
+  })
+
+  it('falls back to words when the library is empty', () => {
+    expect(planRun('library', [], [], 100, mulberry32(1)).source).toBe('words')
+  })
+
+  it('leaves the plan it was given untouched', () => {
+    const plan = planRun('words', [], [], 100, mulberry32(9))
+    const before = plan.deck.remaining.length
+    dealLesson(plan, settings, mulberry32(2))
+    expect(plan.deck.remaining.length).toBe(before)
   })
 })

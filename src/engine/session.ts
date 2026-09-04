@@ -10,7 +10,7 @@ import {
   type RecoveryStep,
   type RomajiToken,
 } from './romanization'
-import type { Lesson, MoraTimingStat, RunResult, TimingStat } from './types'
+import type { Lesson, MoraTimingStat, RunMode, RunResult, TimingStat } from './types'
 
 /** One keystroke, kept in order so backspace can undo and the line can be drawn. */
 export type TypedKey = {
@@ -505,6 +505,22 @@ export function applyBackspace(state: SessionState, tokens: RomajiToken[]): Sess
  * typist knew it. One that already carries a miss is a real encounter and is
  * banked as such — with no duration, since a truncated mora was never timed.
  */
+/**
+ * Milliseconds left, or null before the first keystroke.
+ *
+ * The clock starts when the typist does, not when the page loads: a run you have
+ * not begun is not running out. Pure arithmetic — the engine owns the deadline
+ * and the UI owns the scheduling, because nothing in `engine/` may hold a timer.
+ */
+export function remainingMs(
+  state: SessionState,
+  now: number,
+  durationMs: number,
+): number | null {
+  if (state.startedAt === null) return null
+  return Math.max(0, state.startedAt + durationMs - now)
+}
+
 export function finishRun(state: SessionState, endedAt: number): SessionState {
   if (state.finishedAt !== null) return state
   const pending = state.pendingKana
@@ -609,6 +625,7 @@ export function buildRunResult(
   lesson: Lesson,
   metrics: SessionMetrics,
   isoNow: () => string = () => new Date().toISOString(),
+  mode: RunMode = { kind: 'passage' },
 ): RunResult {
   const baseline = baselineInterval(state.cleanIntervals)
   return {
@@ -628,5 +645,6 @@ export function buildRunResult(
     bigramStats: state.bigramStats,
     kanaStats: state.kanaStats,
     ...(baseline === null ? {} : { baselineMs: baseline }),
+    mode,
   }
 }

@@ -16,6 +16,11 @@ export interface TopbarProps {
   mistakes: number
   /** Show the live-metrics block only while the practice view is active. */
   showLive: boolean
+  /**
+   * Seconds left in a timed run, or null when the run is not timed — and before
+   * the first keystroke, because the clock starts when the typist does.
+   */
+  secondsLeft: number | null
   onHomeClick: () => void
 }
 
@@ -39,6 +44,13 @@ export function Topbar(props: TopbarProps): JSX.Element {
           <span>
             <b>{props.mistakes}</b> miss
           </span>
+          {/* Leads the row when present: in a timed run it is the number that
+              decides what you do next. */}
+          <Show when={props.secondsLeft !== null}>
+            <span class="live__clock" classList={{ 'is-low': (props.secondsLeft ?? 0) <= 10 }}>
+              <b>{props.secondsLeft}</b>s left
+            </span>
+          </Show>
         </div>
       </Show>
     </header>

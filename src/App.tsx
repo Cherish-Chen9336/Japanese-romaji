@@ -2,7 +2,10 @@ import { For, Show, createMemo, createSignal, onCleanup, onMount } from 'solid-j
 import './App.css'
 import {
   drillMoras,
+  dealLesson,
   generateLesson,
+  planRun,
+  type RunPlan,
   kanaRows,
   parseLibraryText,
   sourceOptions,
@@ -10,7 +13,16 @@ import {
 } from './engine/lessons'
 import { compilePrompt, wordIndexForToken } from './engine/prompt'
 import { projectMatch } from './engine/romanization'
-import { applyBackspace, applyTypeChar, buildRunResult, computeMetrics, emptySession } from './engine/session'
+import {
+  applyBackspace,
+  applyTypeChar,
+  buildRunResult,
+  computeMetrics,
+  emptySession,
+  finishRun,
+  remainingMs,
+  rollToNextPrompt,
+} from './engine/session'
 import type { SessionState } from './engine/session'
 import {
   dailyCounts,
@@ -34,7 +46,7 @@ import {
   leastPractisedKana,
   weakestKana,
 } from './engine/stats'
-import { KANA_GROUPS, KEYBOARD_LAYOUT_NAMES } from './engine/types'
+import { KANA_GROUPS, KEYBOARD_LAYOUT_NAMES, STANDARD_TIMED_MS } from './engine/types'
 import type {
   KanaGroup,
   KeyboardLayoutName,
@@ -130,6 +142,8 @@ function App() {
   let savedCurrentRun = false
   /** Pending navigation to the result screen; cancelled if the run is reset. */
   let completionTimer: number | null = null
+  /** Fires at the deadline of a timed run; cancelled with the run. */
+  let deadlineTimer: number | null = null
 
   /**
    * The lesson as the matcher and the screen both see it: one token per mora,
@@ -313,6 +327,40 @@ function App() {
       clearTimeout(completionTimer)
       completionTimer = null
     }
+    if (deadlineTimer !== null) {
+      clearTimeout(deadlineTimer)
+      deadlineTimer = null
+    }
+  }
+
+  const timedRun = () => settings().timedMode
+  const timeLeft = createMemo(() =>
+    timedRun() ? remainingMs(session(), tick(), STANDARD_TIMED_MS) : null,
+  )
+
+  /*
+   * Ends a timed run at its deadline — not at the moment the callback happened
+   * to fire. A timer that runs 400 ms late would otherwise record a 60.4-second
+   * run, and every timed run would be a slightly different length.
+   */
+  const endTimedRun = () => {
+    cancelCompletion()
+    const current = session()
+    if (current.startedAt === null || current.finishedAt !== null) return
+    const finished = finishRun(current, current.startedAt + STANDARD_TIMED_MS)
+    setSession(finished)
+    saveCurrentRun(finished, lesson())
+    navigate('result')
+  }
+
+  /** Arms the one-shot deadline once the typist has actually started. */
+  const armDeadline = (state: SessionState) => {
+    if (!timedRun() || state.startedAt === null || deadlineTimer !== null) return
+    const left = Math.max(0, state.startedAt + STANDARD_TIMED_MS - Date.now())
+    deadlineTimer = window.setTimeout(() => {
+      deadlineTimer = null
+      endTimedRun()
+    }, left)
   }
 
   const resetRunState = () => {
@@ -321,16 +369,36 @@ function App() {
     setSession(emptySession())
   }
 
-  const nextLesson = (nextSource: SourceName, nextSettings: Settings = settings()) =>
-    generateLesson(
-      nextSource,
-      nextSettings,
-      weakKana(),
-      library(),
-      bestWpm(),
-      Math.random,
-      kanaGroup(),
-    )
+  /*
+   * The material a run is committed to. Held in a plain variable rather than a
+   * signal: nothing renders from it, and a timed run must keep dealing from the
+   * *same* resolved source and the same deck however many passages it gets
+   * through.
+   */
+  let plan: RunPlan | null = null
+
+  const nextLesson = (nextSource: SourceName, nextSettings: Settings = settings()) => {
+    plan = planRun(nextSource, weakKana(), library(), bestWpm(), Math.random, kanaGroup())
+    const dealt = dealLesson(plan, nextSettings, Math.random)
+    plan = dealt.plan
+    return dealt.lesson
+  }
+
+  /** The next passage of the *same* run — same source, same deck. */
+  const refill = () => {
+    if (plan === null) return
+    const dealt = dealLesson(plan, settings(), Math.random)
+    plan = dealt.plan
+    setLesson(dealt.lesson)
+  }
+
+  const setTimedMode = (timedMode: boolean) => {
+    const next = { ...settings(), timedMode }
+    persist(SETTINGS_KEY, next)
+    setSettings(next)
+    // The run in progress was measured the other way; start a clean one.
+    freshText()
+  }
 
   const setConfidenceMode = (confidenceMode: boolean) => {
     const next = { ...settings(), confidenceMode }
@@ -388,7 +456,15 @@ function App() {
     const currentSession = finished
     const currentLesson = forLesson
     const currentMetrics = computeMetrics(currentSession, Date.now())
-    const run = buildRunResult(currentSession, currentLesson, currentMetrics)
+    const run = buildRunResult(
+      currentSession,
+      currentLesson,
+      currentMetrics,
+      undefined,
+      settings().timedMode
+        ? { kind: 'timed', durationMs: STANDARD_TIMED_MS }
+        : { kind: 'passage' },
+    )
     setLastRun(run)
     const previousLifetime = lifetimeStats()
     const nextLifetime = recordRunInLifetimeStats(previousLifetime, run)
@@ -406,8 +482,18 @@ function App() {
 
   const typeChar = (rawChar: string) => {
     if (isComplete() || route() !== 'practice') return
+    /*
+     * Checked before the keystroke, not only by the timer. A throttled or
+     * backgrounded tab can fire a timeout seconds late, and without this the
+     * typist keeps scoring into a run that was already over.
+     */
+    if (timedRun() && remainingMs(session(), Date.now(), STANDARD_TIMED_MS) === 0) {
+      endTimedRun()
+      return
+    }
     const result = applyTypeChar(session(), rawChar, tokens(), Date.now(), settings().stopOnError)
     setSession(result.session)
+    armDeadline(result.session)
     if (result.missed) {
       const { legal, typed } = result.missed
       const label = (char: string) => (char === ' ' ? 'space' : char)
@@ -428,6 +514,16 @@ function App() {
         persistRecord('confusions', next)
         return next
       })
+    }
+    if (result.completed && timedRun() && remainingMs(result.session, Date.now(), STANDARD_TIMED_MS) !== 0) {
+      /*
+       * The passage ran out before the clock did, which in a timed run is not
+       * the end of anything — the matcher and the line reset, the counters and
+       * the stat tables do not, and the same run keeps going on a fresh passage.
+       */
+      setSession(rollToNextPrompt(result.session))
+      refill()
+      return
     }
     if (result.completed) {
       /*
@@ -592,6 +688,7 @@ function App() {
           page is reading content and is better off in a narrow column. */}
       <main classList={{ app: true, 'app--wide': route() === 'stats' }} onClick={refocus}>
         <Topbar
+          secondsLeft={timeLeft() === null ? null : Math.ceil(timeLeft()! / 1000)}
           wpm={speed()}
           accuracy={accuracy()}
           mistakes={session().mistakes}
@@ -1217,6 +1314,14 @@ function App() {
                 onChange={(event) => setStopOnError(event.currentTarget.checked)}
               />
               <span>stop on error — refuse a wrong key instead of typing it</span>
+            </label>
+            <label class="check-row">
+              <input
+                type="checkbox"
+                checked={settings().timedMode}
+                onChange={(event) => setTimedMode(event.currentTarget.checked)}
+              />
+              <span>timed mode — run for 60 seconds instead of to the end of the passage</span>
             </label>
             <label class="check-row">
               <input

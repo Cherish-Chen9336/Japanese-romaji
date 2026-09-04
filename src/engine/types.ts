@@ -117,6 +117,15 @@ export type Settings = {
    * requirement becomes visible.
    */
   whitespaceMarkers: boolean
+  /**
+   * End the run on a clock instead of at the end of the passage.
+   *
+   * Off by default: a passage is a complete thing to finish, and a beginner
+   * meeting kana for the first time is not helped by a timer. One duration only
+   * (`STANDARD_TIMED_MS`), because two durations are two different tests and
+   * pooling their speeds would let the shorter one own the record.
+   */
+  timedMode: boolean
 }
 
 /**

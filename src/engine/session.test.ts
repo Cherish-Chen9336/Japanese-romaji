@@ -4,6 +4,7 @@ import { tokenizeKana } from './romanization'
 import {
   applyBackspace,
   finishRun,
+  remainingMs,
   rollToNextPrompt,
   applyTypeChar,
   buildRunResult,
@@ -744,5 +745,47 @@ describe('finishRun', () => {
   it('refuses to move a run that has already ended', () => {
     const done = type(tokenizeKana('か'), 'ka')
     expect(finishRun(done, T0 + 60_000)).toBe(done)
+  })
+})
+
+describe('remainingMs', () => {
+  /* The clock starts when the typist does. A run not begun is not running out. */
+  it('is null until the first keystroke', () => {
+    expect(remainingMs(emptySession(), T0 + 5_000, 60_000)).toBeNull()
+  })
+
+  it('counts down from the first keystroke, not from when the page loaded', () => {
+    const started = type(tokenizeKana('か'), 'k')
+    expect(started.startedAt).toBe(T0 + 100)
+    expect(remainingMs(started, T0 + 100, 60_000)).toBe(60_000)
+    expect(remainingMs(started, T0 + 100 + 20_000, 60_000)).toBe(40_000)
+  })
+
+  /* Never negative: a callback that fires late must not report a run that has
+     been over for 400 ms as having minus 400 ms left. */
+  it('floors at zero once the deadline has passed', () => {
+    const started = type(tokenizeKana('か'), 'k')
+    expect(remainingMs(started, T0 + 100 + 60_400, 60_000)).toBe(0)
+  })
+})
+
+describe('buildRunResult mode', () => {
+  const lesson = { kana: 'し', romaji: 'shi', source: 'words' as const, items: [{ kana: 'し', romaji: 'shi' }] }
+  const iso = () => '2026-01-01T00:00:00.000Z'
+
+  /* Absence would read as passage anyway, but recording it makes the run say
+     what it was rather than leaving a reader to infer it. */
+  it('records a passage run by default', () => {
+    const s = type(tokenizeKana('し'), 'shi')
+    expect(buildRunResult(s, lesson, computeMetrics(s, T0), iso).mode).toEqual({ kind: 'passage' })
+  })
+
+  it('carries a timed run its duration', () => {
+    const s = type(tokenizeKana('し'), 'shi')
+    const run = buildRunResult(s, lesson, computeMetrics(s, T0), iso, {
+      kind: 'timed',
+      durationMs: 60_000,
+    })
+    expect(run.mode).toEqual({ kind: 'timed', durationMs: 60_000 })
   })
 })
