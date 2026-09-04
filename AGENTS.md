@@ -268,6 +268,17 @@ Tooltip text is joined with ` · `. The first segment is the thing being describ
 and gets its own line; the rest are its numbers, quieter and monospaced. The same
 string is the cell's screen-reader text, where the separator reads as a pause.
 
+Visually it is the accent at depth, just short of opaque, over a blurred and
+lightly saturated backdrop — `--color-accent-deep`, not black. The blur is what
+makes the transparency legible: without it the kana grid reads as noise behind
+the text rather than texture beneath it. Measured on real pixels, white on the
+composited background is **7.58:1**, past AA and AAA both. Two escapes: an opaque
+background under `prefers-contrast: more`, since translucency costs contrast some
+readers cannot spare, and no animation under `prefers-reduced-motion`.
+
+The cells carrying a tooltip use the **ordinary pointer**. `cursor: help` says the
+thing needs explaining, when the thing *is* the data.
+
 ### The progress chart
 
 `ui/ProgressChart.tsx` draws speed and accuracy as **two plots side by side** —

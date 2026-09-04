@@ -1613,26 +1613,63 @@ meter::-webkit-meter-optimum-value {
 
 /*
  * Replaces the native `title`, which the OS draws unstyled, after a delay, and
- * not at all on touch. Dark on light so it reads as an overlay rather than as
- * another panel, and it never takes the pointer — it follows one.
+ * not at all on touch.
+ *
+ * Frosted rather than flat black: the accent at depth, held just short of
+ * opaque, over a blurred and slightly saturated backdrop. The blur is what makes
+ * the transparency legible — without it the kana grid shows through as noise
+ * behind the text rather than as texture beneath it.
  */
 .tooltip {
-  background: var(--color-text);
-  border-radius: 8px;
-  box-shadow: 0 6px 20px rgb(0 0 0 / 0.16);
-  color: var(--color-bg);
+  background: rgb(var(--color-accent-deep-rgb) / 0.9);
+  background: color-mix(in oklch, var(--color-accent-deep) 90%, transparent);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  backdrop-filter: blur(10px) saturate(140%);
+  border: var(--bw-1) solid rgb(255 255 255 / 0.14);
+  border-radius: 10px;
+  box-shadow:
+    0 10px 30px rgb(14 35 30 / 0.22),
+    0 2px 6px rgb(14 35 30 / 0.12);
+  color: #fff;
   display: flex;
   flex-direction: column;
   font-size: var(--fs-12);
   gap: 2px;
   line-height: 1.45;
-  max-width: 260px;
+  /* Held to a readable measure; a tooltip wider than this stops being a glance. */
+  max-width: 280px;
   padding: var(--space-3) var(--space-4);
   pointer-events: none;
   position: fixed;
   transform: translate(-50%, -100%);
   white-space: nowrap;
   z-index: 40;
+  /* A short fade rather than an entrance delay: a delay makes a deliberate hover
+     feel slow, while the fade keeps a pointer crossing the grid from strobing. */
+  animation: tooltip-in 120ms ease-out;
+}
+
+@keyframes tooltip-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, calc(-100% + 3px));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tooltip {
+    animation: none;
+  }
+}
+
+/* Translucency costs contrast, and some readers cannot spare it. */
+@media (prefers-contrast: more) {
+  .tooltip {
+    background: var(--color-accent-deep);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    border-color: #fff;
+  }
 }
 
 /* The thing being described leads; its numbers follow, quieter. */
@@ -1642,16 +1679,13 @@ meter::-webkit-meter-optimum-value {
 }
 
 .tooltip span:not(.tooltip__lead) {
-  color: color-mix(in oklch, var(--color-bg) 72%, var(--color-text));
+  color: rgb(255 255 255 / 0.82);
   font-family: var(--font-mono);
 }
 
-/* The surfaces that carry one are interactive, so they say so and take focus. */
-.mastery-cell:not(.mastery-cell--gap):not(.mastery-cell--label),
-.mini-key,
-.calendar-cell {
-  cursor: help;
-}
+/* No `cursor: help`. The question mark suggests these need explaining, when they
+   are the data — the pointer should stay ordinary and let the tooltip do the
+   work. Focus is still visible, because these are reachable by keyboard. */
 
 .mastery-cell:focus-visible,
 .mini-key:focus-visible,
