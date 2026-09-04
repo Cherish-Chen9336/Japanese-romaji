@@ -63,6 +63,15 @@ export type SessionState = {
     missed: boolean
     keystrokes: number
     timed: boolean
+    /**
+     * Whether the mora's spelling is finished.
+     *
+     * "Pending" does not mean "half typed": after `a` in あか, あ is complete but
+     * stays pending until the first key of か moves the cursor off it. Without
+     * this, a deadline landing in that gap threw away a mora the typist had
+     * actually finished.
+     */
+    complete: boolean
   } | null
   intervals: number[]
   /**
@@ -92,7 +101,7 @@ export type SessionState = {
    * what the screen tells the typist. Marking the pending mora instead charged
    * the fumble to the one they had just typed correctly.
    */
-  carriedMiss: boolean
+  carriedMiss: { index: number; kana: string } | null
   /**
    * Characters typed in passages already finished within this run.
    *
@@ -162,12 +171,26 @@ export function emptySession(): SessionState {
     intervals: [],
     cleanIntervals: [],
     timingBlocked: false,
-    carriedMiss: false,
+    carriedMiss: null,
     lastKeyAt: null,
     rejected: null,
     completedChars: 0,
     completedCorrectChars: 0,
   }
+}
+
+/**
+ * Whether the mora at `index` has been spelled out in full.
+ *
+ * A position sitting on a token with a complete candidate typed means the mora
+ * is done — the cursor simply has not left it yet, because nothing has been
+ * pressed since.
+ */
+function spelt(tokens: RomajiToken[], state: MatchState, index: number): boolean {
+  return state.positions.some(
+    (pos) =>
+      pos.tokenIndex === index && tokens[index]?.candidates.includes(pos.typedInToken) === true,
+  )
 }
 
 /**
@@ -387,13 +410,14 @@ export function applyTypeChar(
           (pendingKana?.missed ?? false) ||
           (!step.correct && blameIndex === landed.index) ||
           // A fumble made at this mora's boundary, before it had opened.
-          carriedMiss,
+          carriedMiss?.index === landed.index,
         keystrokes: (pendingKana?.keystrokes ?? 0) + 1,
         // A mora opening straight out of an ambiguous boundary has lost its
         // first interval to that ambiguity, so it is not cleanly timed either.
         timed: (pendingKana?.timed ?? true) && interval !== null && !timingBlocked,
+        complete: spelt(tokens, step.state, landed.index),
       }
-      carriedMiss = false
+      carriedMiss = null
     }
     timingBlocked = false
   }
@@ -402,7 +426,8 @@ export function applyTypeChar(
   // opens next. Repeated fumbles at the same boundary stay one miss, because one
   // encounter with a mora is one attempt however many keys it took to reach.
   if (!step.correct && blameIndex !== null && blameIndex !== (pendingKana?.index ?? null)) {
-    carriedMiss = true
+    const token = tokens[blameIndex]
+    carriedMiss = token === undefined ? carriedMiss : { index: blameIndex, kana: token.kana }
   }
 
   if (step.done && pendingKana !== null) {
@@ -436,8 +461,19 @@ export function applyTypeChar(
     kanaStats,
     pendingKana,
     intervals: interval !== null && interval > 0 ? [...state.intervals, interval] : state.intervals,
+    /*
+     * Both ends clean, not just this one. The gap *after* a mistake is recovery
+     * time — noticing, and finding the right key — and it was going into the
+     * baseline, which raised the run's idea of its own cadence and made every
+     * clean mora look faster than it was. `rejected` catches a refused key,
+     * which never enters `keys` at all.
+     */
     cleanIntervals:
-      step.correct && interval !== null && interval > 0
+      step.correct &&
+      previous?.correct !== false &&
+      state.rejected === null &&
+      interval !== null &&
+      interval > 0
         ? [...state.cleanIntervals, interval]
         : state.cleanIntervals,
     timingBlocked,
@@ -486,7 +522,7 @@ export function applyBackspace(state: SessionState, tokens: RomajiToken[]): Sess
     rejected: null,
     pendingKana: null,
     timingBlocked: false,
-    carriedMiss: false,
+    carriedMiss: null,
   }
 }
 
@@ -524,18 +560,47 @@ export function remainingMs(
 export function finishRun(state: SessionState, endedAt: number): SessionState {
   if (state.finishedAt !== null) return state
   const pending = state.pendingKana
-  const kanaStats =
-    pending !== null && pending.missed
-      ? updateMoraStat(state.kanaStats, { ...pending, timed: false })
-      : state.kanaStats
+  let kanaStats = state.kanaStats
+
+  /*
+   * A mora the typist actually finished counts, even though the cursor had not
+   * moved off it yet. "Pending" is not "half typed": after `a` in あか, あ is
+   * complete and simply waiting for か to begin, and a deadline landing in that
+   * gap used to discard it. One that is genuinely mid-spelling is still not an
+   * attempt — an arbitrary cutoff says nothing about whether the typist knew it —
+   * unless it already carries a miss, which is a real encounter either way.
+   */
+  if (pending !== null && (pending.missed || pending.complete)) {
+    kanaStats = updateMoraStat(kanaStats, {
+      ...pending,
+      // A mora cut off mid-run was never a clean measurement of its own duration.
+      timed: pending.timed && pending.complete,
+    })
+  }
+
+  /*
+   * A miss made at a boundary belongs to the mora that had not opened yet, and
+   * the screen said so at the time. Dropping it here broke the rule that what
+   * the UI blamed is what the table records — the clock stopping does not undo
+   * a mistake the typist made.
+   */
+  if (state.carriedMiss !== null) {
+    kanaStats = updateMoraStat(kanaStats, {
+      index: state.carriedMiss.index,
+      kana: state.carriedMiss.kana,
+      ms: 0,
+      missed: true,
+      keystrokes: 0,
+      timed: false,
+      complete: false,
+    })
+  }
+
   return {
     ...state,
     kanaStats,
     pendingKana: null,
-    // A miss carried at a boundary belongs to a mora that never opened, and now
-    // never will. It cannot be charged to the mora before it — that is the very
-    // misattribution `carriedMiss` exists to prevent.
-    carriedMiss: false,
+    carriedMiss: null,
     rejected: null,
     finishedAt: state.startedAt === null ? null : endedAt,
   }
@@ -565,7 +630,7 @@ export function rollToNextPrompt(state: SessionState): SessionState {
     match: initMatch(),
     pendingKana: null,
     timingBlocked: false,
-    carriedMiss: false,
+    carriedMiss: null,
     rejected: null,
     lastKeyAt: null,
     finishedAt: null,

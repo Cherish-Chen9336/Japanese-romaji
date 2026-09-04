@@ -104,6 +104,13 @@ difference between a tired day and a quick one as difficulty with a kana. Excess
 is summed **signed**; clamping negatives per encounter would let long spellings
 collect positive noise from more keystrokes than short ones can.
 
+**The baseline is drawn from clean typing at both ends.** An interval qualifies
+only if this keystroke was correct *and* the one before it was — a consumed wrong
+key or a refused one both disqualify the gap that follows. That gap is recovery:
+noticing, then finding the right key. Counted as cadence it raised the run's idea
+of its own speed and made every clean mora look faster than it was, which is the
+opposite of what the baseline exists to do.
+
 **Durations are kept only for encounters that were cleanly timed and
 mistake-free.** `timingSamples` is the denominator, not `attempts`. The first key
 of a run has no predecessor to measure against and `applyBackspace` clears
@@ -557,6 +564,19 @@ screen *and* the run's character count — so the count is banked into
 cleared, because dealing and painting the next passage is not typing: charged to
 the first keystroke of the new passage it would land on that mora and make
 whatever came first look hard in every timed run.
+
+`finishRun` has to resolve **two** things the model is holding but has not written
+down, both of which it used to throw away:
+
+- **A mora that is finished but not moved off.** "Pending" is not "half typed":
+  after `a` in あか, あ is complete and only waiting for か to begin, because
+  nothing has been pressed since. `pendingKana.complete` records that, and a
+  deadline landing in the gap keeps the mora. One genuinely mid-spelling is still
+  not an attempt.
+- **A carried miss.** It belongs to the mora that had not opened yet, and the
+  screen said so at the time — so `carriedMiss` carries the token, not a boolean,
+  and the miss is banked against it. The clock stopping does not undo a mistake
+  the typist made.
 
 `finishRun` ends a run wherever the typist is. Passage completion never needed
 it — the run ended at a point where the final mora had just been banked — but a

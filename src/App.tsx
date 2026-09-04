@@ -282,6 +282,10 @@ function App() {
   }
 
   const importData = async (file: File) => {
+    /* Before the awaits, not after. A timed run's deadline firing during the
+       import would append the run being abandoned into the store the import is
+       midway through replacing. */
+    resetRunState()
     const result = await importBackup(recordStore, await file.text())
     if (!result.ok) {
       setDataMessage(IMPORT_ERRORS[result.reason])
@@ -306,6 +310,8 @@ function App() {
       return
     }
     setResetArmed(false)
+    // Same race as import: stop the run before erasing what it would be saved into.
+    resetRunState()
     adoptProfile(await resetProfile(recordStore))
     setSettings(readSettings())
     setShowKeyboard(readShowKeyboard())
@@ -500,11 +506,16 @@ function App() {
      * backgrounded tab can fire a timeout seconds late, and without this the
      * typist keeps scoring into a run that was already over.
      */
-    if (timedRun() && remainingMs(session(), Date.now(), STANDARD_TIMED_MS) === 0) {
+    /* One clock read for the whole keystroke. Reading `Date.now()` again below
+       let a key pass the expiry check and then be scored a moment after the
+       deadline, which also stamped the run with that key's time instead of the
+       deadline. */
+    const now = Date.now()
+    if (timedRun() && remainingMs(session(), now, STANDARD_TIMED_MS) === 0) {
       endTimedRun()
       return
     }
-    const result = applyTypeChar(session(), rawChar, tokens(), Date.now(), settings().stopOnError)
+    const result = applyTypeChar(session(), rawChar, tokens(), now, settings().stopOnError)
     setSession(result.session)
     armDeadline(result.session)
     if (result.missed) {
@@ -528,7 +539,7 @@ function App() {
         return next
       })
     }
-    if (result.completed && timedRun() && remainingMs(result.session, Date.now(), STANDARD_TIMED_MS) !== 0) {
+    if (result.completed && timedRun() && remainingMs(result.session, now, STANDARD_TIMED_MS) !== 0) {
       /*
        * The passage ran out before the clock did, which in a timed run is not
        * the end of anything — the matcher and the line reset, the counters and

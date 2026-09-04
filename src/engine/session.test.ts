@@ -789,3 +789,125 @@ describe('buildRunResult mode', () => {
     expect(run.mode).toEqual({ kind: 'timed', durationMs: 60_000 })
   })
 })
+
+/*
+ * The whole point of the run/passage split, exercised end to end: one run that
+ * outlives its passage has to come out of `buildRunResult` as one run.
+ */
+describe('a run spanning two passages', () => {
+  const lesson = { kana: 'くけ', romaji: 'kuke', source: 'words' as const, items: [{ kana: 'くけ', romaji: 'kuke' }] }
+  const iso = () => '2026-01-01T00:00:00.000Z'
+
+  function twoPassages() {
+    const first = type(tokenizeKana('かき'), 'kaki')
+    const rolled = rollToNextPrompt(first)
+    return { first, run: type(tokenizeKana('くけ'), 'kuke', rolled) }
+  }
+
+  it('merges the mora tables rather than restarting them', () => {
+    const { run } = twoPassages()
+    expect(Object.keys(run.kanaStats).sort()).toEqual(['か', 'き', 'く', 'け'])
+  })
+
+  it('counts every keystroke of both passages toward the run', () => {
+    const { first, run } = twoPassages()
+    expect(first.attempts).toBe(4)
+    expect(run.attempts).toBe(8)
+    expect(buildRunResult(run, lesson, computeMetrics(run, T0), iso).chars).toBe(8)
+  })
+
+  /* One baseline for the sitting, drawn from every clean interval in the run —
+     not one per passage, which `RunResult` could not represent anyway. */
+  it('draws one baseline from the whole run', () => {
+    const { run } = twoPassages()
+    expect(run.cleanIntervals.length).toBeGreaterThan(4)
+    expect(buildRunResult(run, lesson, computeMetrics(run, T0), iso).baselineMs).toBe(100)
+  })
+
+  /* The clock is the run's, so elapsed spans both passages. */
+  it('measures elapsed time from the first keystroke of the first passage', () => {
+    const { first, run } = twoPassages()
+    expect(run.startedAt).toBe(first.startedAt)
+  })
+
+  /* A miss in the first passage must still be there after the boundary. */
+  it('keeps a miss made before the boundary', () => {
+    const tokens = tokenizeKana('かき')
+    const afterK = type(tokens, 'k')
+    const fumbled = applyTypeChar(afterK, 'q', tokens, T0 + 200, true).session
+    const done = type(tokens, 'aki', fumbled)
+    const run = type(tokenizeKana('くけ'), 'kuke', rollToNextPrompt(done))
+    expect(run.kanaStats['か'].misses).toBe(1)
+    expect(run.mistakes).toBe(1)
+  })
+})
+
+/*
+ * A deadline can land anywhere, including the two places where the model holds
+ * something it has not yet written down. Both were losing real data.
+ */
+describe('what a deadline must not throw away', () => {
+  /*
+   * "Pending" is not "half typed". After `a` in あか, あ is finished and only
+   * waiting for か to begin — the cursor has not moved because nothing has been
+   * pressed. Cutting off there used to discard a mora the typist completed.
+   */
+  it('keeps a mora that was finished but not yet moved off', () => {
+    const tokens = tokenizeKana('あか')
+    const afterA = type(tokens, 'a')
+    expect(afterA.pendingKana?.kana).toBe('あ')
+    const ended = finishRun(afterA, T0 + 60_000)
+    expect(ended.kanaStats['あ'].attempts).toBe(1)
+    expect(ended.kanaStats['あ'].misses).toBe(0)
+  })
+
+  /* Still no attempt when the mora really was mid-spelling: an arbitrary cutoff
+     says nothing about whether the typist knew it. */
+  it('still invents nothing from a mora cut off mid-spelling', () => {
+    const half = type(tokenizeKana('しゃ'), 'sh')
+    expect(finishRun(half, T0 + 60_000).kanaStats['しゃ']).toBeUndefined()
+  })
+
+  /*
+   * A miss made at a boundary belongs to the mora that had not opened yet, and
+   * the screen says so at the time. The clock stopping does not undo it.
+   */
+  it('keeps a boundary miss, charged to the mora the screen blamed', () => {
+    const tokens = tokenizeKana('あか')
+    const fumbled = applyTypeChar(type(tokens, 'a'), 'q', tokens, T0 + 200, true)
+    expect(fumbled.missed?.kana).toBe('か')
+    const ended = finishRun(fumbled.session, T0 + 60_000)
+    expect(ended.kanaStats['か'].misses).toBe(1)
+    expect(ended.kanaStats['か'].attempts).toBe(1)
+    // And it is not charged to the mora before it, which was typed correctly.
+    expect(ended.kanaStats['あ']?.misses ?? 0).toBe(0)
+  })
+})
+
+describe('the baseline is drawn from clean typing only', () => {
+  /*
+   * The gap *after* a mistake is recovery — noticing, then finding the right
+   * key. Counted as cadence it raised the run's idea of its own speed and made
+   * every clean mora look faster than it was.
+   */
+  it('excludes the interval that follows a refused key', () => {
+    const tokens = tokenizeKana('あか')
+    let s = applyTypeChar(emptySession(), 'a', tokens, T0, true).session
+    s = applyTypeChar(s, 'q', tokens, T0 + 100, true).session
+    s = applyTypeChar(s, 'k', tokens, T0 + 3_000, true).session
+    expect(s.cleanIntervals).not.toContain(2_900)
+  })
+
+  it('excludes the interval that follows a consumed wrong key', () => {
+    const tokens = tokenizeKana('あか')
+    let s = applyTypeChar(emptySession(), 'a', tokens, T0, false).session
+    s = applyTypeChar(s, 'q', tokens, T0 + 100, false).session
+    s = applyTypeChar(s, 'a', tokens, T0 + 2_500, false).session
+    expect(s.cleanIntervals).not.toContain(2_400)
+  })
+
+  it('still counts an ordinary clean interval', () => {
+    const s = type(tokenizeKana('かき'), 'kaki')
+    expect(s.cleanIntervals).toContain(100)
+  })
+})
