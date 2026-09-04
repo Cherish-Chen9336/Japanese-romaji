@@ -15,9 +15,16 @@ export function mulberry32(seed: number): () => number {
   }
 }
 
+/*
+ * Required at every engine entry point, never defaulted to `Math.random`.
+ * A default made the deterministic-engine rule a convention rather than a
+ * guarantee: any function that quietly reached for the global clock of
+ * randomness could not be reproduced in a test, and nothing stopped a new one
+ * from doing it. The application boundary injects the real source.
+ */
 export type RandomSource = () => number
 
-export function pickRandom<T>(items: readonly T[], rng: RandomSource = Math.random): T {
+export function pickRandom<T>(items: readonly T[], rng: RandomSource): T {
   if (items.length === 0) {
     throw new Error('pickRandom: items must not be empty')
   }
@@ -74,7 +81,7 @@ export function newDeck<T>(items: readonly T[]): Deck<T> {
 export function dealFrom<T>(
   deck: Deck<T>,
   count: number,
-  rng: RandomSource = Math.random,
+  rng: RandomSource,
 ): { dealt: T[]; deck: Deck<T> } {
   const dealt: T[] = []
   let remaining = [...deck.remaining]
@@ -88,7 +95,7 @@ export function dealFrom<T>(
 export function dealRandom<T>(
   items: readonly T[],
   count: number,
-  rng: RandomSource = Math.random,
+  rng: RandomSource,
 ): T[] {
   if (items.length === 0) {
     throw new Error('dealRandom: items must not be empty')

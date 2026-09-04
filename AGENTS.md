@@ -26,7 +26,11 @@ split: `engine/` pure logic → `io/` browser adapters → `ui/` SolidJS.
 - **`src/engine/`** — pure TypeScript, no DOM, no `localStorage`, no
   `window`. All randomness and clocks are injected (see `engine/rng.ts`'s
   `pickRandom(items, rng)` and `engine/stats.ts`'s `now` params) rather than
-  called directly, so every function is deterministic in tests. Default
+  called directly, so every function is deterministic in tests. **`RandomSource`
+  is required, never defaulted to `Math.random`** — a default made that a
+  convention rather than a guarantee, since any function could quietly reach for
+  the global source and stop being reproducible, and nothing stopped a new one
+  from doing the same. The application boundary injects the real source. Default
   vitest environment is `node` — this is where nearly all logic should live
   and where new features should be designed test-first.
 - **`src/io/`** — the only layer allowed to touch `localStorage`/`window`.
@@ -709,6 +713,12 @@ because the fallback manufactures tokens for any romaji at all.
 token's candidates, so the on-screen hint teaches what the item is written with.
 The 五十音 chart depends on it: だぢづでど is taught `dadidudedo`, because
 `ji`/`zu` are the keystrokes that produce じ/ず, not ぢ/づ.
+
+Unlock milestones are **derived from `sourceOptions`**, not restated. The
+thresholds and the source names were written out in both files, so raising a
+source's `unlockAt` left a milestone promising the old number and naming an
+unlock that no longer happened there. The tests derive them too — restating a
+threshold in a test is the same duplication one level down.
 
 `gojuonBank` holds the chart, one row per item, tagged `seion` / `dakuten` /
 `yoon`, and backs the `kana` source. Never gate it on speed — a beginner needs

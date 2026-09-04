@@ -28,11 +28,11 @@ describe('mulberry32', () => {
 
 describe('pickRandom', () => {
   it('throws on an empty array rather than returning undefined', () => {
-    expect(() => pickRandom([])).toThrow()
+    expect(() => pickRandom([], mulberry32(1))).toThrow()
   })
 
   it('picks the only item from a single-element array', () => {
-    expect(pickRandom(['only'])).toBe('only')
+    expect(pickRandom(['only'], mulberry32(1))).toBe('only')
   })
 
   it('uses the injected rng deterministically', () => {
@@ -74,7 +74,7 @@ describe('dealRandom', () => {
   })
 
   it('throws on an empty pool', () => {
-    expect(() => dealRandom([], 1)).toThrow('must not be empty')
+    expect(() => dealRandom([], 1, mulberry32(1))).toThrow('must not be empty')
   })
 
   it('returns nothing when asked for nothing', () => {

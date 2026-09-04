@@ -7,6 +7,7 @@ import type {
   TimingStat,
   Unlock,
 } from './types'
+import { sourceOptions } from './lessons'
 import { STANDARD_TIMED_MS } from './types'
 import type { SourceName } from './types'
 
@@ -26,9 +27,19 @@ export function unlockedMilestones(lifetime: LifetimeStats): Unlock[] {
   const { bestWpm: best, totalSessions: sessions, totalChars: chars } = lifetime
   return [
     { id: 'first', label: 'first run', reached: sessions >= 1 },
-    { id: 'wpm30', label: '30 wpm · difficult unlocked', reached: best >= 30 },
-    { id: 'wpm50', label: '50 wpm · quotes unlocked', reached: best >= 50 },
-    { id: 'wpm70', label: '70 wpm · library source unlocked', reached: best >= 70 },
+    /*
+     * Derived from `sourceOptions`, not restated. The thresholds and the names
+     * were written out again here, so raising a source's `unlockAt` left a
+     * milestone promising the old number and naming an unlock that no longer
+     * happens there.
+     */
+    ...sourceOptions
+      .filter((option) => option.unlockAt > 0)
+      .map((option) => ({
+        id: `wpm${option.unlockAt}`,
+        label: `${option.unlockAt} wpm · ${option.label} unlocked`,
+        reached: best >= option.unlockAt,
+      })),
     { id: 'wpm100', label: '100 wpm · long-run mastery', reached: best >= 100 },
     { id: 'sessions10', label: '10 sessions', reached: sessions >= 10 },
     { id: 'sessions50', label: '50 sessions', reached: sessions >= 50 },

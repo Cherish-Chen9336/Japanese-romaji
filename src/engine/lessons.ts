@@ -198,7 +198,7 @@ export function buildParagraph(
   items: TextItem[],
   source: SourceName,
   length: number,
-  rng: RandomSource = Math.random,
+  rng: RandomSource,
 ): Lesson {
   const picked = dealRandom(items, length, rng)
   return {
@@ -288,7 +288,7 @@ export function planRun(
   weakKana: readonly string[],
   library: TextItem[],
   bestWpmValue = 0,
-  rng: RandomSource = Math.random,
+  rng: RandomSource,
   kanaGroup: KanaGroup = 'all',
 ): RunPlan {
   const usableSource: Exclude<SourceName, 'auto'> = !sourceUnlocked(requestedSource, bestWpmValue)
@@ -320,7 +320,7 @@ export function planRun(
 export function dealLesson(
   plan: RunPlan,
   settings: Settings,
-  rng: RandomSource = Math.random,
+  rng: RandomSource,
 ): { lesson: Lesson; plan: RunPlan } {
   const { dealt, deck } = dealFrom(plan.deck, settings.paragraphItems, rng)
   return {
@@ -340,7 +340,7 @@ export function generateLesson(
   weakKana: readonly string[],
   library: TextItem[],
   bestWpmValue = 0,
-  rng: RandomSource = Math.random,
+  rng: RandomSource,
   kanaGroup: KanaGroup = 'all',
 ): Lesson {
   return dealLesson(planRun(requestedSource, weakKana, library, bestWpmValue, rng, kanaGroup), settings, rng)
