@@ -656,6 +656,24 @@ reported, so having more misses overall than in this run is exactly what "missed
 this before" means. It is drawn with an underline and a border rather than a
 second fill colour, so it survives a red deficiency and a monochrome screen.
 
+### The practice view keeps the keyboard in place
+
+The passage sits in a **bounded, scrolling box**, not one that grows. At thirty
+items it ran to 643px and pushed the on-screen keyboard to 770–1017px in an
+800px window — entirely below the fold, which makes the keyboard useless for the
+one thing it is there for. `.typing-area` now takes the space left and keeps its
+overflow to itself, so the keyboard, the source picker and the hints hold their
+positions however long the text is.
+
+The kana and romaji sizes came down with it: at `3.8vw` the kana alone filled the
+box before the romaji had a line.
+
+A scrolling box means the caret can leave the visible region, which is typing
+blind — measured at 427px against a box ending at 408. An effect keeps
+`.char--current` in view on every keystroke, with `block: 'nearest'` so the text
+only moves when it must; scrolling on every keystroke makes the line twitch under
+the reader.
+
 ### The input model
 
 Typing runs against **kana tokens**, not a fixed romaji string. `engine/prompt.ts`

@@ -1,4 +1,4 @@
-import { For, Show, createMemo, createSignal, onCleanup, onMount } from 'solid-js'
+import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount } from 'solid-js'
 import './App.css'
 import {
   drillMoras,
@@ -584,6 +584,23 @@ function App() {
 
   onCleanup(cancelCompletion)
 
+  let typingArea: HTMLElement | undefined
+
+  /*
+   * Keeps the character being typed inside the scrolling box.
+   *
+   * Bounding the passage so the keyboard stays put means the text can now run
+   * past the bottom of its own box — and without this the caret goes with it,
+   * which is typing blind. `nearest` so it only moves when it has to: scrolling
+   * on every keystroke would make the line twitch under the reader.
+   */
+  createEffect(() => {
+    // Depend on the keystroke count so this runs as the cursor advances.
+    session().keys.length
+    const caret = typingArea?.querySelector('.char--current')
+    caret?.scrollIntoView({ block: 'nearest' })
+  })
+
   const backspace = () => {
     setSession((current) => applyBackspace(current, tokens()))
   }
@@ -787,7 +804,7 @@ function App() {
               }}
             />
 
-            <section class="typing-area" aria-label="practice paragraph">
+            <section class="typing-area" ref={typingArea} aria-label="practice paragraph">
               {/* Kanji is shown with its reading above it and typed as that
                   reading — display and keystrokes are separate concerns. Words
                   with nothing to gloss render as plain text. */}

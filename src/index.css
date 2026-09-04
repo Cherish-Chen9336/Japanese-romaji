@@ -40,7 +40,9 @@
   --fs-24: clamp(1.375rem, 1.2rem + 0.7vw, 1.75rem);
   /* Practice romaji — the character-by-character target line. Needs to stay
    * comfortable on phones and go noticeably larger on a desktop. */
-  --fs-practice: clamp(1.25rem, 0.95rem + 1.5vw, 2rem);
+  /* The romaji line. Trimmed once the typing area became a scrolling box: a
+     smaller measure fits more of the passage before it has to scroll at all. */
+  --fs-practice: clamp(1.05rem, 0.85rem + 1vw, 1.5rem);
 
   --fw-medium: 500;
   --fw-semibold: 600;
