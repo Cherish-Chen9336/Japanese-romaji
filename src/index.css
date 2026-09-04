@@ -15,8 +15,8 @@
   --color-accent-rgb: 23 143 123;
   /* A deep version of the accent, for surfaces that sit *over* the page rather
      than in it. Channels too, for the rgb() fallbacks. */
-  --color-accent-deep: #0e4d42;
-  --color-accent-deep-rgb: 14 77 66;
+  --color-accent-deep: #105646;
+  --color-accent-deep-rgb: 16 86 70;
   --color-accent-fg: #ffffff;
   --color-error: #c4473d;
   /* Channels, for the rgb() fallbacks that run where color-mix does not. */

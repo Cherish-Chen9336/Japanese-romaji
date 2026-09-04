@@ -268,13 +268,20 @@ Tooltip text is joined with ` · `. The first segment is the thing being describ
 and gets its own line; the rest are its numbers, quieter and monospaced. The same
 string is the cell's screen-reader text, where the separator reads as a pause.
 
-Visually it is the accent at depth, just short of opaque, over a blurred and
-lightly saturated backdrop — `--color-accent-deep`, not black. The blur is what
-makes the transparency legible: without it the kana grid reads as noise behind
-the text rather than texture beneath it. Measured on real pixels, white on the
-composited background is **7.58:1**, past AA and AAA both. Two escapes: an opaque
-background under `prefers-contrast: more`, since translucency costs contrast some
-readers cannot spare, and no animation under `prefers-reduced-motion`.
+Visually it is the accent at depth over a blurred and lightly saturated backdrop
+— `--color-accent-deep`, not black. The blur is what makes the transparency
+legible: without it the kana grid reads as noise behind the text rather than
+texture beneath it.
+
+**The quiet line is what limits the tint, not the heading.** Measured on real
+composited pixels, the heading is 5.3:1 and the numbers beneath it 4.7:1. Lighten
+the tint or thin the alpha much further and the numbers fall below AA while the
+heading still looks perfectly fine — which is exactly how this gets shipped
+broken. Measure the *dimmest* text, and measure sampled pixels rather than the
+declared colour, because a translucent background is not the colour it says it
+is. Two escapes: an opaque background under `prefers-contrast: more`, since
+translucency costs contrast some readers cannot spare, and no animation under
+`prefers-reduced-motion`.
 
 The cells carrying a tooltip use the **ordinary pointer**. `cursor: help` says the
 thing needs explaining, when the thing *is* the data.

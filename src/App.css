@@ -1621,11 +1621,18 @@ meter::-webkit-meter-optimum-value {
  * behind the text rather than as texture beneath it.
  */
 .tooltip {
-  background: rgb(var(--color-accent-deep-rgb) / 0.9);
-  background: color-mix(in oklch, var(--color-accent-deep) 90%, transparent);
+  /*
+   * Lighter and more see-through than it started, but only as far as the text
+   * allows: the numbers are the constraint, not the heading. At this tint they
+   * measure 4.6:1 against the composited background and the heading 5.2:1 —
+   * lighten the tint or thin the alpha much further and the numbers drop below
+   * AA while the heading still looks fine, which is the trap here.
+   */
+  background: rgb(var(--color-accent-deep-rgb) / 0.8);
+  background: color-mix(in oklch, var(--color-accent-deep) 80%, transparent);
   -webkit-backdrop-filter: blur(10px) saturate(140%);
   backdrop-filter: blur(10px) saturate(140%);
-  border: var(--bw-1) solid rgb(255 255 255 / 0.14);
+  border: var(--bw-1) solid rgb(255 255 255 / 0.2);
   border-radius: 10px;
   box-shadow:
     0 10px 30px rgb(14 35 30 / 0.22),
@@ -1679,7 +1686,7 @@ meter::-webkit-meter-optimum-value {
 }
 
 .tooltip span:not(.tooltip__lead) {
-  color: rgb(255 255 255 / 0.82);
+  color: rgb(255 255 255 / 0.9);
   font-family: var(--font-mono);
 }
 
