@@ -391,36 +391,6 @@ export function accuracyFloor(points: { accuracy: number }[]): number {
 }
 
 /**
- * Speed over the last runs, oldest first, for a trend line.
- *
- * Replaces a histogram of five twenty-wpm bins. That could describe a lifetime
- * spread but not a direction: moving from 20 wpm to 40 and moving from 40 back
- * to 20 produced exactly the same picture, and "am I improving" is the question
- * the surface exists to answer.
- *
- * The median is over a five-run window, because a single unlucky run swings a
- * raw line enough to read as a trend that is not there. Gated the same way the
- * histogram was, so a short sprint cannot bend the line it is not comparable to.
- */
-export function wpmTrend(
-  runs: RunResult[],
-  count = 24,
-): { wpm: number; accuracy: number; median: number }[] {
-  const recent = runs.filter(isProgressionEligible).slice(0, count).reverse()
-  return recent.map((run, index) => {
-    const from = Math.max(0, index - 4)
-    const window = recent.slice(from, index + 1).map(runWpm).sort((a, b) => a - b)
-    const mid = Math.floor(window.length / 2)
-    return {
-      wpm: runWpm(run),
-      accuracy: run.accuracy,
-      median:
-        window.length % 2 === 1 ? window[mid] : Math.round((window[mid - 1] + window[mid]) / 2),
-    }
-  })
-}
-
-/**
  * Weight of the "probably fine" prior. Small enough that real evidence
  * overwhelms it quickly, large enough that one bad encounter isn't damning.
  */

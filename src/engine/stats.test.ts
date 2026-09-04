@@ -13,7 +13,6 @@ import {
   recentAccuracy,
   slowestMoras,
   weakMoraCount,
-  wpmTrend,
   accuracyFloor,
   cohortOf,
   defaultCohort,
@@ -576,9 +575,10 @@ describe('run mode and progression eligibility', () => {
     expect(after.streakDays).toHaveLength(1)
   })
 
-  it('keeps an ineligible run out of the speed trend', () => {
-    const points = wpmTrend([run({ wpm: 30 }), run({ wpm: 90, mode: timed(15_000) })], 10)
-    expect(points.map((p) => p.wpm)).toEqual([30])
+  /* The chart's own cohort filter already separates timed from passage, so what
+     eligibility gates here is the record surfaces, not the plot. */
+  it('keeps an ineligible run out of recent accuracy', () => {
+    expect(recentAccuracy([run({ accuracy: 100, mode: timed(15_000) }), run({ accuracy: 60 })], 5)).toBe(60)
   })
 })
 
@@ -612,36 +612,6 @@ describe('weakMoraCount', () => {
     const stats = new Map([['か', stat(9, 0)], ['き', stat(4, 1)], ['く', stat(2, 2)]])
     expect(weakMoraCount(stats)).toBe(2)
     expect(weakMoraCount(new Map())).toBe(0)
-  })
-})
-
-describe('wpmTrend', () => {
-  const series = (...wpms: number[]) => wpms.map((wpm) => run({ wpm, accuracy: 90 }))
-
-  /* `runs` is newest-first; a trend has to read oldest-first or it runs backwards. */
-  it('returns the recent runs in chronological order', () => {
-    expect(wpmTrend(series(50, 40, 30), 3).map((p) => p.wpm)).toEqual([30, 40, 50])
-  })
-
-  it('takes only the most recent window', () => {
-    expect(wpmTrend(series(9, 8, 7, 6, 5), 2).map((p) => p.wpm)).toEqual([8, 9])
-  })
-
-  /*
-   * The median is what makes the line readable: one unlucky run swings a raw
-   * line hard enough to look like a trend that is not there. Here the 10 is that
-   * run, and the smoothed value barely moves.
-   */
-  it('smooths a single outlier instead of following it', () => {
-    const points = wpmTrend(series(40, 41, 10, 39, 40).reverse(), 5)
-    const dip = points[2]
-    expect(dip.wpm).toBe(10)
-    expect(dip.median).toBeGreaterThan(30)
-  })
-
-  it('has nothing to plot without eligible runs', () => {
-    expect(wpmTrend([])).toEqual([])
-    expect(wpmTrend([run({ wpm: 80, mode: { kind: 'timed', durationMs: 15_000 } })])).toEqual([])
   })
 })
 

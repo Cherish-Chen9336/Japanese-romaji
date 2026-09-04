@@ -935,3 +935,43 @@ describe('a keystroke aimed at the next mora is not this one\'s time', () => {
     expect(done.kanaStats['か'].misses).toBe(1)
   })
 })
+
+describe('GRILL', () => {
+  it('a consumed wrong key that opens a mora is still charged to it', () => {
+    // Recovery mode: the wrong key advances, so it *is* this mora's keystroke.
+    const tokens = tokenizeKana('あか')
+    let s = applyTypeChar(emptySession(), 'a', tokens, T0, false).session
+    s = applyTypeChar(s, 'q', tokens, T0 + 100, false).session
+    const done = type(tokens, 'a', s, false)
+    expect(done.kanaStats['か'].misses).toBe(1)
+    expect(done.kanaStats['か'].attempts).toBe(1)
+  })
+
+  it('banks a complete pending mora and a carried miss together at the deadline', () => {
+    const tokens = tokenizeKana('あかき')
+    const afterA = type(tokens, 'a')                                   // あ complete, pending
+    const fumbled = applyTypeChar(afterA, 'q', tokens, T0 + 200, true) // miss carried to か
+    const ended = finishRun(fumbled.session, T0 + 60_000)
+    expect(ended.kanaStats['あ'].attempts).toBe(1)
+    expect(ended.kanaStats['あ'].misses).toBe(0)
+    expect(ended.kanaStats['か'].misses).toBe(1)
+  })
+
+  it('does not double-count a mora banked normally and then finished', () => {
+    const tokens = tokenizeKana('か')
+    const done = type(tokens, 'ka')                 // step.done banks it
+    const ended = finishRun(done, T0 + 60_000)
+    expect(ended.kanaStats['か'].attempts).toBe(1)
+  })
+
+  it('a rolled-over passage carries no pending mora into the next', () => {
+    const rolled = rollToNextPrompt(type(tokenizeKana('あか'), 'a'))
+    expect(rolled.pendingKana).toBeNull()
+    expect(rolled.carriedMiss).toBeNull()
+  })
+
+  it('finishing twice changes nothing', () => {
+    const once = finishRun(type(tokenizeKana('あか'), 'a'), T0 + 60_000)
+    expect(finishRun(once, T0 + 99_000)).toBe(once)
+  })
+})

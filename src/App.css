@@ -713,19 +713,6 @@ input[type='range'] {
   max-width: var(--stats-max);
 }
 
-.avatar {
-  align-items: center;
-  background: var(--color-accent);
-  border-radius: 999px;
-  color: var(--color-accent-fg);
-  display: flex;
-  font-family: var(--font-mono);
-  font-size: var(--fs-12);
-  height: 44px;
-  justify-content: center;
-  width: 44px;
-}
-
 /*
  * One dense twelve-column grid rather than a stack of rigid two-column rows.
  *

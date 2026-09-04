@@ -1,5 +1,5 @@
 import { isMoraToken, tokenizeKana } from './romanization'
-import { dealFrom, dealRandom, newDeck, pickRandom, type Deck, type RandomSource } from './rng'
+import { dealFrom, newDeck, pickRandom, type Deck, type RandomSource } from './rng'
 import type { KanaGroup, KanaRow, Lesson, Settings, SourceName, TextItem } from './types'
 
 export const sourceOptions: { value: SourceName; label: string; unlockAt: number }[] = [
@@ -192,21 +192,6 @@ export function parseLibraryText(text: string): TextItem[] {
       return { kana, romaji }
     })
     .filter((item): item is TextItem => item !== null)
-}
-
-export function buildParagraph(
-  items: TextItem[],
-  source: SourceName,
-  length: number,
-  rng: RandomSource,
-): Lesson {
-  const picked = dealRandom(items, length, rng)
-  return {
-    kana: picked.map((item) => item.kana).join(' '),
-    romaji: picked.map((item) => item.romaji).join(' '),
-    source,
-    items: picked,
-  }
 }
 
 /** The moras an item is actually made of, as the matcher and the stats see it. */

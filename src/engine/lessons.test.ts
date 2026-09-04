@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import {
-  buildParagraph,
   dealLesson,
   planRun,
   difficultBank,
@@ -58,61 +57,6 @@ describe('parseLibraryText', () => {
 
   it('returns an empty array for empty input', () => {
     expect(parseLibraryText('')).toEqual([])
-  })
-})
-
-describe('buildParagraph', () => {
-  it('joins `length` picked items with spaces, using the injected rng', () => {
-    const items = [
-      { kana: 'あ', romaji: 'a' },
-      { kana: 'い', romaji: 'i' },
-    ]
-    const lesson = buildParagraph(items, 'words', 3, () => 0)
-    expect(lesson).toEqual({
-      // Dealt from a shuffled deck, so both items appear before either repeats.
-      kana: 'あ い あ',
-      romaji: 'a i a',
-      source: 'words',
-      // Items are carried through so the lesson can be recompiled into matcher
-      // tokens — a per-item `reading` would be lost by the joined strings alone.
-      items: [items[0], items[1], items[0]],
-    })
-  })
-
-  // Regression: independent draws routinely produced a lesson that was the same
-  // word eight times over while leaving most of the bank unseen.
-  it('shows every item once before repeating any of them', () => {
-    const items = Array.from({ length: 6 }, (_, i) => ({ kana: `k${i}`, romaji: `r${i}` }))
-    const rng = mulberry32(7)
-    for (let trial = 0; trial < 40; trial++) {
-      const picked = buildParagraph(items, 'words', 6, rng).items
-      expect(new Set(picked).size).toBe(items.length)
-    }
-  })
-
-  it('keeps varying past the end of the bank', () => {
-    const items = [
-      { kana: 'あ', romaji: 'a' },
-      { kana: 'い', romaji: 'i' },
-      { kana: 'う', romaji: 'u' },
-    ]
-    const picked = buildParagraph(items, 'words', 9, mulberry32(3)).items
-    expect(picked).toHaveLength(9)
-    // Three full deals — each item exactly three times, in some order.
-    for (const item of items) {
-      expect(picked.filter((entry) => entry === item)).toHaveLength(3)
-    }
-  })
-
-  it('tags the lesson with the given source', () => {
-    const lesson = buildParagraph(wordBank, 'difficult', 1, () => 0)
-    expect(lesson.source).toBe('difficult')
-  })
-
-  it('produces exactly `length` picks', () => {
-    const lesson = buildParagraph(wordBank, 'words', 5, () => 0.5)
-    expect(lesson.kana.split(' ')).toHaveLength(5)
-    expect(lesson.romaji.split(' ')).toHaveLength(5)
   })
 })
 

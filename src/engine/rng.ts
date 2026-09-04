@@ -54,10 +54,12 @@ function shuffled<T>(items: readonly T[], rng: RandomSource): T[] {
 /**
  * A deck part-way through being dealt: what is left, and what it is a deck of.
  *
- * `dealRandom` builds its deck inside the call, so two consecutive calls each
- * start from a full shuffle and can hand out the same item either side of the
- * boundary — the very repetition dealing exists to prevent. That was invisible
- * while one deal filled one whole run; a timed run deals several times.
+ * Dealing exists because independent draws cluster: an eight-item lesson drawn
+ * one at a time routinely came back as the same word eight times while leaving
+ * most of the bank unseen. A deck fixes that within one deal — but a deck built
+ * *inside* the call starts from a full shuffle every time, so two deals can hand
+ * out the same item either side of the boundary. That was invisible while one
+ * deal filled one whole run; a timed run deals several times.
  */
 export type Deck<T> = {
   readonly items: readonly T[]
@@ -74,9 +76,9 @@ export function newDeck<T>(items: readonly T[]): Deck<T> {
 /**
  * Deals `count` items and hands back the deck to deal from next time.
  *
- * The same guarantee `dealRandom` gives within one call — every item appears
- * once before any appears twice — now holds *across* calls, which is what makes
- * a run of several passages cover the bank rather than restarting it.
+ * Every item appears once before any appears twice, and that now holds *across*
+ * calls — which is what makes a run of several passages cover the bank rather
+ * than restarting it.
  */
 export function dealFrom<T>(
   deck: Deck<T>,
@@ -92,19 +94,3 @@ export function dealFrom<T>(
   return { dealt, deck: { items: deck.items, remaining } }
 }
 
-export function dealRandom<T>(
-  items: readonly T[],
-  count: number,
-  rng: RandomSource,
-): T[] {
-  if (items.length === 0) {
-    throw new Error('dealRandom: items must not be empty')
-  }
-  const out: T[] = []
-  let deck: T[] = []
-  while (out.length < count) {
-    if (deck.length === 0) deck = shuffled(items, rng)
-    out.push(deck.pop() as T)
-  }
-  return out
-}

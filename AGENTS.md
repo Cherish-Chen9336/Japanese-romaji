@@ -725,9 +725,11 @@ threshold in a test is the same duplication one level down.
 the chart most. It is also excluded from `auto`: the chart is a drill you pick,
 not something to be handed unasked mid-word-practice.
 
-Lessons are dealt from a shuffled deck (`dealRandom`), not drawn independently —
-independent draws routinely produced eight copies of one word while leaving most
-of the bank unseen.
+Lessons are dealt from a shuffled deck (`newDeck` / `dealFrom`), not drawn
+independently — independent draws routinely produced eight copies of one word
+while leaving most of the bank unseen. The deck is carried by the `RunPlan`, so
+the guarantee holds across a run of several passages rather than only within one
+deal.
 
 Known limitation, deliberate: the matcher is not an IME. It checks input against
 an already-known kana target rather than decoding romaji into kana, so it accepts
