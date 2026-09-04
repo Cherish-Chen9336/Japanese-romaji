@@ -911,3 +911,27 @@ describe('the baseline is drawn from clean typing only', () => {
     expect(s.cleanIntervals).toContain(100)
   })
 })
+
+describe('a keystroke aimed at the next mora is not this one\'s time', () => {
+  /*
+   * After あ is complete, a refused key meant for か leaves the matcher settled
+   * on あ — so あ was being charged the duration and the keystroke of a failure
+   * that was never its own. Its accuracy was right; its clock was not.
+   */
+  it('does not charge a refused boundary key to the mora before it', () => {
+    const tokens = tokenizeKana('あか')
+    const clean = type(tokens, 'a')
+    const before = { ...clean.pendingKana! }
+    const fumbled = applyTypeChar(clean, 'q', tokens, T0 + 900, true).session
+    expect(fumbled.pendingKana?.ms).toBe(before.ms)
+    expect(fumbled.pendingKana?.keystrokes).toBe(before.keystrokes)
+  })
+
+  it('leaves the mora clean and complete despite the neighbouring fumble', () => {
+    const tokens = tokenizeKana('あか')
+    const fumbled = applyTypeChar(type(tokens, 'a'), 'q', tokens, T0 + 900, true).session
+    const done = type(tokens, 'ka', fumbled)
+    expect(done.kanaStats['あ'].misses).toBe(0)
+    expect(done.kanaStats['か'].misses).toBe(1)
+  })
+})

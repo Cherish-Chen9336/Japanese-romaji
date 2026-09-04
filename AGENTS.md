@@ -104,6 +104,17 @@ difference between a tired day and a quick one as difficulty with a kana. Excess
 is summed **signed**; clamping negatives per encounter would let long spellings
 collect positive noise from more keystrokes than short ones can.
 
+**A keystroke aimed at another mora is not this mora's time.** After あ is
+complete, a refused key meant for か leaves the matcher settled on あ — and
+charging あ that gap gave a mora typed cleanly the duration of a failure at the
+next one. Accuracy was already right there; the clock was not.
+
+**Coming back from a hidden tab clears `lastKeyAt`.** The gap since the last
+keystroke is not typing, it is however long the tab was away — clamped to the
+pause cap and then charged to whichever mora came next. The first keystroke back
+is deliberately untimed, the same treatment the first key of a run and the key
+after a backspace already get.
+
 **The baseline is drawn from clean typing at both ends.** An interval qualifies
 only if this keystroke was correct *and* the one before it was — a consumed wrong
 key or a refused one both disqualify the gap that follows. That gap is recovery:
@@ -123,6 +134,12 @@ unattributable — in `nna` the second `n` opens な, but in `nnna` it belongs t
 so both encounters give up their clock rather than guess. The attempt and the
 miss always survive, so the error signal, which is the one that ranks a mora, is
 never affected by any of this.
+
+A run and the lifetime aggregate it feeds are written by `commitRun` in **one
+transaction**. As two writes, a crash or a closed tab between them left the
+profile disagreeing with itself — a run no total counted, or totals claiming a
+run whose record was never written — and nothing afterwards records which half
+was the truth.
 
 Absent `timingSamples` means "written before this existed" and falls back to
 `attempts`, reproducing exactly what those runs already displayed. That, and

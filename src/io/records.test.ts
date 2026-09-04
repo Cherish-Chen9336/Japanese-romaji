@@ -334,3 +334,32 @@ describe('createRecordStore', () => {
     expect(durable).toBe(false)
   })
 })
+
+describe('commitRun', () => {
+  /*
+   * The run and the total it feeds have to land together. As two writes, a
+   * crash between them left the profile disagreeing with itself, and nothing
+   * afterwards says which half was the truth.
+   */
+  it('stores the run and the lifetime aggregate together', async () => {
+    const store = new InMemoryRecordStore()
+    await store.commitRun({ wpm: 40 }, { bestWpm: 40, totalSessions: 1 })
+    expect(await store.readRuns()).toEqual([{ wpm: 40 }])
+    expect((await store.readAll()).lifetime).toEqual({ bestWpm: 40, totalSessions: 1 })
+  })
+
+  it('keeps runs newest-first, as the app holds them', async () => {
+    const store = new InMemoryRecordStore()
+    await store.commitRun({ wpm: 30 }, { bestWpm: 30 })
+    await store.commitRun({ wpm: 50 }, { bestWpm: 50 })
+    expect(await store.readRuns()).toEqual([{ wpm: 50 }, { wpm: 30 }])
+  })
+
+  it('does not let a caller hold a live reference into the store', async () => {
+    const store = new InMemoryRecordStore()
+    const lifetime = { bestWpm: 40 }
+    await store.commitRun({ wpm: 40 }, lifetime)
+    lifetime.bestWpm = 999
+    expect((await store.readAll()).lifetime).toEqual({ bestWpm: 40 })
+  })
+})

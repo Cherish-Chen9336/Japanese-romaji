@@ -251,10 +251,6 @@ function App() {
    * what the separate run store exists to avoid, and the cost of that rewrite
    * grew with the history rather than with what actually changed.
    */
-  const persistRun = (run: RunResult): void => {
-    void recordStore.appendRun(run).catch(() => setSaveFailed(true))
-  }
-
   /** Puts a loaded profile into the signals. Shared by boot, import and reset. */
   const adoptProfile = (profile: StoredProfile) => {
     setRuns(profile.runs)
@@ -403,6 +399,20 @@ function App() {
     return dealt.lesson
   }
 
+  /**
+   * A new run on the text already on screen.
+   *
+   * The plan has to be rebuilt even though the passage does not change: left
+   * alone, a retried timed run would deal its *second* passage from the previous
+   * run's part-spent deck, and lose the promise that a run covers its bank
+   * before repeating.
+   */
+  const retrySameText = () => {
+    plan = planRun(source(), weakKana(), library(), bestWpm(), Math.random, kanaGroup())
+    resetRunState()
+    navigate('practice')
+  }
+
   /** The next passage of the *same* run — same source, same deck. */
   const refill = () => {
     if (plan === null) return
@@ -488,13 +498,17 @@ function App() {
     const previousLifetime = lifetimeStats()
     const nextLifetime = recordRunInLifetimeStats(previousLifetime, run)
     setResultUnlocks(newlyReachedMilestones(previousLifetime, nextLifetime))
-    setLifetimeStats(() => {
-      persistRecord('lifetime', nextLifetime)
-      return nextLifetime
-    })
-    // No cap. The 100-run limit existed to fit localStorage, and truncating
-    // history is what used to make personal bests and streaks regress.
-    persistRun(run)
+    setLifetimeStats(nextLifetime)
+    /*
+     * One transaction for both. Written separately, a crash or a closed tab
+     * between them left the profile disagreeing with itself — a run no total
+     * counted, or totals claiming a run whose record was never written — and
+     * nothing afterwards records which of the two was the truth.
+     *
+     * No cap on history. The 100-run limit existed to fit localStorage, and
+     * truncating is what used to make personal bests and streaks regress.
+     */
+    void recordStore.commitRun(run, nextLifetime).catch(() => setSaveFailed(true))
     setRuns((current) => [run, ...current])
     return run
   }
@@ -639,6 +653,18 @@ function App() {
     const interval = window.setInterval(() => setTick(Date.now()), 500)
     const hashchange = () => setRoute(routeFromHash())
 
+    /*
+     * Coming back from a hidden tab, the gap since the last keystroke is not
+     * typing — it is however long the tab was away, clamped to the pause cap and
+     * then charged to whichever mora happened to be next. Clearing `lastKeyAt`
+     * makes that first keystroke deliberately untimed, the same treatment the
+     * first key of a run and the key after a backspace already get.
+     */
+    const visibility = () => {
+      if (document.visibilityState !== 'visible') return
+      setSession((current) => (current.lastKeyAt === null ? current : { ...current, lastKeyAt: null }))
+    }
+
     const keydown = (event: KeyboardEvent) => {
       // Light the cap before any early return, so modifiers (which set their own
       // ctrl/meta/alt flag on their own keydown) still show as held on the
@@ -690,6 +716,7 @@ function App() {
     const clearPressedKeys = () => setPressedKeys(new Set<string>())
 
     window.addEventListener('hashchange', hashchange)
+    document.addEventListener('visibilitychange', visibility)
     window.addEventListener('keydown', keydown)
     window.addEventListener('keyup', keyup)
     window.addEventListener('blur', clearPressedKeys)
@@ -697,6 +724,7 @@ function App() {
     onCleanup(() => {
       window.clearInterval(interval)
       window.removeEventListener('hashchange', hashchange)
+      document.removeEventListener('visibilitychange', visibility)
       window.removeEventListener('keydown', keydown)
       window.removeEventListener('keyup', keyup)
       window.removeEventListener('blur', clearPressedKeys)
@@ -1013,10 +1041,7 @@ function App() {
                     <button
                       type="button"
                       class="secondary"
-                      onClick={() => {
-                        resetRunState()
-                        navigate('practice')
-                      }}
+                      onClick={retrySameText}
                     >
                       retry same text
                     </button>

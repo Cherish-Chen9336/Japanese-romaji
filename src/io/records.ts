@@ -34,6 +34,12 @@ export interface RecordStore {
   readRuns(): Promise<unknown[]>
   /** O(1) — the whole point of the separate store. */
   appendRun(run: unknown): Promise<void>
+  /**
+   * The run and the lifetime aggregate in one transaction, or neither. Written
+   * separately they could disagree: a run no total counted, or totals claiming a
+   * run whose record was never written.
+   */
+  commitRun(run: unknown, lifetime: unknown): Promise<void>
   /** Wholesale replacement, for importing a backup. */
   replaceRuns(runs: readonly unknown[]): Promise<void>
   clear(): Promise<void>
@@ -63,6 +69,12 @@ export class InMemoryRecordStore implements RecordStore {
 
   appendRun(run: unknown): Promise<void> {
     this.runs.push(JSON.parse(JSON.stringify(run)))
+    return Promise.resolve()
+  }
+
+  commitRun(run: unknown, lifetime: unknown): Promise<void> {
+    this.runs.push(JSON.parse(JSON.stringify(run)))
+    this.data.set('lifetime', JSON.parse(JSON.stringify(lifetime)))
     return Promise.resolve()
   }
 
@@ -181,6 +193,23 @@ export class IndexedDbRecordStore implements RecordStore {
     const tx = db.transaction(RUNS_STORE, 'readwrite')
     tx.objectStore(RUNS_STORE).add(run)
     await settle(tx, 'append')
+  }
+
+  /**
+   * Appends the run and updates the lifetime aggregate together, or neither.
+   *
+   * They were two transactions. A crash, a closed tab or a failed write between
+   * them left the profile disagreeing with itself: a run in the history that no
+   * total counted, or totals claiming a run whose record was never written.
+   * Neither is recoverable afterwards, because nothing records which of the two
+   * is the truth.
+   */
+  async commitRun(run: unknown, lifetime: unknown): Promise<void> {
+    const db = await this.open()
+    const tx = db.transaction([RUNS_STORE, RECORDS_STORE], 'readwrite')
+    tx.objectStore(RUNS_STORE).add(run)
+    tx.objectStore(RECORDS_STORE).put(lifetime, 'lifetime')
+    await settle(tx, 'commit run')
   }
 
   async replaceRuns(runs: readonly unknown[]): Promise<void> {

@@ -402,19 +402,28 @@ export function applyTypeChar(
       pendingKana = null
     }
     if (trackable) {
+      /*
+       * A wrong key blamed on some *other* mora is not this mora's time. After
+       * あ is complete a refused key meant for か leaves the matcher settled on
+       * あ, and charging あ that gap gave a mora the typist typed cleanly the
+       * duration of a failure at the next one.
+       */
+      const ownsKeystroke = step.correct || blameIndex === landed.index
       pendingKana = {
         index: landed.index,
         kana: landed.kana,
-        ms: (pendingKana?.ms ?? 0) + (interval ?? 0),
+        ms: (pendingKana?.ms ?? 0) + (ownsKeystroke ? (interval ?? 0) : 0),
         missed:
           (pendingKana?.missed ?? false) ||
           (!step.correct && blameIndex === landed.index) ||
           // A fumble made at this mora's boundary, before it had opened.
           carriedMiss?.index === landed.index,
-        keystrokes: (pendingKana?.keystrokes ?? 0) + 1,
+        keystrokes: (pendingKana?.keystrokes ?? 0) + (ownsKeystroke ? 1 : 0),
         // A mora opening straight out of an ambiguous boundary has lost its
         // first interval to that ambiguity, so it is not cleanly timed either.
-        timed: (pendingKana?.timed ?? true) && interval !== null && !timingBlocked,
+        timed:
+          (pendingKana?.timed ?? true) &&
+          (!ownsKeystroke || (interval !== null && !timingBlocked)),
         complete: spelt(tokens, step.state, landed.index),
       }
       carriedMiss = null
