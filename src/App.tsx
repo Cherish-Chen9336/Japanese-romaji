@@ -694,7 +694,16 @@ function App() {
       if (event.ctrlKey || event.metaKey || event.altKey) return
       if (event.isComposing || event.keyCode === 229 || event.repeat) return
 
+      /*
+       * Not when a control has focus. This is a window-level shortcut, so it
+       * used to fire before the focused button could act on its own Enter —
+       * a keyboard user aiming at "view stats" or "retry same text" got the
+       * next practice instead, with no way to reach either.
+       */
       if (route() === 'result' && event.key === 'Enter') {
+        const el = event.target as HTMLElement | null
+        const interactive = el?.closest('button, a, input, select, textarea, [tabindex]')
+        if (interactive !== null && interactive !== undefined) return
         event.preventDefault()
         freshText()
         return
@@ -982,7 +991,10 @@ function App() {
                       <span>raw</span>
                     </div>
                     <div>
-                      <b>{run().consistency ?? 100}%</b>
+                      {/* Not `?? 100`. A run written before consistency was
+                          recorded has no value, and showing a perfect score for
+                          missing data is worse than showing nothing. */}
+                      <b>{run().consistency === undefined ? '—' : `${run().consistency}%`}</b>
                       <span>consistency</span>
                     </div>
                     <div>
@@ -1237,7 +1249,7 @@ function App() {
                                   class="calendar-cell"
                                   classList={{ active: count() > 0 }}
                                   style={{
-                                    '--day-heat': String(count() === 0 ? 0 : 0.35 + count() / max()),
+                                    '--day-heat': String(count() === 0 ? 0 : 0.35 + 0.65 * (count() / max())),
                                   }}
                                   tabindex="0"
                                   {...tipFor(

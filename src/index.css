@@ -16,8 +16,8 @@
     --color-border: #33322a;
     --color-text: #ece7db;
     --color-text-rgb: 236 231 219;
-    --color-muted: #a9a293;
-    --color-dim: #7a7466;
+    --color-muted: #bcb5a4;
+    --color-dim: #918b7a;
     --color-accent: #d4af37;
     --color-accent-rgb: 212 175 55;
     --color-accent-deep: #3d3212;
@@ -49,8 +49,8 @@
     --color-border: #33322a;
     --color-text: #ece7db;
     --color-text-rgb: 236 231 219;
-    --color-muted: #a9a293;
-    --color-dim: #7a7466;
+    --color-muted: #bcb5a4;
+    --color-dim: #918b7a;
     --color-accent: #d4af37;
     --color-accent-rgb: 212 175 55;
     --color-accent-deep: #3d3212;
@@ -76,8 +76,8 @@
   --color-border: #e2d5b8;
   --color-text: #3a3227;
   --color-text-rgb: 58 50 39;
-  --color-muted: #6b5f4d;
-  --color-dim: #8f8471;
+  --color-muted: #5e5443;
+  --color-dim: #756b5b;
   --color-accent: #9a5b28;
   --color-accent-rgb: 154 91 40;
   --color-accent-deep: #5c3517;
@@ -100,10 +100,18 @@
   --color-border: #d9e0d6;
   --color-text: #18231f;
   --color-text-rgb: 24 35 31;
-  --color-muted: #68746f;
-  --color-dim: #9aa49f;
-  --color-accent: #178f7b;
-  --color-accent-rgb: 23 143 123;
+  /*
+   * Both are text colours and both must clear 4.5:1 against the page. `dim` was
+   * #9aa49f — 2.38:1 — and it paints the *untyped romaji*, which is the primary
+   * thing a typist reads. Dimmer than the text they have typed is the point;
+   * unreadable is not.
+   */
+  --color-muted: #5a6661;
+  --color-dim: #68746f;
+  /* Darkened from #178f7b, which read 3.71:1 as small text and 4.00:1 behind
+     the primary button's white label — both short of 4.5. */
+  --color-accent: #0f7a69;
+  --color-accent-rgb: 15 122 105;
   /* A deep version of the accent, for surfaces that sit *over* the page rather
      than in it. Channels too, for the rgb() fallbacks. */
   --color-accent-deep: #105646;

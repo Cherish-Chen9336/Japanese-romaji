@@ -875,7 +875,9 @@ meter {
 }
 
 meter::-webkit-meter-bar {
-  background: color-mix(in srgb, var(--color-border) 60%, white);
+  /* Mixed toward the page, not toward literal white — on a dark theme that
+     produced a light-grey track brighter than the surface it sits on. */
+  background: color-mix(in oklch, var(--color-border) 55%, var(--color-bg));
   border: none;
   border-radius: 999px;
 }

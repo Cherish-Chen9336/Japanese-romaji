@@ -315,10 +315,18 @@ computed value is not what the reader sees:
 | | light | dark | book |
 |---|---|---|---|
 | body text | 15.0:1 | 15.8:1 | 11.5:1 |
-| muted text | 4.5:1 | 7.7:1 | 5.7:1 |
+| muted text | 5.6:1 | 9.5:1 | 6.8:1 |
+| **dim text — the untyped romaji** | 4.5:1 | 5.7:1 | 4.8:1 |
+| accent as small text | 4.9:1 | 9.3:1 | 4.9:1 |
+| button label on accent | 5.2:1 | 9.1:1 | 5.2:1 |
 | kana on a weak cell | 9.1:1 | 6.6:1 | 5.3:1 |
-| kana on a clean cell | 13.4:1 | 8.2:1 | 7.6:1 |
 | tooltip, dimmest line | 4.7:1 | 9.9:1 | 4.9:1 |
+
+**Measure the dimmest token, not the obvious one.** `--color-dim` is what paints
+the *untyped romaji* — the thing a typist reads most — and it sat at 2.38:1 in
+light while `--color-muted` was being checked and passing. Every token used for
+text has to clear 4.5:1, and `dim` and `muted` moved together so the two stay
+distinguishable rather than collapsing into one shade.
 
 Two measuring traps, both of which produced a false failure here. An in-page
 contrast helper that parses `rgb()` returns nonsense for an `oklch()` computed
