@@ -197,11 +197,20 @@
   margin: 0 auto;
   max-width: var(--content-max);
   max-height: clamp(150px, 38vh, 460px);
+  /* Scrolls, but shows no bar. The box still has to scroll — the caret effect
+     drives it, and without that the character being typed can fall out of
+     sight — but a scrollbar beside the practice line is chrome the typist never
+     needs to touch. */
   overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
   /* Room for the caret's descender against the scroll edge. */
   padding-bottom: var(--space-2);
-  scrollbar-width: thin;
   width: 100%;
+}
+
+.typing-area::-webkit-scrollbar {
+  display: none;
 }
 
 .kana-line {

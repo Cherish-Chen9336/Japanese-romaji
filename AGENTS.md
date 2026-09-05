@@ -668,6 +668,11 @@ positions however long the text is.
 The kana and romaji sizes came down with it: at `3.8vw` the kana alone filled the
 box before the romaji had a line.
 
+The bar itself is hidden — `scrollbar-width: none` plus the WebKit
+pseudo-element. The box still has to *scroll*, because the caret effect below
+drives it, but a scrollbar beside the practice line is chrome the typist never
+touches.
+
 A scrolling box means the caret can leave the visible region, which is typing
 blind — measured at 427px against a box ending at 408. An effect keeps
 `.char--current` in view on every keystroke, with `block: 'nearest'` so the text
