@@ -1254,7 +1254,7 @@ meter::-webkit-meter-optimum-value {
 }
 
 .mastery-cell--weak small {
-  color: rgb(0 0 0 / 0.55);
+  color: rgb(var(--color-text-rgb, 0 0 0) / 0.55);
   color: color-mix(in oklch, var(--color-text) 55%, transparent);
 }
 
@@ -1613,12 +1613,12 @@ meter::-webkit-meter-optimum-value {
   background: color-mix(in oklch, var(--color-accent-deep) 80%, transparent);
   -webkit-backdrop-filter: blur(10px) saturate(140%);
   backdrop-filter: blur(10px) saturate(140%);
-  border: var(--bw-1) solid rgb(255 255 255 / 0.2);
+  border: var(--bw-1) solid rgb(var(--color-on-deep-rgb) / 0.2);
   border-radius: 10px;
   box-shadow:
     0 10px 30px rgb(14 35 30 / 0.22),
     0 2px 6px rgb(14 35 30 / 0.12);
-  color: #fff;
+  color: var(--color-on-deep);
   display: flex;
   flex-direction: column;
   font-size: var(--fs-12);
@@ -1656,7 +1656,7 @@ meter::-webkit-meter-optimum-value {
     background: var(--color-accent-deep);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
-    border-color: #fff;
+    border-color: var(--color-on-deep);
   }
 }
 
@@ -1667,7 +1667,7 @@ meter::-webkit-meter-optimum-value {
 }
 
 .tooltip span:not(.tooltip__lead) {
-  color: rgb(255 255 255 / 0.9);
+  color: rgb(var(--color-on-deep-rgb) / 0.9);
   font-family: var(--font-mono);
 }
 

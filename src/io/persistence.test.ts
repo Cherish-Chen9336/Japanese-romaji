@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from 'vitest'
 import { InMemoryRecordStore } from './records'
+import { THEME_NAMES, isThemeName } from '../engine/types'
 import {
   emptyProfile,
   loadProfile,
@@ -13,6 +14,8 @@ import {
   readRuns,
   parsePreferences,
   readSettings,
+  readTheme,
+  THEME_KEY,
   readKanaGroup,
   readShowKeyboard,
   readSource,
@@ -757,5 +760,38 @@ describe('run mode on stored runs', () => {
   it('still rejects a negative character count', () => {
     store({ chars: -5, mode: { kind: 'timed', durationMs: 60000 } })
     expect(readRuns()).toHaveLength(0)
+  })
+})
+
+describe('theme preference', () => {
+  /*
+   * `system` rather than `light`: a first-time visitor on a dark desktop should
+   * not be handed a white page.
+   */
+  it('defaults to following the system', () => {
+    localStorage.removeItem(THEME_KEY)
+    expect(readTheme()).toBe('system')
+  })
+
+  it('keeps an explicit choice', () => {
+    for (const name of THEME_NAMES) {
+      localStorage.setItem(THEME_KEY, JSON.stringify(name))
+      expect(readTheme()).toBe(name)
+    }
+  })
+
+  it('falls back rather than trusting a value it does not know', () => {
+    localStorage.setItem(THEME_KEY, JSON.stringify('solarized'))
+    expect(readTheme()).toBe('system')
+    localStorage.setItem(THEME_KEY, JSON.stringify(3))
+    expect(readTheme()).toBe('system')
+  })
+
+  it('recognises exactly the known names', () => {
+    expect(THEME_NAMES.every(isThemeName)).toBe(true)
+    expect(isThemeName('sepia')).toBe(false)
+    expect(isThemeName(null)).toBe(false)
+    expect(isThemeName(undefined)).toBe(false)
+    expect(isThemeName(1)).toBe(false)
   })
 })

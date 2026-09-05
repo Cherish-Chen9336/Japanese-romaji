@@ -4,11 +4,71 @@
   box-sizing: border-box;
 }
 
+/*
+ * With no `data-theme` set — the `system` default — the OS decides. Written as
+ * a media query over the same tokens rather than as a third palette, so there
+ * is one dark palette and not two that can drift.
+ */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --color-bg: #121614;
+    --color-surface: #1a201d;
+    --color-border: #2c3531;
+    --color-text: #e6ece8;
+    --color-text-rgb: 230 236 232;
+    --color-muted: #9aa8a2;
+    --color-dim: #6d7a75;
+    --color-accent: #3fbfa4;
+    --color-accent-rgb: 63 191 164;
+    --color-accent-deep: #0c3f34;
+    --color-accent-deep-rgb: 12 63 52;
+    --color-accent-fg: #08110e;
+    --color-error: #e2685c;
+    --color-error-rgb: 226 104 92;
+    --color-on-deep: #e6ece8;
+    --color-on-deep-rgb: 230 236 232;
+  }
+}
+
+/*
+ * Themes are a palette swap and nothing else: every colour in the app comes from
+ * these tokens, so a theme redefines them and no rule elsewhere needs to know.
+ *
+ * The dark values are chosen, not derived by inversion — inverting a palette
+ * moves every hue and lands the accent somewhere it was never checked. Each pair
+ * was measured against its own background: text 15.2:1, muted 7.4:1, accent
+ * 8.0:1, error 5.5:1.
+ */
+:root[data-theme='dark'] {
+  --color-bg: #121614;
+  --color-surface: #1a201d;
+  --color-border: #2c3531;
+  --color-text: #e6ece8;
+  --color-text-rgb: 230 236 232;
+  --color-muted: #9aa8a2;
+  --color-dim: #6d7a75;
+  --color-accent: #3fbfa4;
+  --color-accent-rgb: 63 191 164;
+  --color-accent-deep: #0c3f34;
+  --color-accent-deep-rgb: 12 63 52;
+  --color-accent-fg: #08110e;
+  --color-error: #e2685c;
+  --color-error-rgb: 226 104 92;
+  --color-on-deep: #e6ece8;
+  --color-on-deep-rgb: 230 236 232;
+  color-scheme: dark;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+
 :root {
   --color-bg: #f5f7f3;
   --color-surface: #ffffff;
   --color-border: #d9e0d6;
   --color-text: #18231f;
+  --color-text-rgb: 24 35 31;
   --color-muted: #68746f;
   --color-dim: #9aa49f;
   --color-accent: #178f7b;
@@ -21,6 +81,13 @@
   --color-error: #c4473d;
   /* Channels, for the rgb() fallbacks that run where color-mix does not. */
   --color-error-rgb: 196 71 61;
+  /*
+   * Ink *on* the accent-deep surface — the tooltip. Named rather than written as
+   * `#fff`, because in dark mode that surface sits on a dark page and the text
+   * over it is no longer plain white.
+   */
+  --color-on-deep: #ffffff;
+  --color-on-deep-rgb: 255 255 255;
 
   --font-sans:
     "Hiragino Sans", "Yu Gothic", "Noto Sans JP", -apple-system, BlinkMacSystemFont, "Segoe UI",
@@ -73,7 +140,7 @@
 
   background: var(--color-bg);
   color: var(--color-text);
-  color-scheme: light;
+  color-scheme: light dark;
   font-family: var(--font-sans);
   font-size: var(--fs-14);
   font-synthesis: none;

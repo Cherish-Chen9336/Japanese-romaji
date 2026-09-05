@@ -138,6 +138,19 @@ export type KeyboardLayoutName = 'mac' | 'windows'
 
 export const KEYBOARD_LAYOUT_NAMES: readonly KeyboardLayoutName[] = ['windows', 'mac']
 
+/**
+ * Which palette the app wears. `system` is the default and not a value of its
+ * own — it means "whatever the OS is asking for", resolved at read time, so
+ * someone who has never opened settings gets a dark app on a dark desktop.
+ */
+export type ThemeName = 'system' | 'light' | 'dark'
+
+export const THEME_NAMES: readonly ThemeName[] = ['system', 'light', 'dark']
+
+export function isThemeName(value: unknown): value is ThemeName {
+  return THEME_NAMES.includes(value as ThemeName)
+}
+
 export function isKeyboardLayoutName(value: unknown): value is KeyboardLayoutName {
   return value === 'mac' || value === 'windows'
 }

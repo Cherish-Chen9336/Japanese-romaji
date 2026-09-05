@@ -1,8 +1,9 @@
 import { lifetimeStatsFromRuns } from '../engine/stats'
-import { isKanaGroup, isKeyboardLayoutName } from '../engine/types'
+import { isKanaGroup, isKeyboardLayoutName, isThemeName } from '../engine/types'
 import type {
   KanaGroup,
   KeyboardLayoutName,
+  ThemeName,
   LifetimeStats,
   RunResult,
   Settings,
@@ -22,6 +23,7 @@ export const CONFUSIONS_KEY = 'japanese-romaji:confusions'
 export const SHOW_KEYBOARD_KEY = 'japanese-romaji:show-keyboard'
 export const LIFETIME_KEY = 'japanese-romaji:lifetime'
 export const KEYBOARD_LAYOUT_KEY = 'japanese-romaji:keyboard-layout'
+export const THEME_KEY = 'japanese-romaji:theme'
 export const KANA_GROUP_KEY = 'japanese-romaji:kana-group'
 export const SOURCE_KEY = 'japanese-romaji:source'
 
@@ -304,6 +306,15 @@ export function readLifetimeStats(): LifetimeStats {
  * (ctrl / super / alt / space) matches Linux and Windows machines, which is what
  * most visitors are on; mac users can switch in settings.
  */
+/**
+ * The chosen theme. Defaults to `system` rather than `light`: a first-time
+ * visitor on a dark desktop should not be handed a white page.
+ */
+export function readTheme(): ThemeName {
+  const raw = readJson<unknown>(THEME_KEY, null)
+  return isThemeName(raw) ? raw : 'system'
+}
+
 export function readKeyboardLayout(): KeyboardLayoutName {
   const raw = readJson<unknown>(KEYBOARD_LAYOUT_KEY, null)
   return isKeyboardLayoutName(raw) ? raw : 'windows'

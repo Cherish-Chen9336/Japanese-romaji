@@ -1,4 +1,4 @@
-import { For, Show, createMemo, createSignal, onCleanup, onMount } from 'solid-js'
+import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount } from 'solid-js'
 import './App.css'
 import {
   drillMoras,
@@ -45,10 +45,11 @@ import {
   leastPractisedKana,
   weakestKana,
 } from './engine/stats'
-import { KANA_GROUPS, KEYBOARD_LAYOUT_NAMES, STANDARD_TIMED_MS } from './engine/types'
+import { KANA_GROUPS, KEYBOARD_LAYOUT_NAMES, STANDARD_TIMED_MS, THEME_NAMES } from './engine/types'
 import type {
   KanaGroup,
   KeyboardLayoutName,
+  ThemeName,
   Lesson,
   LifetimeStats,
   RunResult,
@@ -67,6 +68,7 @@ import {
 import {
   KANA_GROUP_KEY,
   KEYBOARD_LAYOUT_KEY,
+  THEME_KEY,
   SETTINGS_KEY,
   SHOW_KEYBOARD_KEY,
   SOURCE_KEY,
@@ -75,6 +77,7 @@ import {
   migrateLocalStorage,
   readKanaGroup,
   readKeyboardLayout,
+  readTheme,
   readSettings,
   readShowKeyboard,
   readSource,
@@ -128,6 +131,26 @@ function App() {
   const [tick, setTick] = createSignal(Date.now())
   const [pressedKeys, setPressedKeys] = createSignal<ReadonlySet<string>>(new Set())
   const [showKeyboard, setShowKeyboard] = createSignal(readShowKeyboard())
+  const [theme, setThemeSignal] = createSignal<ThemeName>(readTheme())
+
+  /*
+   * Writes the resolved palette onto the root element.
+   *
+   * `system` sets no attribute at all rather than resolving to a value: the
+   * media query then answers, and the app follows the desktop switching between
+   * light and dark without a reload. Only an explicit choice pins it.
+   */
+  createEffect(() => {
+    const chosen = theme()
+    const root = document.documentElement
+    if (chosen === 'system') root.removeAttribute('data-theme')
+    else root.setAttribute('data-theme', chosen)
+  })
+
+  const setTheme = (next: ThemeName) => {
+    persist(THEME_KEY, next)
+    setThemeSignal(next)
+  }
   const [keyboardLayout, setKeyboardLayout] = createSignal<KeyboardLayoutName>(readKeyboardLayout())
   const [kanaGroup, setKanaGroup] = createSignal<KanaGroup>(readKanaGroup())
   const [customText, setCustomText] = createSignal('')
@@ -1382,6 +1405,25 @@ function App() {
               />
               <span>show on-screen keyboard</span>
             </label>
+            <div class="field">
+              <span>theme</span>
+              <div class="pill-row">
+                <For each={THEME_NAMES}>
+                  {(name) => (
+                    <button
+                      type="button"
+                      class="pill"
+                      classList={{ active: theme() === name }}
+                      aria-pressed={theme() === name}
+                      onClick={() => setTheme(name)}
+                    >
+                      {name}
+                    </button>
+                  )}
+                </For>
+              </div>
+            </div>
+
             <div class="field">
               <span>keyboard layout</span>
               <div class="pill-row">

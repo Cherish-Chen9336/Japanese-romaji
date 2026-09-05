@@ -279,6 +279,37 @@ Two traps here, both of which cost real time:
   stops applying, check `document.styleSheets` sizes before editing the CSS —
   restarting Vite and clearing `node_modules/.vite` fixed it.
 
+### Themes
+
+A palette swap and nothing else: every colour comes from the tokens in
+`index.css`, so a theme redefines those and no rule elsewhere needs to know. The
+five colour literals that were left — all in the tooltip and one mastery cell —
+became tokens first, because a literal is exactly what a theme cannot reach.
+
+**`system` is the default and is not a palette.** It sets no `data-theme` at all,
+so the `prefers-color-scheme` block answers and the app follows the desktop
+without a reload; only an explicit choice pins it. That means the dark values
+appear twice, in the media query and under `[data-theme='dark']` — deliberately
+one palette written in two places rather than two palettes that can drift.
+
+**The dark values are chosen, not inverted.** Inverting a palette moves every hue
+and lands the accent somewhere nobody checked. Each pair was measured against its
+own background, and the coloured surfaces were measured on **rendered pixels**,
+because `color-mix` and translucency mean the computed value is not what the
+reader sees:
+
+| | light | dark |
+|---|---|---|
+| body text | 15.0:1 | 15.2:1 |
+| muted text | 4.5:1 | 7.4:1 |
+| kana on a weak cell | 9.1:1 | 7.6:1 |
+| kana on a clean cell | 13.4:1 | 10.7:1 |
+| tooltip heading / numbers | 5.3 / 4.7:1 | 11.1 / 9.3:1 |
+
+Note the measuring trap: an in-page contrast helper that parses `rgb()` returns
+nonsense for an `oklch()` computed value and will happily report 1.28:1 for text
+that is perfectly legible. Sample pixels for anything mixed or translucent.
+
 ### Tooltips
 
 `ui/Tooltip.tsx` is one shared element for the whole page, driven by a signal —
