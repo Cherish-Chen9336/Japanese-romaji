@@ -782,6 +782,17 @@ grammatical particles (こんにちは shown, `konnichiwa` typed) and kanji (学
 shown, `gakkou` typed) work with no extra machinery — the same arrangement every
 Japanese typing site uses. **You only ever type kana**: kanji is display only.
 
+**Pasted library text does not need a reading if it is kana.** `derivedRomaji`
+spells the kana itself, so pasting おはよう is enough and pasting 学校 is not —
+`tokenizeKana` falls back to one self-spelling token per character for anything
+it cannot read, which is exactly the "no reading available" case. Requiring
+`かな|romaji` for everything made the obvious action, pasting Japanese, produce
+nothing at all.
+
+**And a refused line says why.** `parseLibrary` returns what it rejected and for
+which of three reasons. Returning an empty list and nothing else meant the add
+button simply appeared not to work.
+
 `engine/furigana.ts` draws the reading over the kanji. It must never annotate
 kana — こんにちは carries a `reading` because は is a particle there, and stacking
 こんにちわ on top of it would present a spelling difference as a pronunciation

@@ -7,7 +7,8 @@ import {
   planRun,
   type RunPlan,
   kanaRows,
-  parseLibraryText,
+  parseLibrary,
+  type LibraryReject,
   sourceOptions,
 } from './engine/lessons'
 import { compilePrompt, wordIndexForToken } from './engine/prompt'
@@ -156,6 +157,7 @@ function App() {
   const [keyboardLayout, setKeyboardLayout] = createSignal<KeyboardLayoutName>(readKeyboardLayout())
   const [kanaGroup, setKanaGroup] = createSignal<KanaGroup>(readKanaGroup())
   const [customText, setCustomText] = createSignal('')
+  const [libraryMessage, setLibraryMessage] = createSignal<string | null>(null)
   const [lastRun, setLastRun] = createSignal<RunResult | null>(runs()[0] ?? null)
   const [resultUnlocks, setResultUnlocks] = createSignal<Unlock[]>([])
   const nextTarget = createMemo(() => nextMilestone(lifetimeStats()))
@@ -633,15 +635,40 @@ function App() {
     resetRunState()
   }
 
+  const REJECT_REASONS: Record<LibraryReject['reason'], string> = {
+    'no-reading': 'needs a reading, as kanji|romaji',
+    'word-mismatch': 'the kana and romaji disagree about where the words break',
+    unsupported: 'contains a character this app cannot type',
+  }
+
   const addCustomText = (text: string) => {
-    const parsed = parseLibraryText(text)
-    if (parsed.length === 0) return
+    const { items, rejected } = parseLibrary(text)
+    if (items.length === 0) {
+      /*
+       * Say why. A paste that produced nothing used to return in silence, so
+       * the button looked broken — and pasting plain Japanese, which is the
+       * obvious thing to try, is exactly what produced nothing.
+       */
+      setLibraryMessage(
+        rejected.length === 0
+          ? 'Nothing to add — the box is empty.'
+          : `Could not read ${rejected.length === 1 ? 'that line' : `any of those ${rejected.length} lines`}: ${
+              REJECT_REASONS[rejected[0].reason]
+            }.`,
+      )
+      return
+    }
     setLibrary((current) => {
-      const next = [...parsed, ...current].slice(0, 200)
+      const next = [...items, ...current].slice(0, 200)
       persistRecord('library', next)
       return next
     })
     setCustomText('')
+    setLibraryMessage(
+      rejected.length === 0
+        ? null
+        : `Added ${items.length}, skipped ${rejected.length}: ${REJECT_REASONS[rejected[0].reason]}.`,
+    )
     changeSource('library')
     navigate('practice')
   }
@@ -1361,12 +1388,21 @@ function App() {
           <section class="page">
             <h1>library</h1>
             <p class="muted">
-              Paste lines as <code>かな|romaji</code>, or upload a .txt/.md file with that format.
+              Paste Japanese, one line or sentence at a time. Kana is enough — the
+              romaji is worked out for you. Kanji needs its reading, as{' '}
+              <code>学校|gakkou</code>.
             </p>
+            <Show when={libraryMessage()}>
+              {(message) => (
+                <p class="notice" role="status" aria-live="polite">
+                  {message()}
+                </p>
+              )}
+            </Show>
             <textarea
               value={customText()}
               onInput={(event) => setCustomText(event.currentTarget.value)}
-              placeholder={'おはよう|ohayou\nきょうはいいてんきです|kyouhaiitenkidesu'}
+              placeholder={'おはよう\nきょうはいいてんきです\n学校|gakkou'}
             />
             <div class="action-row">
               <button type="button" class="primary" onClick={() => addCustomText(customText())}>

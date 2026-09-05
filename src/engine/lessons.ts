@@ -180,27 +180,81 @@ function stripMarkdownChars(text: string): string {
     .replace(/[#>*_`[\]()!-]/g, ' ')
 }
 
+/**
+ * What a line of pasted text could not become, and why — so the page can say so.
+ *
+ * Rejections used to be silent: a paste that produced nothing at all returned an
+ * empty list and the button simply appeared not to work. Pasting ordinary
+ * Japanese is the obvious thing to try, so the obvious thing looked broken.
+ */
+export type LibraryReject = { line: string; reason: 'no-reading' | 'word-mismatch' | 'unsupported' }
+
+export type LibraryParse = { items: TextItem[]; rejected: LibraryReject[] }
+
+/**
+ * Romaji derived from the kana itself, or null where the text is not all kana.
+ *
+ * `tokenizeKana` falls back to one token per character for anything it cannot
+ * read, and such a token spells itself — so a token whose spelling is its own
+ * kana is exactly the case that has no reading. Kanji lands there, which is why
+ * kanji still needs `学校|gakkou` while `おはよう` needs nothing.
+ */
+export function derivedRomaji(kana: string): string | null {
+  const words = kana.split(' ')
+  const spelled: string[] = []
+  for (const word of words) {
+    const tokens = tokenizeKana(word)
+    if (tokens.length === 0) return null
+    let out = ''
+    for (const token of tokens) {
+      const spelling = token.candidates[0]
+      if (spelling === undefined || spelling === token.kana) return null
+      out += spelling
+    }
+    spelled.push(out)
+  }
+  return spelled.join(' ')
+}
+
+export function parseLibrary(text: string): LibraryParse {
+  const items: TextItem[] = []
+  const rejected: LibraryReject[] = []
+
+  for (const raw of stripMarkdownChars(text).split(/\n|。|、|\.|,|;/)) {
+    const part = raw.trim()
+    if (part === '') continue
+
+    const paired = part.includes('|') ? part.split('|') : part.split(/\s{2,}/)
+    const kana = paired[0].trim()
+    // No explicit reading is not an error when the kana can supply one itself.
+    const romaji = (paired[1] ?? '').trim().toLowerCase() || derivedRomaji(kana)
+
+    if (kana === '' || romaji === null || romaji === '') {
+      rejected.push({ line: part, reason: 'no-reading' })
+      continue
+    }
+    // The display splits on the kana's spaces and the cursor counts the
+    // romaji's, so a pair that disagrees about where the words are highlights
+    // the wrong one. Dropping it asks the author to add the missing space.
+    if (kana.split(' ').length !== romaji.split(' ').length) {
+      rejected.push({ line: part, reason: 'word-mismatch' })
+      continue
+    }
+    // Every token has to be reachable by one keypress. An astral character
+    // compiles to a token that `applyTypeChar` can never accept, leaving the
+    // lesson impossible to finish.
+    if (romaji.length !== [...romaji].length) {
+      rejected.push({ line: part, reason: 'unsupported' })
+      continue
+    }
+    items.push({ kana, romaji })
+  }
+  return { items, rejected }
+}
+
+/** The items alone, for callers that do not report on what was dropped. */
 export function parseLibraryText(text: string): TextItem[] {
-  return stripMarkdownChars(text)
-    .split(/\n|。|、|\.|,|;/)
-    .map((part) => part.trim())
-    .filter(Boolean)
-    .map((part) => {
-      const [rawKana, rawRomaji] = part.includes('|') ? part.split('|') : part.split(/\s{2,}/)
-      if (!rawKana || !rawRomaji) return null
-      const kana = rawKana.trim()
-      const romaji = rawRomaji.trim().toLowerCase()
-      // The display splits on the kana's spaces and the cursor counts the
-      // romaji's, so a pair that disagrees about where the words are highlights
-      // the wrong one. Dropping it asks the author to add the missing space.
-      if (kana.split(' ').length !== romaji.split(' ').length) return null
-      // Every token has to be reachable by one keypress. An astral character
-      // compiles to a token that `applyTypeChar` can never accept, leaving the
-      // lesson impossible to finish.
-      if (romaji.length !== [...romaji].length) return null
-      return { kana, romaji }
-    })
-    .filter((item): item is TextItem => item !== null)
+  return parseLibrary(text).items
 }
 
 /** The moras an item is actually made of, as the matcher and the stats see it. */

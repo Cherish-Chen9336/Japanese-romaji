@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   dealLesson,
   planRun,
+  parseLibrary,
+  derivedRomaji,
   autoSources,
   difficultBank,
   drillBankFromWeakKana,
@@ -412,5 +414,56 @@ describe('every source is available from the first run', () => {
     for (let i = 0; i < 40; i += 1) seen.add(planRun('auto', [], [], mulberry32(i)).source)
     expect(seen.has('difficult')).toBe(true)
     expect(seen.has('quotes')).toBe(true)
+  })
+})
+
+describe('library text without an explicit reading', () => {
+  /*
+   * Requiring `かな|romaji` made the obvious thing — pasting Japanese — produce
+   * nothing at all, silently. The kana can supply its own reading, so it does.
+   */
+  it('works out the romaji for kana', () => {
+    expect(derivedRomaji('おはよう')).toBe('ohayou')
+    expect(derivedRomaji('きょうはいいてんきです')).toBe('kyouhaiitenkidesu')
+  })
+
+  it('keeps word breaks so the display and the cursor agree', () => {
+    expect(derivedRomaji('ねこ いぬ')).toBe('neko inu')
+  })
+
+  /* Kanji has no reading to derive — that is why it still needs one given. */
+  /* A double space splits into an empty word, which has no spelling at all. */
+  it('gives up when a word segment is empty', () => {
+    expect(derivedRomaji('ねこ  いぬ')).toBeNull()
+    expect(derivedRomaji('')).toBeNull()
+  })
+
+  it('gives up on anything that is not kana', () => {
+    expect(derivedRomaji('学校')).toBeNull()
+    expect(derivedRomaji('ねこ cat')).toBeNull()
+  })
+
+  it('accepts a bare kana line', () => {
+    const { items, rejected } = parseLibrary('おはよう')
+    expect(items).toEqual([{ kana: 'おはよう', romaji: 'ohayou' }])
+    expect(rejected).toEqual([])
+  })
+
+  it('still takes an explicit reading, and prefers it', () => {
+    expect(parseLibrary('こんにちは|konnichiwa').items).toEqual([
+      { kana: 'こんにちは', romaji: 'konnichiwa' },
+    ])
+  })
+
+  /* The reasons exist so the page can say *why*, not merely that it failed. */
+  it('reports why a line was refused', () => {
+    expect(parseLibrary('学校').rejected).toEqual([{ line: '学校', reason: 'no-reading' }])
+    expect(parseLibrary('ねこ いぬ|neko').rejected[0].reason).toBe('word-mismatch')
+  })
+
+  it('takes the good lines and reports the rest', () => {
+    const { items, rejected } = parseLibrary('おはよう\n学校\nねこ')
+    expect(items.map((item) => item.kana)).toEqual(['おはよう', 'ねこ'])
+    expect(rejected).toHaveLength(1)
   })
 })

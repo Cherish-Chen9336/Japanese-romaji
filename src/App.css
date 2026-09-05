@@ -1709,3 +1709,13 @@ meter::-webkit-meter-optimum-value {
 .live__clock.is-low b {
   color: var(--color-error);
 }
+
+/* Says why a paste was refused. Quiet, but not so quiet it goes unread. */
+.notice {
+  background: rgb(var(--color-accent-rgb) / 0.1);
+  background: color-mix(in oklch, var(--color-accent) 11%, var(--color-surface));
+  border-radius: 8px;
+  color: var(--color-text);
+  font-size: var(--fs-13);
+  padding: var(--space-3) var(--space-4);
+}
