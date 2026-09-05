@@ -60,6 +60,39 @@ export const wordBank: TextItem[] = [
   { kana: '料理', reading: 'りょうり', romaji: 'ryouri' },
   { kana: '映画', reading: 'えいが', romaji: 'eiga' },
   { kana: '手紙', reading: 'てがみ', romaji: 'tegami' },
+  // Kana-only entries. A beginner meets these before they meet any kanji, and
+  // the bank was entirely kanji-and-greetings without them.
+  { kana: 'いぬ', romaji: 'inu' },
+  { kana: 'ねこ', romaji: 'neko' },
+  { kana: 'やま', romaji: 'yama' },
+  { kana: 'うみ', romaji: 'umi' },
+  { kana: 'そら', romaji: 'sora' },
+  { kana: 'はな', romaji: 'hana' },
+  { kana: 'みず', romaji: 'mizu' },
+  { kana: 'ゆき', romaji: 'yuki' },
+  { kana: 'あめ', romaji: 'ame' },
+  { kana: 'かぜ', romaji: 'kaze' },
+  { kana: '朝', reading: 'あさ', romaji: 'asa' },
+  { kana: '夜', reading: 'よる', romaji: 'yoru' },
+  { kana: '母', reading: 'はは', romaji: 'haha' },
+  { kana: '父', reading: 'ちち', romaji: 'chichi' },
+  { kana: '家', reading: 'いえ', romaji: 'ie' },
+  { kana: '車', reading: 'くるま', romaji: 'kuruma' },
+  { kana: '名前', reading: 'なまえ', romaji: 'namae' },
+  { kana: '仕事', reading: 'しごと', romaji: 'shigoto' },
+  { kana: '音楽', reading: 'おんがく', romaji: 'ongaku' },
+  { kana: '公園', reading: 'こうえん', romaji: 'kouen' },
+  { kana: '果物', reading: 'くだもの', romaji: 'kudamono' },
+  { kana: '野菜', reading: 'やさい', romaji: 'yasai' },
+  { kana: '電話', reading: 'でんわ', romaji: 'denwa' },
+  { kana: '空港', reading: 'くうこう', romaji: 'kuukou' },
+  { kana: '銀行', reading: 'ぎんこう', romaji: 'ginkou' },
+  { kana: '大学', reading: 'だいがく', romaji: 'daigaku' },
+  { kana: '教室', reading: 'きょうしつ', romaji: 'kyoushitsu' },
+  { kana: '自転車', reading: 'じてんしゃ', romaji: 'jitensha' },
+  { kana: '天気', reading: 'てんき', romaji: 'tenki' },
+  { kana: '季節', reading: 'きせつ', romaji: 'kisetsu' },
+  { kana: '約束', reading: 'やくそく', romaji: 'yakusoku' },
 ]
 
 /** Words chosen for the typing, not the reading: sokuon and yōon throughout. */
@@ -79,6 +112,26 @@ export const difficultBank: TextItem[] = [
   { kana: '茶碗', reading: 'ちゃわん', romaji: 'chawan' },
   { kana: '注射', reading: 'ちゅうしゃ', romaji: 'chuusha' },
   { kana: '貯金', reading: 'ちょきん', romaji: 'chokin' },
+  { kana: '結果', reading: 'けっか', romaji: 'kekka' },
+  { kana: '一緒', reading: 'いっしょ', romaji: 'issho' },
+  { kana: '雑貨', reading: 'ざっか', romaji: 'zakka' },
+  { kana: '発表', reading: 'はっぴょう', romaji: 'happyou' },
+  { kana: '出発', reading: 'しゅっぱつ', romaji: 'shuppatsu' },
+  { kana: '失敗', reading: 'しっぱい', romaji: 'shippai' },
+  { kana: '説明', reading: 'せつめい', romaji: 'setsumei' },
+  { kana: '牛乳', reading: 'ぎゅうにゅう', romaji: 'gyuunyuu' },
+  { kana: '将来', reading: 'しょうらい', romaji: 'shourai' },
+  { kana: '練習', reading: 'れんしゅう', romaji: 'renshuu' },
+  { kana: '両親', reading: 'りょうしん', romaji: 'ryoushin' },
+  { kana: '写真家', reading: 'しゃしんか', romaji: 'shashinka' },
+  // ん against a following vowel or n — the boundary the matcher works hardest
+  // at, and the one a typist most often fumbles.
+  { kana: '運転', reading: 'うんてん', romaji: 'unten' },
+  { kana: '案内', reading: 'あんない', romaji: 'annai' },
+  { kana: '簡単', reading: 'かんたん', romaji: 'kantan' },
+  { kana: '銀行員', reading: 'ぎんこういん', romaji: 'ginkouin' },
+  { kana: '文学', reading: 'ぶんがく', romaji: 'bungaku' },
+  { kana: '専門', reading: 'せんもん', romaji: 'senmon' },
 ]
 
 /**
@@ -150,6 +203,14 @@ export const quoteBank: TextItem[] = [
   { kana: '好きこそ 物の上手なれ', reading: 'すきこそ もののじょうずなれ', romaji: 'sukikoso mononojouzunare' },
   { kana: '雨降って 地固まる', reading: 'あめふって じかたまる', romaji: 'amefutte jikatamaru' },
   { kana: '石の上にも 三年', reading: 'いしのうえにも さんねん', romaji: 'ishinouenimo sannen' },
+  { kana: '猿も 木から 落ちる', reading: 'さるも きから おちる', romaji: 'sarumo kikara ochiru' },
+  { kana: '花より 団子', reading: 'はなより だんご', romaji: 'hanayori dango' },
+  { kana: '案ずるより 産むが 易し', reading: 'あんずるより うむが やすし', romaji: 'anzuruyori umuga yasushi' },
+  { kana: '継続は 力なり', reading: 'けいぞくは ちからなり', romaji: 'keizokuha chikaranari' },
+  { kana: '習うより 慣れろ', reading: 'ならうより なれろ', romaji: 'narauyori narero' },
+  { kana: '石橋を 叩いて 渡る', reading: 'いしばしを たたいて わたる', romaji: 'ishibashiwo tataite wataru' },
+  { kana: '知らぬが 仏', reading: 'しらぬが ほとけ', romaji: 'shiranuga hotoke' },
+  { kana: '住めば 都', reading: 'すめば みやこ', romaji: 'sumeba miyako' },
 ]
 
 export const sourceBanks: Record<

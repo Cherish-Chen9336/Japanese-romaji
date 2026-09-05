@@ -517,8 +517,8 @@ map exists to show.
 Known gaps as the corpus grows: katakana and ー reach `isMoraToken` but not the
 token model, so the regex is ahead of what is really supported; ー should not
 become its own bucket, since its sound depends on the mora before it. The
-"also tracked" strip is one horizontal row and will not scale past a handful of
-sokuon. Chart groups are hardcoded, so a new `KanaGroup` needs adding in two
+"also tracked" strip is one horizontal row and is at eight sokuon after the bank
+expansion — it will not survive many more. Chart groups are hardcoded, so a new `KanaGroup` needs adding in two
 places. Corpus-wide invariants read `allBankItems()` rather than a hand-listed
 set of banks, so a bank added later joins them by existing.
 
@@ -821,6 +821,12 @@ they were fast enough to read back what they had already given the app.
 The one fallback left is a library with nothing in it, which is real emptiness
 rather than a permission. Speed milestones survive as plain achievements and no
 longer claim anything unlocks, since nothing does.
+
+The bundled banks are small on purpose but were *too* small: 24 words meant a
+thirty-item passage repeated every entry. They are 55 / 33 / 14 now, and the
+corpus covers 112 distinct moras with every one of the chart's 104 cells
+reachable. Anything added has to pass `compileStrict` — the test over every bank
+is what makes that a build-time failure rather than a passage nobody can finish.
 
 `gojuonBank` holds the chart, one row per item, tagged `seion` / `dakuten` /
 `yoon`, and backs the `kana` source. Never gate it on speed — a beginner needs
