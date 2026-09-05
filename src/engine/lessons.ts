@@ -196,6 +196,16 @@ export const drillFallbackBank: TextItem[] = gojuonBank.filter((row) => row.grou
  * The reading has to mirror the display's word breaks, since the two are zipped
  * per word to place the furigana.
  */
+/*
+ * Proverbs. No entry may contain は or を as a *particle* alongside kanji.
+ *
+ * The particle is pronounced wa / o, so typing it as written teaches the wrong
+ * sound — but spelling the reading phonetically breaks the furigana: `rubySegments`
+ * matches the shared kana suffix to find the kanji, and けいぞくわ against 継続は
+ * shares nothing, so the whole phrase gets annotated and the kana は is glossed
+ * as わ. こんにちは escapes this only because it has no kanji to annotate.
+ * Every original entry here avoided the combination; that was not an accident.
+ */
 export const quoteBank: TextItem[] = [
   { kana: '七転び 八起き', reading: 'ななころび やおき', romaji: 'nanakorobi yaoki' },
   { kana: '急がば 回れ', reading: 'いそがば まわれ', romaji: 'isogaba maware' },
@@ -206,9 +216,9 @@ export const quoteBank: TextItem[] = [
   { kana: '猿も 木から 落ちる', reading: 'さるも きから おちる', romaji: 'sarumo kikara ochiru' },
   { kana: '花より 団子', reading: 'はなより だんご', romaji: 'hanayori dango' },
   { kana: '案ずるより 産むが 易し', reading: 'あんずるより うむが やすし', romaji: 'anzuruyori umuga yasushi' },
-  { kana: '継続は 力なり', reading: 'けいぞくは ちからなり', romaji: 'keizokuha chikaranari' },
+  { kana: '千里の道も 一歩から', reading: 'せんりのみちも いっぽから', romaji: 'senrinomichimo ippokara' },
   { kana: '習うより 慣れろ', reading: 'ならうより なれろ', romaji: 'narauyori narero' },
-  { kana: '石橋を 叩いて 渡る', reading: 'いしばしを たたいて わたる', romaji: 'ishibashiwo tataite wataru' },
+  { kana: '一期一会', reading: 'いちごいちえ', romaji: 'ichigoichie' },
   { kana: '知らぬが 仏', reading: 'しらぬが ほとけ', romaji: 'shiranuga hotoke' },
   { kana: '住めば 都', reading: 'すめば みやこ', romaji: 'sumeba miyako' },
 ]
@@ -248,7 +258,20 @@ function stripMarkdownChars(text: string): string {
  * empty list and the button simply appeared not to work. Pasting ordinary
  * Japanese is the obvious thing to try, so the obvious thing looked broken.
  */
-export type LibraryReject = { line: string; reason: 'no-reading' | 'word-mismatch' | 'unsupported' }
+export type LibraryReject = {
+  line: string
+  reason: 'no-reading' | 'word-mismatch' | 'unsupported' | 'too-long'
+}
+
+/**
+ * Longest line the library accepts, matching what storage will read back.
+ *
+ * Without this the parser accepted a line that persistence would silently drop
+ * on the next load — the entry appeared to save, practised once, and was gone
+ * afterwards with nothing said. Compilation also walks one token per character,
+ * so an unbounded line is unbounded recursion.
+ */
+export const MAX_LIBRARY_ITEM_CHARS = 400
 
 export type LibraryParse = { items: TextItem[]; rejected: LibraryReject[] }
 
@@ -292,6 +315,10 @@ export function parseLibrary(text: string): LibraryParse {
 
     if (kana === '' || romaji === null || romaji === '') {
       rejected.push({ line: part, reason: 'no-reading' })
+      continue
+    }
+    if (kana.length > MAX_LIBRARY_ITEM_CHARS || romaji.length > MAX_LIBRARY_ITEM_CHARS) {
+      rejected.push({ line: part, reason: 'too-long' })
       continue
     }
     // The display splits on the kana's spaces and the cursor counts the

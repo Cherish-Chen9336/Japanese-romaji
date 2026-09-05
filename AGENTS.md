@@ -790,8 +790,20 @@ it cannot read, which is exactly the "no reading available" case. Requiring
 nothing at all.
 
 **And a refused line says why.** `parseLibrary` returns what it rejected and for
-which of three reasons. Returning an empty list and nothing else meant the add
+which of four reasons. Returning an empty list and nothing else meant the add
 button simply appeared not to work.
+
+`MAX_LIBRARY_ITEM_CHARS` has to match the cap `readLibrary` enforces. When the
+parser was the more permissive of the two, a long line saved, practised once, and
+vanished on the next load with nothing said.
+
+No bundled item may pair a **particle は or を with kanji**. The particle is
+pronounced wa / o, so typing it as written teaches the wrong sound — but spelling
+the reading phonetically breaks the furigana, because `rubySegments` finds the
+kanji by matching the shared kana suffix, and けいぞくわ against 継続は shares
+none of it. The whole phrase is then annotated and the kana は is glossed as わ.
+こんにちは escapes this only by having no kanji to annotate. Every original quote
+avoided the combination; two added later did not, and were replaced.
 
 `engine/furigana.ts` draws the reading over the kanji. It must never annotate
 kana — こんにちは carries a `reading` because は is a particle there, and stacking

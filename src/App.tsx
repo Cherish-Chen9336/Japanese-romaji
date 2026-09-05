@@ -639,6 +639,7 @@ function App() {
     'no-reading': 'needs a reading, as kanji|romaji',
     'word-mismatch': 'the kana and romaji disagree about where the words break',
     unsupported: 'contains a character this app cannot type',
+    'too-long': 'is longer than one practice line can hold',
   }
 
   const addCustomText = (text: string) => {

@@ -3,6 +3,7 @@ import {
   dealLesson,
   planRun,
   parseLibrary,
+  MAX_LIBRARY_ITEM_CHARS,
   derivedRomaji,
   autoSources,
   difficultBank,
@@ -459,6 +460,21 @@ describe('library text without an explicit reading', () => {
   it('reports why a line was refused', () => {
     expect(parseLibrary('学校').rejected).toEqual([{ line: '学校', reason: 'no-reading' }])
     expect(parseLibrary('ねこ いぬ|neko').rejected[0].reason).toBe('word-mismatch')
+  })
+
+  /*
+   * The parser and storage have to agree on what fits. They did not: a longer
+   * line was accepted, saved, practised once, and then silently dropped the next
+   * time the profile loaded.
+   */
+  it('refuses a line longer than storage will read back', () => {
+    const long = 'あ'.repeat(MAX_LIBRARY_ITEM_CHARS + 1)
+    expect(parseLibrary(long).items).toEqual([])
+    expect(parseLibrary(long).rejected[0].reason).toBe('too-long')
+  })
+
+  it('accepts a line exactly at the limit', () => {
+    expect(parseLibrary('あ'.repeat(MAX_LIBRARY_ITEM_CHARS)).items).toHaveLength(1)
   })
 
   it('takes the good lines and reports the rest', () => {
