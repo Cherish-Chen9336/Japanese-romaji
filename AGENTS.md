@@ -231,7 +231,8 @@ Cut, with reasons, so they are not proposed again:
   result screen already shows them, but it only ever showed the ones *newly*
   reached: a notification you either caught or missed, never a ladder you can
   look back at. The panel shows all of them, reached ones filled and checked,
-  the rest outlined, with a count.
+  the rest outlined, with a count. The check is a mark rather than punctuation:
+  at the chip's own size a `✓` disappeared into the label beside it.
 - **streaks** as its own panel — the current streak is in the overview and the
   longest is one line under the calendar it describes.
 
@@ -442,8 +443,10 @@ was tried and removed: it restated in a second surface what the chart's own cell
 already hold, and earned none of the width it took.
 
 The progress plots, the key heatmap and the calendar pair off in rows beneath.
-Confusions and bigrams — the only surfaces left that cannot name a mora — sit
-behind a disclosure.
+Confusions and bigrams — the only surfaces left that cannot name a mora — come
+last, and are shown rather than folded. A disclosure asks the reader to decide
+whether something is worth opening before they can see what it is; last place
+already says "secondary" without hiding anything.
 
 **The key heatmap follows the kana chart's palette exactly**: a key you have
 never missed is the same light teal as a clean mora, and one you miss is the

@@ -853,7 +853,7 @@ input[type='range'] {
   align-items: center;
   display: grid;
   gap: var(--space-3);
-  grid-template-columns: 88px 1fr 72px;
+  grid-template-columns: 76px 1fr 64px;
 }
 
 .bar-row span {
@@ -869,8 +869,10 @@ input[type='range'] {
   font-weight: var(--fw-medium);
 }
 
+/* Thicker. At 8px these read as hairlines rather than as bars, and the value
+   they carry is the point of the row. */
 meter {
-  height: 8px;
+  height: 14px;
   width: 100%;
 }
 
@@ -1059,8 +1061,17 @@ meter::-webkit-meter-optimum-value {
   border-radius: 999px;
   color: var(--color-text);
   font-family: var(--font-mono);
-  font-size: var(--fs-12);
-  padding: var(--space-1) var(--space-3);
+  font-size: var(--fs-13);
+  padding: var(--space-2) var(--space-4);
+}
+
+/* The check is a mark, not punctuation: at the chip's own size it disappeared
+   into the label beside it. */
+.achievement__chip small {
+  color: var(--color-accent);
+  font-size: var(--fs-14);
+  font-weight: var(--fw-semibold);
+  margin-left: var(--space-1);
 }
 /*
  * Not yet reached: outlined rather than filled, so a target does not read as
@@ -1595,35 +1606,6 @@ meter::-webkit-meter-optimum-value {
 }
 
 /* --- latest runs, folded away ------------------------------------------- */
-
-/* The diagnostics group, folded. The summary carries the group heading so the
-   hierarchy is unchanged whether it is open or shut. */
-.stats-group__more > summary {
-  cursor: pointer;
-  list-style: none;
-  margin-bottom: var(--space-2);
-}
-
-.stats-group__more > summary::-webkit-details-marker {
-  display: none;
-}
-
-.stats-group__more > summary h2 {
-  display: inline;
-  margin: 0;
-}
-
-.stats-group__more > summary::before {
-  color: var(--color-muted);
-  content: '▸';
-  display: inline-block;
-  font-size: var(--fs-12);
-  margin-right: var(--space-2);
-}
-
-.stats-group__more[open] > summary::before {
-  content: '▾';
-}
 
 
 /* --- tooltip ------------------------------------------------------------ */

@@ -1306,7 +1306,7 @@ function App() {
                       >
                         {item.label}
                         <Show when={item.reached}>
-                          <small aria-hidden="true"> ✓</small>
+                          <small aria-hidden="true">✔</small>
                         </Show>
                       </span>
                     )}
@@ -1321,15 +1321,9 @@ function App() {
               </div>
             </div>
 
-            {/* Folded away. These are the least actionable surfaces on the page
-                for a kana learner, and none of them can name a mora — so they
-                should not compete with the chart for the first scan. */}
             <div class="stats-group">
-              <details class="stats-group__more">
-                <summary>
-                  <h2 class="stats-group__label">typing mechanics</h2>
-                </summary>
-                <div class="stats-grid">
+              <h2 class="stats-group__label">typing mechanics</h2>
+              <div class="stats-grid">
               <section class="panel panel--span-6">
                 <h3>most confused</h3>
                 <div class="bar-list">
@@ -1358,8 +1352,7 @@ function App() {
                   </For>
                 </div>
               </section>
-                </div>
-              </details>
+              </div>
             </div>
           </section>
         </Show>
