@@ -20,6 +20,7 @@ import {
   runCohorts,
   mergeTimingStats,
   newlyReachedMilestones,
+  nextMilestone,
   recentDayKeys,
   recordRunInLifetimeStats,
   runRawWpm,
@@ -759,3 +760,26 @@ describe('slowestMoras', () => {
   })
 })
 
+describe('nextMilestone', () => {
+  /*
+   * `newlyReachedMilestones` fires only on the run that crosses a threshold, so
+   * an established profile saw nothing. A section that appears once and never
+   * again is a flash, not a surface — this is what the result screen aims at.
+   */
+  it('names the nearest one still ahead', () => {
+    const fresh = nextMilestone(emptyLifetimeStats())
+    expect(fresh?.reached).toBe(false)
+    expect(fresh?.id).toBe('first')
+  })
+
+  it('moves on as milestones are reached', () => {
+    const after = nextMilestone({ ...emptyLifetimeStats(), totalSessions: 1 })
+    expect(after?.id).not.toBe('first')
+    expect(after?.reached).toBe(false)
+  })
+
+  it('is null once every milestone is behind you', () => {
+    const done = { bestWpm: 999, totalSessions: 999, totalChars: 999_999, totalElapsedMs: 0, streakDays: [] }
+    expect(nextMilestone(done)).toBeNull()
+  })
+})

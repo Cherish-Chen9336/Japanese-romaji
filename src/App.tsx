@@ -27,6 +27,7 @@ import {
   dailyCounts,
   mergeTimingStats,
   newlyReachedMilestones,
+  nextMilestone,
   recentDayKeys,
   recordRunInLifetimeStats,
   runRawWpm,
@@ -156,6 +157,7 @@ function App() {
   const [customText, setCustomText] = createSignal('')
   const [lastRun, setLastRun] = createSignal<RunResult | null>(runs()[0] ?? null)
   const [resultUnlocks, setResultUnlocks] = createSignal<Unlock[]>([])
+  const nextTarget = createMemo(() => nextMilestone(lifetimeStats()))
   const [saveFailed, setSaveFailed] = createSignal(false)
   const [dataMessage, setDataMessage] = createSignal('')
   const [resetArmed, setResetArmed] = createSignal(false)
@@ -1049,13 +1051,23 @@ function App() {
                     </section>
                   </Show>
 
-                  <Show when={resultUnlocks().length > 0}>
+                  {/* Newly reached ones are the celebration; the next one is
+                      what makes this a surface rather than a flash, since a run
+                      that crosses no threshold used to show nothing at all. */}
+                  <Show when={resultUnlocks().length > 0 || nextTarget() !== null}>
                     <section class="result-section" role="status" aria-live="polite">
-                      <h2>new milestone</h2>
+                      <h2>{resultUnlocks().length > 0 ? 'milestone reached' : 'next milestone'}</h2>
                       <div class="achievement__list">
                         <For each={resultUnlocks()}>
                           {(item) => <span class="achievement__chip">{item.label}</span>}
                         </For>
+                        <Show when={nextTarget()}>
+                          {(item) => (
+                            <span class="achievement__chip achievement__chip--next">
+                              {item().label}
+                            </span>
+                          )}
+                        </Show>
                       </div>
                     </section>
                   </Show>

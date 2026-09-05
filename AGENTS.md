@@ -707,10 +707,17 @@ as the hero, markedly smaller; sections are a rule and a quiet heading. Cards
 gave the secondary stats the same visual weight as the score, which is the
 opposite of what the screen is for.
 
-Chips are outlined rather than filled, both kinds: red still marks a weak mora
-and the accent still marks a milestone, but the border does the work the fill
-used to. Recurring weak moras keep the underline as well, so the distinction
-survives a red deficiency and a monochrome screen.
+Chips carry a **light fill** — a wash of the error colour for a weak mora, of the
+accent for a milestone. Outline-only made them read as buttons rather than as
+marks on the data. A milestone not yet reached is the exception and stays
+outlined, so a target never looks like something already earned. Recurring weak
+moras keep their underline, so that distinction survives a red deficiency.
+
+**Milestones show the next one, not only the newly reached.**
+`newlyReachedMilestones` fires only on the run that crosses a threshold, so on an
+established profile the section appeared once and then never again — a flash, not
+a surface. `nextMilestone` gives the screen something to aim at on every run, the
+way "still weak" does.
 
 ### Closing the loop on the results card
 

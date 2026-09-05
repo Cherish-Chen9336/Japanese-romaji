@@ -1053,13 +1053,29 @@ meter::-webkit-meter-optimum-value {
 }
 
 .achievement__chip {
-  border: var(--bw-1) solid var(--color-accent);
+  background: rgb(var(--color-accent-rgb) / 0.12);
+  background: color-mix(in oklch, var(--color-accent) 13%, var(--color-surface));
+  border: var(--bw-1) solid transparent;
   border-radius: 999px;
-  color: var(--color-accent);
+  color: var(--color-text);
   font-family: var(--font-mono);
   font-size: var(--fs-12);
   padding: var(--space-1) var(--space-3);
 }
+/*
+ * Not yet reached: outlined rather than filled, so a target does not read as
+ * something already earned.
+ *
+ * Placed *after* `.achievement__chip`, not before. Both are one class, so source
+ * order decides and a modifier written above the rule it modifies silently loses
+ * — the third time that pair has caught me here.
+ */
+.achievement__chip--next {
+  background: none;
+  border-color: var(--color-border);
+  color: var(--color-muted);
+}
+
 
 
 .sr-only {
@@ -1362,10 +1378,16 @@ meter::-webkit-meter-optimum-value {
  * signal, and the border does the work the fill used to, which keeps these
  * consistent with the milestone chips beside them.
  */
+/*
+ * Filled, but lightly. Outline-only made these read as buttons rather than as
+ * marks on the data; a soft wash of the error colour says "missed" at a glance
+ * without the weight of a solid fill.
+ */
 .still-weak__chip {
   align-items: baseline;
-  border: var(--bw-1) solid rgb(var(--color-error-rgb) / 0.45);
-  border-color: color-mix(in oklch, var(--color-error) 45%, var(--color-border));
+  background: rgb(var(--color-error-rgb) / 0.12);
+  background: color-mix(in oklch, var(--color-error) 13%, var(--color-surface));
+  border: var(--bw-1) solid transparent;
   border-radius: 999px;
   display: inline-flex;
   gap: var(--space-2);

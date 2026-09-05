@@ -47,6 +47,18 @@ export function newlyReachedMilestones(before: LifetimeStats, after: LifetimeSta
   return unlockedMilestones(after).filter((item) => item.reached && !oldReached.has(item.id))
 }
 
+/**
+ * The nearest milestone still ahead, or null once they are all behind you.
+ *
+ * `newlyReachedMilestones` only fires on the run that crosses a threshold, so on
+ * an established profile the result screen had nothing to show — a section that
+ * appears once and then never again is not a surface, it is a flash. This gives
+ * the screen something to aim at on every run, the way "still weak" does.
+ */
+export function nextMilestone(lifetime: LifetimeStats): Unlock | null {
+  return unlockedMilestones(lifetime).find((item) => !item.reached) ?? null
+}
+
 export function emptyLifetimeStats(): LifetimeStats {
   return { bestWpm: 0, totalSessions: 0, totalChars: 0, totalElapsedMs: 0, streakDays: [] }
 }
