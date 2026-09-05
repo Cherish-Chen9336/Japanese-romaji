@@ -178,15 +178,6 @@
  * share the same left edge, so the caret starts where the kana starts — the
  * layout type.review uses. Centring the lines instead made the two rows drift
  * relative to each other as the text length changed. */
-/*
- * A box that scrolls, not one that grows.
- *
- * At thirty items the passage ran to 643px and pushed the on-screen keyboard to
- * 770-1017px in an 800px window — entirely below the fold, which makes the
- * keyboard useless for the one thing it is there for. The area now takes the
- * space that is left and keeps its overflow to itself, so the keyboard, the
- * source picker and the hints stay where they are however long the text is.
- */
 .typing-area {
   color: var(--color-dim);
   font-family: var(--font-mono);
@@ -196,29 +187,16 @@
   line-height: var(--lh-loose);
   margin: 0 auto;
   max-width: var(--content-max);
-  max-height: clamp(150px, 38vh, 460px);
-  /* Scrolls, but shows no bar. The box still has to scroll — the caret effect
-     drives it, and without that the character being typed can fall out of
-     sight — but a scrollbar beside the practice line is chrome the typist never
-     needs to touch. */
-  overflow-y: auto;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-  /* Room for the caret's descender against the scroll edge. */
-  padding-bottom: var(--space-2);
+  min-height: calc(1em * var(--lh-loose) * 5);
+  text-align: left;
+  user-select: none;
   width: 100%;
-}
-
-.typing-area::-webkit-scrollbar {
-  display: none;
 }
 
 .kana-line {
   color: var(--color-text);
   font-family: var(--font-sans);
-  /* Smaller than it was: at 3.8vw a long paragraph ran to 640px of kana and
-     pushed the keyboard off the bottom of the window entirely. */
-  font-size: clamp(1.15rem, 2.4vw, 1.9rem);
+  font-size: clamp(1.35rem, 3.8vw, 2.65rem);
   font-weight: var(--fw-medium);
   letter-spacing: 0.04em;
   /* Leading has to carry the furigana, not just the kana. Blink grows the line
