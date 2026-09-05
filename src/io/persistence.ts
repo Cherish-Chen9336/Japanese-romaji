@@ -1,4 +1,5 @@
 import { lifetimeStatsFromRuns } from '../engine/stats'
+import { MAX_LIBRARY_ITEM_CHARS } from '../engine/lessons'
 import { isKanaGroup, isKeyboardLayoutName, isThemeName } from '../engine/types'
 import type {
   KanaGroup,
@@ -197,12 +198,12 @@ export function readSettings(): Settings {
   }
 }
 
-/**
- * Longest stored item accepted. Compilation walks one token per character, so an
- * unbounded item is unbounded recursion; this is far longer than any real
- * practice line and short enough to stay on the stack.
+/*
+ * The same limit the parser applies, imported rather than repeated. Written out
+ * twice they drifted, and a line the parser accepted was dropped here on the
+ * next load with nothing said.
  */
-const MAX_ITEM_CHARS = 400
+const MAX_ITEM_CHARS = MAX_LIBRARY_ITEM_CHARS
 
 /**
  * Rebuilds each stored item field by field rather than passing the object

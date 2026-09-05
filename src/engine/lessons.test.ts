@@ -34,8 +34,13 @@ describe('parseLibraryText', () => {
     ])
   })
 
-  it('parses double-space-delimited lines when there is no pipe', () => {
-    expect(parseLibraryText('きょう  kyou')).toEqual([{ kana: 'きょう', romaji: 'kyou' }])
+  /*
+   * The double space used to delimit the pair. It cannot: a gap between two
+   * Japanese words is a word break far more often than it is a separator, and
+   * reading `ねこ  いぬ` as kana-plus-romaji saved an entry nobody could type.
+   */
+  it('no longer treats a double space as a delimiter', () => {
+    expect(parseLibraryText('きょう  kyou')).toEqual([])
   })
 
   it('splits on Japanese and Latin sentence punctuation', () => {
@@ -467,6 +472,21 @@ describe('library text without an explicit reading', () => {
    * line was accepted, saved, practised once, and then silently dropped the next
    * time the profile loaded.
    */
+  /*
+   * A double space used to split the pair, so a second Japanese word was read as
+   * the romaji for the first — saved, and impossible to type. `|` only now.
+   */
+  it('treats a wide gap as a word break, not a delimiter', () => {
+    expect(parseLibrary('ねこ  いぬ').items).toEqual([{ kana: 'ねこ いぬ', romaji: 'neko inu' }])
+  })
+
+  /* Ordinary sentence punctuation is not an unsupported character. */
+  it('drops Japanese punctuation rather than failing on it', () => {
+    for (const line of ['おはよう！', 'おはよう？', '「おはよう」', 'おはよう　']) {
+      expect(parseLibrary(line).items, line).toEqual([{ kana: 'おはよう', romaji: 'ohayou' }])
+    }
+  })
+
   it('refuses a line longer than storage will read back', () => {
     const long = 'あ'.repeat(MAX_LIBRARY_ITEM_CHARS + 1)
     expect(parseLibrary(long).items).toEqual([])

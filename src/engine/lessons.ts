@@ -251,6 +251,23 @@ function stripMarkdownChars(text: string): string {
     .replace(/[#>*_`[\]()!-]/g, ' ')
 }
 
+/*
+ * Punctuation and brackets a Japanese sentence ordinarily carries. Each one
+ * tokenizes to a self-spelling token, so leaving them in made `おはよう！` fail
+ * as "no reading" — the paste looked unsupported when only the mark was.
+ * The ideographic space joins them: it is a space that does not read as one.
+ */
+const JAPANESE_PUNCTUATION = /[！？!?「」『』（）()【】〔〕・…ー～〜:;'"]/g
+
+function stripPunctuation(text: string): string {
+  return text.replace(JAPANESE_PUNCTUATION, ' ').replace(/\u3000/g, ' ')
+}
+
+/* Runs of spaces collapse to one: a word break is a word break however wide. */
+function collapseSpaces(text: string): string {
+  return text.replace(/[^\S\n]{2,}/g, ' ')
+}
+
 /**
  * What a line of pasted text could not become, and why — so the page can say so.
  *
@@ -304,11 +321,16 @@ export function parseLibrary(text: string): LibraryParse {
   const items: TextItem[] = []
   const rejected: LibraryReject[] = []
 
-  for (const raw of stripMarkdownChars(text).split(/\n|。|、|\.|,|;/)) {
+  for (const raw of collapseSpaces(stripPunctuation(stripMarkdownChars(text))).split(/\n|。|、|\.|,|;/)) {
     const part = raw.trim()
     if (part === '') continue
 
-    const paired = part.includes('|') ? part.split('|') : part.split(/\s{2,}/)
+    /*
+     * `|` only. A double space used to separate the pair as well, so `ねこ  いぬ`
+     * was read as kana `ねこ` with romaji `いぬ` — a second Japanese word
+     * silently reinterpreted as a spelling, saved, and impossible to type.
+     */
+    const paired = part.split('|')
     const kana = paired[0].trim()
     // No explicit reading is not an error when the kana can supply one itself.
     const romaji = (paired[1] ?? '').trim().toLowerCase() || derivedRomaji(kana)

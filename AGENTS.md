@@ -783,7 +783,12 @@ shown, `gakkou` typed) work with no extra machinery — the same arrangement eve
 Japanese typing site uses. **You only ever type kana**: kanji is display only.
 
 **Pasted library text does not need a reading if it is kana.** `derivedRomaji`
-spells the kana itself, so pasting おはよう is enough and pasting 学校 is not —
+spells each character **as written**, which is the honest description and the one
+the copy uses: it cannot tell a particle は from the は in はな without
+morphological analysis, so きょうはいいてんきです derives `kyouha…` where a
+speaker says `kyouwa…`. Particles は, へ and を therefore need the explicit form,
+the same as kanji, and the placeholder shows one rather than shipping the error.
+Pasting おはよう is enough and pasting 学校 is not —
 `tokenizeKana` falls back to one self-spelling token per character for anything
 it cannot read, which is exactly the "no reading available" case. Requiring
 `かな|romaji` for everything made the obvious action, pasting Japanese, produce
@@ -793,9 +798,17 @@ nothing at all.
 which of four reasons. Returning an empty list and nothing else meant the add
 button simply appeared not to work.
 
-`MAX_LIBRARY_ITEM_CHARS` has to match the cap `readLibrary` enforces. When the
-parser was the more permissive of the two, a long line saved, practised once, and
-vanished on the next load with nothing said.
+`MAX_LIBRARY_ITEM_CHARS` is imported by `readLibrary` rather than repeated. As
+two literals they drifted, and a long line saved, practised once, and vanished on
+the next load with nothing said.
+
+**`|` is the only delimiter.** A double space used to separate the pair too, so
+`ねこ  いぬ` parsed as kana `ねこ` with romaji `いぬ` — a second Japanese word
+silently reinterpreted as a spelling, stored, and impossible to type. A wide gap
+is now just a word break. Ordinary sentence punctuation (！？「」、。 and the
+ideographic space) is stripped rather than refused; each mark tokenizes to a
+self-spelling token, so leaving it in failed the whole line as "no reading" when
+only the mark was unsupported.
 
 No bundled item may pair a **particle は or を with kanji**. The particle is
 pronounced wa / o, so typing it as written teaches the wrong sound — but spelling

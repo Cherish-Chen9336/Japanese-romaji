@@ -635,6 +635,8 @@ function App() {
     resetRunState()
   }
 
+  const LIBRARY_LIMIT = 200
+
   const REJECT_REASONS: Record<LibraryReject['reason'], string> = {
     'no-reading': 'needs a reading, as kanji|romaji',
     'word-mismatch': 'the kana and romaji disagree about where the words break',
@@ -659,17 +661,37 @@ function App() {
       )
       return
     }
+    let evicted = 0
     setLibrary((current) => {
-      const next = [...items, ...current].slice(0, 200)
+      const combined = [...items, ...current]
+      // The cap is real; dropping entries to meet it silently is not acceptable.
+      evicted = Math.max(0, combined.length - LIBRARY_LIMIT)
+      const next = combined.slice(0, LIBRARY_LIMIT)
       persistRecord('library', next)
       return next
     })
+    if (evicted > 0) {
+      setLibraryMessage(
+        `Added ${items.length}. The library holds ${LIBRARY_LIMIT} entries, so the ${evicted} oldest made way.`,
+      )
+      setCustomText('')
+      changeSource('library')
+      return
+    }
     setCustomText('')
-    setLibraryMessage(
-      rejected.length === 0
-        ? null
-        : `Added ${items.length}, skipped ${rejected.length}: ${REJECT_REASONS[rejected[0].reason]}.`,
-    )
+    if (rejected.length > 0) {
+      /*
+       * Stay put. Navigating straight to practice showed the "skipped" message
+       * for one frame on a page the reader was leaving — which is the same as
+       * not showing it. They can start practising when they have read it.
+       */
+      setLibraryMessage(
+        `Added ${items.length}, skipped ${rejected.length}: ${REJECT_REASONS[rejected[0].reason]}.`,
+      )
+      changeSource('library')
+      return
+    }
+    setLibraryMessage(null)
     changeSource('library')
     navigate('practice')
   }
@@ -1389,9 +1411,10 @@ function App() {
           <section class="page">
             <h1>library</h1>
             <p class="muted">
-              Paste Japanese, one line or sentence at a time. Kana is enough — the
-              romaji is worked out for you. Kanji needs its reading, as{' '}
-              <code>学校|gakkou</code>.
+              Paste kana, one line or sentence at a time — each character is spelled
+              as it is written. Kanji needs its reading, as <code>学校|gakkou</code>,
+              and so do the particles は, へ and を, which are written one way and
+              said another.
             </p>
             <Show when={libraryMessage()}>
               {(message) => (
@@ -1403,7 +1426,7 @@ function App() {
             <textarea
               value={customText()}
               onInput={(event) => setCustomText(event.currentTarget.value)}
-              placeholder={'おはよう\nきょうはいいてんきです\n学校|gakkou'}
+              placeholder={'おはよう\nねこ いぬ\n学校|gakkou\nきょうはいいてんきです|kyouwaiitenkidesu'}
             />
             <div class="action-row">
               <button type="button" class="primary" onClick={() => addCustomText(customText())}>

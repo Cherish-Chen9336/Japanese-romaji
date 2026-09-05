@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { hasKanji, rubySegments } from './furigana'
+import { allBankItems } from './lessons'
 
 describe('hasKanji', () => {
   it('detects kanji', () => {
@@ -147,4 +148,31 @@ describe('rubySegments — edges', () => {
 // kanji in it.
 it('does not annotate a core left with no kanji after peeling', () => {
   expect(rubySegments('漢あ', '漢い')).toEqual([{ text: '漢' }, { text: 'あ' }])
+})
+
+describe('no bundled item glosses kana', () => {
+  /*
+   * The rule above `quoteBank`, enforced rather than described. A particle は or
+   * を beside kanji tempts an author to spell the reading phonetically — けいぞくわ
+   * for 継続は — and `rubySegments` then finds no shared suffix, annotates the
+   * whole phrase, and the kana は is presented as though it were pronounced わ.
+   * Two proverbs were added that way and had to be replaced; a comment would not
+   * have stopped the third.
+   */
+  it('annotates only spans that contain kanji', () => {
+    for (const item of allBankItems()) {
+      if (item.reading === undefined) continue
+      const words = item.kana.split(' ')
+      const readings = item.reading.split(' ')
+      words.forEach((word, index) => {
+        for (const segment of rubySegments(word, readings[index])) {
+          if (segment.ruby === undefined) continue
+          expect(segment.text, `${item.kana}: [${segment.text}|${segment.ruby}]`).toMatch(/[一-龯]/)
+          // A span that still ends in kana means the shared tail was not matched
+          // off, which is the same failure seen from the other side.
+          expect(segment.text, `${item.kana}: [${segment.text}|${segment.ruby}]`).not.toMatch(/[぀-ゟ]$/)
+        }
+      })
+    }
+  })
 })
