@@ -958,26 +958,56 @@ function App() {
 
         <Show when={route() === 'result'}>
           <section class="page page--narrow result-page">
-            <h1>result</h1>
+            {/* No "result" heading: the numbers say what this is, and a title
+                above them just delays them. The scores lead. */}
             <Show when={resultRun()} fallback={<p class="muted">No completed run yet.</p>}>
               {(run) => (
                 <>
-                  <Show when={resultUnlocks().length > 0}>
-                    <section class="achievement" role="status" aria-live="polite">
-                      <span class="achievement__title">achievement unlocked</span>
-                      <For each={resultUnlocks()}>
-                        {(item) => <span class="achievement__chip">{item.label}</span>}
-                      </For>
-                    </section>
-                  </Show>
+                  <div class="result-hero">
+                    <div>
+                      <b>{runWpm(run())}</b>
+                      <span>wpm</span>
+                    </div>
+                    <div>
+                      <b>{run().accuracy}%</b>
+                      <span>accuracy</span>
+                    </div>
+                  </div>
+
+                  {/* Secondary, and it has to read that way: same treatment,
+                      markedly smaller, so the two numbers above stay the point. */}
+                  <div class="result-grid">
+                    <div>
+                      <b>{runRawWpm(run())}</b>
+                      <span>raw</span>
+                    </div>
+                    <div>
+                      <b>{run().consistency ?? 100}%</b>
+                      <span>consistency</span>
+                    </div>
+                    <div>
+                      <b>{run().mistakes}</b>
+                      <span>misses</span>
+                    </div>
+                    <div>
+                      <b>{(run().elapsedMs / 1000).toFixed(1)}s</b>
+                      <span>time</span>
+                    </div>
+                  </div>
+
+                  <div class="result-meta">
+                    <span>{run().source}</span>
+                    <span>{run().chars} characters</span>
+                    <span>{new Date(run().date).toLocaleString()}</span>
+                  </div>
 
                   {/* The mastery model otherwise lives only on the Statistics
-                      page, which you have to go looking for. This is the card
+                      page, which you have to go looking for. This is the screen
                       you are already on when you stop, so it is where knowing
                       what to fix actually closes the loop. */}
                   <Show when={stillWeak().length > 0}>
-                    <section class="still-weak">
-                      <span class="still-weak__title">still weak</span>
+                    <section class="result-section still-weak">
+                      <h2>still weak</h2>
                       <div class="still-weak__list">
                         <For each={stillWeak()}>
                           {(item) => (
@@ -1007,51 +1037,22 @@ function App() {
                     </section>
                   </Show>
 
-                  <div class="result-hero">
-                    <div>
-                      <b>{runWpm(run())}</b>
-                      <span>speed</span>
-                    </div>
-                    <div>
-                      <b>{run().accuracy}%</b>
-                      <span>accuracy</span>
-                    </div>
-                  </div>
-
-                  <div class="result-grid">
-                    <div>
-                      <b>{runRawWpm(run())}</b>
-                      <span>raw</span>
-                    </div>
-                    <div>
-                      <b>{run().consistency ?? 100}%</b>
-                      <span>consistency</span>
-                    </div>
-                    <div>
-                      <b>{run().mistakes}</b>
-                      <span>misses</span>
-                    </div>
-                    <div>
-                      <b>{(run().elapsedMs / 1000).toFixed(1)}s</b>
-                      <span>time</span>
-                    </div>
-                  </div>
-
-                  <div class="result-meta">
-                    <span>source: {run().source}</span>
-                    <span>chars: {run().chars}</span>
-                    <span>{new Date(run().date).toLocaleString()}</span>
-                  </div>
+                  <Show when={resultUnlocks().length > 0}>
+                    <section class="result-section" role="status" aria-live="polite">
+                      <h2>new milestone</h2>
+                      <div class="achievement__list">
+                        <For each={resultUnlocks()}>
+                          {(item) => <span class="achievement__chip">{item.label}</span>}
+                        </For>
+                      </div>
+                    </section>
+                  </Show>
 
                   <div class="action-row">
                     <button type="button" class="primary" onClick={freshText}>
                       next practice
                     </button>
-                    <button
-                      type="button"
-                      class="secondary"
-                      onClick={retrySameText}
-                    >
+                    <button type="button" class="secondary" onClick={retrySameText}>
                       retry same text
                     </button>
                     <button type="button" class="secondary" onClick={() => navigate('stats')}>

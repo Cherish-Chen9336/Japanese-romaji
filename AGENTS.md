@@ -687,6 +687,23 @@ completed run whatever happens next. Cancelling the navigation is separate, and
 is about not yanking a typist to a result screen for a run they have already
 moved on from.
 
+### The result screen
+
+**No heading.** The numbers say what the screen is, and a title above them only
+delays them. Speed and accuracy come first, at roughly triple the size of
+everything else — the research figure is that a primary metric wants to be at
+least a third larger, and a result screen exists for exactly two numbers.
+
+**No boxes anywhere.** Raw, consistency, misses and time get the same treatment
+as the hero, markedly smaller; sections are a rule and a quiet heading. Cards
+gave the secondary stats the same visual weight as the score, which is the
+opposite of what the screen is for.
+
+Chips are outlined rather than filled, both kinds: red still marks a weak mora
+and the accent still marks a milestone, but the border does the work the fill
+used to. Recurring weak moras keep the underline as well, so the distinction
+survives a red deficiency and a monochrome screen.
+
 ### Closing the loop on the results card
 
 `weakAfterRun` feeds a "still weak" callout on the result screen. Without it the

@@ -962,80 +962,103 @@ meter::-webkit-meter-optimum-value {
   text-align: center;
 }
 
+/*
+ * No boxes. Hierarchy on this page comes from scale and space: the two numbers
+ * that matter are large, everything under them is small and quiet, and nothing
+ * is drawn around either. Cards gave the secondary stats the same visual weight
+ * as the score, which is the opposite of what a result screen is for.
+ */
 .result-hero {
-  display: grid;
-  gap: var(--space-4);
-  grid-template-columns: repeat(2, 1fr);
-}
-
-.result-hero div,
-.result-grid div {
-  background: var(--color-surface);
-  border: var(--bw-1) solid var(--color-border);
-  border-radius: 8px;
-  padding: var(--space-5);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+  justify-content: center;
+  margin-bottom: var(--space-6);
 }
 
 .result-hero b {
   color: var(--color-accent);
   display: block;
   font-family: var(--font-mono);
-  font-size: clamp(2rem, 5vw, 3.6rem);
+  font-size: clamp(3rem, 9vw, 5rem);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-medium);
   line-height: 1;
 }
 
 .result-hero span,
-.result-grid span,
-.result-meta {
+.result-grid span {
   color: var(--color-muted);
-  font-family: var(--font-mono);
+  display: block;
   font-size: var(--fs-12);
+  letter-spacing: 0.06em;
+  margin-top: var(--space-2);
 }
 
+.result-hero div,
+.result-grid div {
+  text-align: center;
+}
+
+/* Markedly smaller than the hero — the research figure is that a primary metric
+   wants to be at least a third larger, and here it is roughly triple. */
 .result-grid {
   display: grid;
-  gap: var(--space-3);
+  gap: var(--space-5);
   grid-template-columns: repeat(4, 1fr);
+  margin-bottom: var(--space-5);
 }
 
 .result-grid b {
   color: var(--color-text);
-  display: block;
   font-family: var(--font-mono);
   font-size: var(--fs-22);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-medium);
 }
 
 .result-meta {
+  color: var(--color-dim);
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-4);
-  justify-content: center;
-}
-
-.achievement {
-  align-items: center;
-  background: color-mix(in srgb, var(--color-accent) 9%, var(--color-surface));
-  border: var(--bw-1) solid color-mix(in srgb, var(--color-accent) 40%, var(--color-border));
-  border-radius: 8px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  justify-content: center;
-  padding: var(--space-3);
-}
-
-.achievement__title {
-  color: var(--color-accent);
   font-family: var(--font-mono);
   font-size: var(--fs-12);
+  justify-content: center;
+  margin-bottom: var(--space-7);
+}
+
+/* A section is a heading and a gap, not a panel. */
+.result-section {
+  border-top: var(--bw-1) solid var(--color-border);
+  margin-bottom: var(--space-6);
+  padding-top: var(--space-5);
+}
+
+.result-section h2 {
+  color: var(--color-muted);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-medium);
+  letter-spacing: 0.06em;
+  margin: 0 0 var(--space-4);
   text-transform: uppercase;
 }
 
-.achievement__chip,
-.achievement__chip {
-  background: var(--color-accent);
-  color: var(--color-accent-fg);
+.achievement__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
 }
+
+.achievement__chip {
+  border: var(--bw-1) solid var(--color-accent);
+  border-radius: 999px;
+  color: var(--color-accent);
+  font-family: var(--font-mono);
+  font-size: var(--fs-12);
+  padding: var(--space-1) var(--space-3);
+}
+
 
 .sr-only {
   height: 1px;
@@ -1325,22 +1348,6 @@ meter::-webkit-meter-optimum-value {
 
 /* --- "still weak" on the results card ---------------------------------- */
 
-.still-weak {
-  margin-bottom: var(--space-5);
-  padding: var(--space-4);
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  background: var(--color-surface);
-}
-
-.still-weak__title {
-  display: block;
-  margin-bottom: var(--space-3);
-  font-size: var(--fs-12);
-  color: var(--color-muted);
-  letter-spacing: 0.04em;
-}
-
 .still-weak__list {
   display: flex;
   flex-wrap: wrap;
@@ -1348,16 +1355,19 @@ meter::-webkit-meter-optimum-value {
   margin-bottom: var(--space-3);
 }
 
+/*
+ * Outlined, not filled — the last boxes on this page. Red still carries the
+ * signal, and the border does the work the fill used to, which keeps these
+ * consistent with the milestone chips beside them.
+ */
 .still-weak__chip {
-  display: inline-flex;
   align-items: baseline;
+  border: var(--bw-1) solid rgb(var(--color-error-rgb) / 0.45);
+  border-color: color-mix(in oklch, var(--color-error) 45%, var(--color-border));
+  border-radius: 999px;
+  display: inline-flex;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  border-radius: 6px;
-  border: 1px solid var(--color-border);
-  /* Flat first: `color-mix` is dropped whole by older browsers. */
-  background: rgb(var(--color-error-rgb) / 0.1);
-  background: color-mix(in oklch, var(--color-error) 12%, var(--color-surface));
+  padding: var(--space-1) var(--space-3);
 }
 
 .still-weak__chip b {
@@ -1372,6 +1382,8 @@ meter::-webkit-meter-optimum-value {
 
 /* A mora missed in earlier runs too. Underline rather than a second colour,
    so the distinction survives both a red deficiency and a monochrome screen. */
+/* Missed in earlier runs too. Underline plus a solid border rather than a
+   second colour, so it survives a red deficiency and a monochrome screen. */
 .still-weak__chip--recurring {
   text-decoration: underline;
   text-decoration-color: var(--color-error);
