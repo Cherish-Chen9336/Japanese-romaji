@@ -142,10 +142,14 @@ export const KEYBOARD_LAYOUT_NAMES: readonly KeyboardLayoutName[] = ['windows', 
  * Which palette the app wears. `system` is the default and not a value of its
  * own — it means "whatever the OS is asking for", resolved at read time, so
  * someone who has never opened settings gets a dark app on a dark desktop.
+ *
+ * `dark` is black and gold; `book` is warm paper and ink, for reading at a desk
+ * rather than in the dark. `system` resolves to light or dark only, because the
+ * OS has no way to ask for either of those.
  */
-export type ThemeName = 'system' | 'light' | 'dark'
+export type ThemeName = 'system' | 'light' | 'dark' | 'book'
 
-export const THEME_NAMES: readonly ThemeName[] = ['system', 'light', 'dark']
+export const THEME_NAMES: readonly ThemeName[] = ['system', 'light', 'dark', 'book']
 
 export function isThemeName(value: unknown): value is ThemeName {
   return THEME_NAMES.includes(value as ThemeName)

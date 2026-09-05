@@ -292,23 +292,37 @@ without a reload; only an explicit choice pins it. That means the dark values
 appear twice, in the media query and under `[data-theme='dark']` — deliberately
 one palette written in two places rather than two palettes that can drift.
 
-**The dark values are chosen, not inverted.** Inverting a palette moves every hue
-and lands the accent somewhere nobody checked. Each pair was measured against its
-own background, and the coloured surfaces were measured on **rendered pixels**,
-because `color-mix` and translucency mean the computed value is not what the
-reader sees:
+**Four themes, and the values are chosen rather than inverted.** Inverting a
+palette moves every hue and lands the accent somewhere nobody checked, so each
+pair is measured against its own background.
 
-| | light | dark |
-|---|---|---|
-| body text | 15.0:1 | 15.2:1 |
-| muted text | 4.5:1 | 7.4:1 |
-| kana on a weak cell | 9.1:1 | 7.6:1 |
-| kana on a clean cell | 13.4:1 | 10.7:1 |
-| tooltip heading / numbers | 5.3 / 4.7:1 | 11.1 / 9.3:1 |
+`dark` is **black and gold**. Gold is an accent and never body text — `#d4af37`
+reads 9.3:1 against the page, but gold *as text* fails at small sizes, so the
+text token is a warm off-white and the gold carries lines, marks and the brand.
+`book` is warm paper and rust ink, for reading at a desk rather than in the dark;
+the warmth runs through the whole scale, because a grey page with a warm accent
+dropped on it does not read as paper. The reference has a `sepia` theme built the
+same way.
 
-Note the measuring trap: an in-page contrast helper that parses `rgb()` returns
-nonsense for an `oklch()` computed value and will happily report 1.28:1 for text
-that is perfectly legible. Sample pixels for anything mixed or translucent.
+`system` resolves to light or dark only — the OS has no way to ask for the
+others.
+
+Measured on **rendered pixels**, because `color-mix` and translucency mean the
+computed value is not what the reader sees:
+
+| | light | dark | book |
+|---|---|---|---|
+| body text | 15.0:1 | 15.8:1 | 10.7:1 |
+| muted text | 4.5:1 | 7.7:1 | 5.3:1 |
+| kana on a weak cell | 9.1:1 | 6.6:1 | 5.1:1 |
+| kana on a clean cell | 13.4:1 | 8.2:1 | 7.2:1 |
+| tooltip, dimmest line | 4.7:1 | 9.9:1 | 5.0:1 |
+
+Two measuring traps, both of which produced a false failure here. An in-page
+contrast helper that parses `rgb()` returns nonsense for an `oklch()` computed
+value — it reported 1.28:1 for text that measures 9.09:1 in pixels. And a
+row-by-row scan of a screenshot counts the tooltip's **border** as its dimmest
+text: group the rows into bands and ignore the ones only a row or two deep.
 
 ### Tooltips
 

@@ -10,23 +10,23 @@
  * is one dark palette and not two that can drift.
  */
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) {
-    --color-bg: #121614;
-    --color-surface: #1a201d;
-    --color-border: #2c3531;
-    --color-text: #e6ece8;
-    --color-text-rgb: 230 236 232;
-    --color-muted: #9aa8a2;
-    --color-dim: #6d7a75;
-    --color-accent: #3fbfa4;
-    --color-accent-rgb: 63 191 164;
-    --color-accent-deep: #0c3f34;
-    --color-accent-deep-rgb: 12 63 52;
-    --color-accent-fg: #08110e;
-    --color-error: #e2685c;
-    --color-error-rgb: 226 104 92;
-    --color-on-deep: #e6ece8;
-    --color-on-deep-rgb: 230 236 232;
+  :root:not([data-theme='light']):not([data-theme='book']) {
+    --color-bg: #0d0d0b;
+    --color-surface: #171713;
+    --color-border: #33322a;
+    --color-text: #ece7db;
+    --color-text-rgb: 236 231 219;
+    --color-muted: #a9a293;
+    --color-dim: #7a7466;
+    --color-accent: #d4af37;
+    --color-accent-rgb: 212 175 55;
+    --color-accent-deep: #3d3212;
+    --color-accent-deep-rgb: 61 50 18;
+    --color-accent-fg: #100f0a;
+    --color-error: #e0705f;
+    --color-error-rgb: 224 112 95;
+    --color-on-deep: #f3ead2;
+    --color-on-deep-rgb: 243 234 210;
   }
 }
 
@@ -34,29 +34,58 @@
  * Themes are a palette swap and nothing else: every colour in the app comes from
  * these tokens, so a theme redefines them and no rule elsewhere needs to know.
  *
- * The dark values are chosen, not derived by inversion — inverting a palette
- * moves every hue and lands the accent somewhere it was never checked. Each pair
- * was measured against its own background: text 15.2:1, muted 7.4:1, accent
- * 8.0:1, error 5.5:1.
+ * Values are chosen, not derived by inversion — inverting a palette moves every
+ * hue and lands the accent somewhere it was never checked. Each pair is measured
+ * against its own background.
+ *
+ * Dark is black and gold. Gold is an accent and never body text: #d4af37 reads
+ * 9.3:1 against the page, but the guidance is right that gold *as text* fails at
+ * small sizes, so the text token stays a warm off-white and the gold carries
+ * lines, marks and the brand.
  */
 :root[data-theme='dark'] {
-  --color-bg: #121614;
-  --color-surface: #1a201d;
-  --color-border: #2c3531;
-  --color-text: #e6ece8;
-  --color-text-rgb: 230 236 232;
-  --color-muted: #9aa8a2;
-  --color-dim: #6d7a75;
-  --color-accent: #3fbfa4;
-  --color-accent-rgb: 63 191 164;
-  --color-accent-deep: #0c3f34;
-  --color-accent-deep-rgb: 12 63 52;
-  --color-accent-fg: #08110e;
-  --color-error: #e2685c;
-  --color-error-rgb: 226 104 92;
-  --color-on-deep: #e6ece8;
-  --color-on-deep-rgb: 230 236 232;
+    --color-bg: #0d0d0b;
+    --color-surface: #171713;
+    --color-border: #33322a;
+    --color-text: #ece7db;
+    --color-text-rgb: 236 231 219;
+    --color-muted: #a9a293;
+    --color-dim: #7a7466;
+    --color-accent: #d4af37;
+    --color-accent-rgb: 212 175 55;
+    --color-accent-deep: #3d3212;
+    --color-accent-deep-rgb: 61 50 18;
+    --color-accent-fg: #100f0a;
+    --color-error: #e0705f;
+    --color-error-rgb: 224 112 95;
+    --color-on-deep: #f3ead2;
+    --color-on-deep-rgb: 243 234 210;
   color-scheme: dark;
+}
+
+/*
+ * Paper and ink, for reading at a desk rather than in the dark. Warm through the
+ * whole scale rather than a grey page with a warm accent dropped on it — the
+ * cast is what makes it read as paper.
+ */
+:root[data-theme='book'] {
+  --color-bg: #f4ecd8;
+  --color-surface: #fbf6e9;
+  --color-border: #ddd0b4;
+  --color-text: #3a3227;
+  --color-text-rgb: 58 50 39;
+  --color-muted: #6b5f4d;
+  --color-dim: #8f8471;
+  --color-accent: #9a5b28;
+  --color-accent-rgb: 154 91 40;
+  --color-accent-deep: #5c3517;
+  --color-accent-deep-rgb: 92 53 23;
+  --color-accent-fg: #fdfaf2;
+  --color-error: #a3392c;
+  --color-error-rgb: 163 57 44;
+  --color-on-deep: #fbf3e4;
+  --color-on-deep-rgb: 251 243 228;
+  color-scheme: light;
 }
 
 :root[data-theme='light'] {
