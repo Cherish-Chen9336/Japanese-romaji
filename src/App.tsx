@@ -28,6 +28,7 @@ import {
   mergeTimingStats,
   newlyReachedMilestones,
   nextMilestone,
+  unlockedMilestones,
   recentDayKeys,
   recordRunInLifetimeStats,
   runRawWpm,
@@ -158,6 +159,7 @@ function App() {
   const [lastRun, setLastRun] = createSignal<RunResult | null>(runs()[0] ?? null)
   const [resultUnlocks, setResultUnlocks] = createSignal<Unlock[]>([])
   const nextTarget = createMemo(() => nextMilestone(lifetimeStats()))
+  const milestones = createMemo(() => unlockedMilestones(lifetimeStats()))
   const [saveFailed, setSaveFailed] = createSignal(false)
   const [dataMessage, setDataMessage] = createSignal('')
   const [resetArmed, setResetArmed] = createSignal(false)
@@ -1285,6 +1287,34 @@ function App() {
                 </div>
                 <p class="muted">
                   Longest streak <b>{streaks().longest}</b> days.
+                </p>
+              </section>
+
+              {/* The whole ladder, which the result screen cannot show: it names
+                  what you just crossed and what is next, and nothing else. Seeing
+                  the reached ones is the point — progress you can look back at
+                  rather than a notification you either caught or missed. */}
+              <section class="panel panel--span-12">
+                <h3>milestones</h3>
+                <div class="achievement__list">
+                  <For each={milestones()}>
+                    {(item) => (
+                      <span
+                        class="achievement__chip"
+                        classList={{ 'achievement__chip--next': !item.reached }}
+                        aria-label={`${item.label} — ${item.reached ? 'reached' : 'not yet reached'}`}
+                      >
+                        {item.label}
+                        <Show when={item.reached}>
+                          <small aria-hidden="true"> ✓</small>
+                        </Show>
+                      </span>
+                    )}
+                  </For>
+                </div>
+                <p class="muted">
+                  <b>{milestones().filter((item) => item.reached).length}</b> of{' '}
+                  {milestones().length} reached.
                 </p>
               </section>
 

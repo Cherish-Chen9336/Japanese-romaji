@@ -227,8 +227,11 @@ Cut, with reasons, so they are not proposed again:
 - **wpm distribution** — five twenty-wpm bins describe a lifetime spread but not
   a direction. Going 20→40 and going 40→20 drew the same picture. Replaced by
   `wpmTrend`, a five-run rolling median with the raw runs behind it.
-- **milestones** — newly reached achievements already appear on the result
-  screen, at the moment they are earned.
+- **milestones** — cut once, and restored. The reason for cutting was that the
+  result screen already shows them, but it only ever showed the ones *newly*
+  reached: a notification you either caught or missed, never a ladder you can
+  look back at. The panel shows all of them, reached ones filled and checked,
+  the rest outlined, with a count.
 - **streaks** as its own panel — the current streak is in the overview and the
   longest is one line under the calendar it describes.
 
