@@ -301,7 +301,9 @@ reads 9.3:1 against the page, but gold *as text* fails at small sizes, so the
 text token is a warm off-white and the gold carries lines, marks and the brand.
 `book` is warm paper and rust ink, for reading at a desk rather than in the dark;
 the warmth runs through the whole scale, because a grey page with a warm accent
-dropped on it does not read as paper. The reference has a `sepia` theme built the
+dropped on it does not read as paper. Its border is held a shade darker than the
+page would suggest — a border that tracks the background upward stops separating
+anything. The reference has a `sepia` theme built the
 same way.
 
 `system` resolves to light or dark only — the OS has no way to ask for the
@@ -312,11 +314,11 @@ computed value is not what the reader sees:
 
 | | light | dark | book |
 |---|---|---|---|
-| body text | 15.0:1 | 15.8:1 | 10.7:1 |
-| muted text | 4.5:1 | 7.7:1 | 5.3:1 |
-| kana on a weak cell | 9.1:1 | 6.6:1 | 5.1:1 |
-| kana on a clean cell | 13.4:1 | 8.2:1 | 7.2:1 |
-| tooltip, dimmest line | 4.7:1 | 9.9:1 | 5.0:1 |
+| body text | 15.0:1 | 15.8:1 | 11.5:1 |
+| muted text | 4.5:1 | 7.7:1 | 5.7:1 |
+| kana on a weak cell | 9.1:1 | 6.6:1 | 5.3:1 |
+| kana on a clean cell | 13.4:1 | 8.2:1 | 7.6:1 |
+| tooltip, dimmest line | 4.7:1 | 9.9:1 | 4.9:1 |
 
 Two measuring traps, both of which produced a false failure here. An in-page
 contrast helper that parses `rgb()` returns nonsense for an `oklch()` computed
