@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   dealLesson,
   planRun,
-  parseLibrary,
+  parsePastedText,
   MAX_LIBRARY_ITEM_CHARS,
   derivedRomaji,
   autoSources,
@@ -450,21 +450,21 @@ describe('library text without an explicit reading', () => {
   })
 
   it('accepts a bare kana line', () => {
-    const { items, rejected } = parseLibrary('おはよう')
+    const { items, rejected } = parsePastedText('おはよう')
     expect(items).toEqual([{ kana: 'おはよう', romaji: 'ohayou' }])
     expect(rejected).toEqual([])
   })
 
   it('still takes an explicit reading, and prefers it', () => {
-    expect(parseLibrary('こんにちは|konnichiwa').items).toEqual([
+    expect(parsePastedText('こんにちは|konnichiwa').items).toEqual([
       { kana: 'こんにちは', romaji: 'konnichiwa' },
     ])
   })
 
   /* The reasons exist so the page can say *why*, not merely that it failed. */
   it('reports why a line was refused', () => {
-    expect(parseLibrary('学校').rejected).toEqual([{ line: '学校', reason: 'no-reading' }])
-    expect(parseLibrary('ねこ いぬ|neko').rejected[0].reason).toBe('word-mismatch')
+    expect(parsePastedText('学校').rejected).toEqual([{ line: '学校', reason: 'no-reading' }])
+    expect(parsePastedText('ねこ いぬ|neko').rejected[0].reason).toBe('word-mismatch')
   })
 
   /*
@@ -477,28 +477,28 @@ describe('library text without an explicit reading', () => {
    * the romaji for the first — saved, and impossible to type. `|` only now.
    */
   it('treats a wide gap as a word break, not a delimiter', () => {
-    expect(parseLibrary('ねこ  いぬ').items).toEqual([{ kana: 'ねこ いぬ', romaji: 'neko inu' }])
+    expect(parsePastedText('ねこ  いぬ').items).toEqual([{ kana: 'ねこ いぬ', romaji: 'neko inu' }])
   })
 
   /* Ordinary sentence punctuation is not an unsupported character. */
   it('drops Japanese punctuation rather than failing on it', () => {
     for (const line of ['おはよう！', 'おはよう？', '「おはよう」', 'おはよう　']) {
-      expect(parseLibrary(line).items, line).toEqual([{ kana: 'おはよう', romaji: 'ohayou' }])
+      expect(parsePastedText(line).items, line).toEqual([{ kana: 'おはよう', romaji: 'ohayou' }])
     }
   })
 
   it('refuses a line longer than storage will read back', () => {
     const long = 'あ'.repeat(MAX_LIBRARY_ITEM_CHARS + 1)
-    expect(parseLibrary(long).items).toEqual([])
-    expect(parseLibrary(long).rejected[0].reason).toBe('too-long')
+    expect(parsePastedText(long).items).toEqual([])
+    expect(parsePastedText(long).rejected[0].reason).toBe('too-long')
   })
 
   it('accepts a line exactly at the limit', () => {
-    expect(parseLibrary('あ'.repeat(MAX_LIBRARY_ITEM_CHARS)).items).toHaveLength(1)
+    expect(parsePastedText('あ'.repeat(MAX_LIBRARY_ITEM_CHARS)).items).toHaveLength(1)
   })
 
   it('takes the good lines and reports the rest', () => {
-    const { items, rejected } = parseLibrary('おはよう\n学校\nねこ')
+    const { items, rejected } = parsePastedText('おはよう\n学校\nねこ')
     expect(items.map((item) => item.kana)).toEqual(['おはよう', 'ねこ'])
     expect(rejected).toHaveLength(1)
   })

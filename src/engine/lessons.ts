@@ -317,7 +317,15 @@ export function derivedRomaji(kana: string): string | null {
   return spelled.join(' ')
 }
 
-export function parseLibrary(text: string): LibraryParse {
+/**
+ * Parses text a person pasted or uploaded.
+ *
+ * Named for its input, not its destination: `io/persistence.ts` has its own
+ * `parseLibrary` that validates *stored* records, and two functions of the same
+ * name doing different jobs on the same data is how the wrong one eventually
+ * gets called.
+ */
+export function parsePastedText(text: string): LibraryParse {
   const items: TextItem[] = []
   const rejected: LibraryReject[] = []
 
@@ -364,7 +372,7 @@ export function parseLibrary(text: string): LibraryParse {
 
 /** The items alone, for callers that do not report on what was dropped. */
 export function parseLibraryText(text: string): TextItem[] {
-  return parseLibrary(text).items
+  return parsePastedText(text).items
 }
 
 /** The moras an item is actually made of, as the matcher and the stats see it. */

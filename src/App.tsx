@@ -7,7 +7,7 @@ import {
   planRun,
   type RunPlan,
   kanaRows,
-  parseLibrary,
+  parsePastedText,
   type LibraryReject,
   sourceOptions,
 } from './engine/lessons'
@@ -645,7 +645,7 @@ function App() {
   }
 
   const addCustomText = (text: string) => {
-    const { items, rejected } = parseLibrary(text)
+    const { items, rejected } = parsePastedText(text)
     if (items.length === 0) {
       /*
        * Say why. A paste that produced nothing used to return in silence, so

@@ -794,8 +794,11 @@ it cannot read, which is exactly the "no reading available" case. Requiring
 `かな|romaji` for everything made the obvious action, pasting Japanese, produce
 nothing at all.
 
-**And a refused line says why.** `parseLibrary` returns what it rejected and for
-which of four reasons. Returning an empty list and nothing else meant the add
+**And a refused line says why.** `parsePastedText` returns what it rejected and for
+which of four reasons. It is named for its input rather than its destination:
+`io/persistence.ts` has its own `parseLibrary` that validates *stored* records,
+and two functions of the same name doing different jobs on the same data is how
+the wrong one eventually gets called. Returning an empty list and nothing else meant the add
 button simply appeared not to work.
 
 `MAX_LIBRARY_ITEM_CHARS` is imported by `readLibrary` rather than repeated. As
