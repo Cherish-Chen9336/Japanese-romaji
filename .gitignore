@@ -62,3 +62,6 @@ CLAUDE.local.md
 # per-run working state (findings + fix statuses), not authored content.
 .cc-suite/audits/
 # <<< cc-suite <<<
+
+# ui-tokenize local state (regenerated; embeds absolute paths)
+.tokenize/

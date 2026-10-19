@@ -1,5 +1,6 @@
 {
   "enabledPlugins": {
-    "cc-suite@claude-community": true
+    "cc-suite@claude-community": true,
+    "ui-tokenize@xiaolai": true
   }
 }
