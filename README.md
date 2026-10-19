@@ -29,9 +29,11 @@ src/io/       the only layer allowed to touch browser storage (IndexedDB)
 src/ui/       SolidJS components
 ```
 
-`src/layer-purity.test.ts` walks the source tree and fails the build if `engine`
-imports from `io` or `ui`, or if `io` imports from `ui`. Without it, "pure engine"
-would be a convention someone could break in a later edit.
+`src/layer-purity.test.ts` walks the source tree and fails the test suite if
+`engine` imports from `io` or `ui`, or if `io` imports from `ui`. Without it, "pure
+engine" would be a convention someone could break in a later edit. Note that
+`npm run build` runs only `tsc -b` and Vite, so run `npm test` to enforce the
+boundary.
 
 Randomness and clocks are **injected, never defaulted**. `RandomSource` is a
 required parameter rather than one that falls back to `Math.random`, so no engine
