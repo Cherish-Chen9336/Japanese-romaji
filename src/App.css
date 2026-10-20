@@ -64,7 +64,6 @@
   color: var(--color-dim);
   cursor: pointer;
   display: inline-flex;
-  font-family: var(--font-mono);
   font-size: var(--fs-16);
   font-weight: var(--fw-medium);
   letter-spacing: -0.02em;
@@ -119,7 +118,6 @@
   border: none;
   color: var(--color-muted);
   cursor: pointer;
-  font-family: var(--font-mono);
   font-size: var(--fs-12);
   padding: 0;
 }
@@ -147,7 +145,6 @@
   border: none;
   color: var(--color-muted);
   cursor: pointer;
-  font-family: var(--font-mono);
   font-size: var(--fs-13);
   letter-spacing: 0.04em;
   padding: 0;
@@ -195,7 +192,7 @@
 
 .kana-line {
   color: var(--color-text);
-  font-family: var(--font-sans);
+  font-family: var(--font-jp);
   font-size: clamp(1.35rem, 3.8vw, 2.65rem);
   font-weight: var(--fw-medium);
   letter-spacing: 0.04em;
@@ -389,9 +386,9 @@ rt {
   display: flex;
   flex: 0 0 calc(var(--w, 1) * var(--u) + (var(--w, 1) - 1) * var(--kb-gap));
   flex-direction: column;
-  /* Latin-first on purpose — see --font-keycap. `--font-sans` draws the
-     backslash cap as a yen sign. */
-  font-family: var(--font-keycap);
+  /* Latin-first, so the backslash cap is a backslash and not a yen sign.
+     See --font-ui. */
+  font-family: var(--font-ui);
   font-size: calc(var(--u) * 0.36);
   font-weight: 500;
   gap: calc(var(--u) * 0.04);
@@ -517,7 +514,6 @@ rt {
   color: var(--color-muted);
   display: flex;
   flex-direction: column;
-  font-family: var(--font-mono);
   font-size: var(--fs-12);
   gap: var(--space-2);
 }
@@ -639,7 +635,6 @@ input[type='range'] {
   border-radius: 999px;
   color: var(--color-accent-fg);
   cursor: pointer;
-  font-family: var(--font-mono);
   font-size: var(--fs-12);
   padding: 9px 14px;
 }
@@ -715,7 +710,6 @@ input[type='range'] {
   border-radius: 999px;
   color: var(--color-text);
   cursor: pointer;
-  font-family: var(--font-mono);
   font-size: var(--fs-12);
   padding: 5px 12px;
 }
@@ -886,7 +880,7 @@ input[type='range'] {
   color: var(--color-text);
   display: flex;
   flex-direction: column;
-  font-family: var(--font-keycap);
+  font-family: var(--font-ui);
   justify-content: center;
   width: var(--mk-key);
   aspect-ratio: 1;
@@ -1107,7 +1101,6 @@ meter::-webkit-meter-optimum-value {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-4);
-  font-family: var(--font-mono);
   font-size: var(--fs-12);
   justify-content: center;
   margin-bottom: var(--space-7);
@@ -1141,7 +1134,6 @@ meter::-webkit-meter-optimum-value {
   border: var(--bw-1) solid transparent;
   border-radius: 999px;
   color: var(--color-text);
-  font-family: var(--font-mono);
   font-size: var(--fs-13);
   padding: var(--space-2) var(--space-4);
 }
@@ -1238,7 +1230,6 @@ meter::-webkit-meter-optimum-value {
   align-items: center;
   color: var(--color-dim);
   display: flex;
-  font-family: var(--font-mono);
   font-size: var(--fs-13);
   justify-content: center;
 }
@@ -1590,7 +1581,6 @@ meter::-webkit-meter-optimum-value {
   border-radius: 999px;
   color: var(--color-muted);
   cursor: pointer;
-  font-family: var(--font-mono);
   font-size: var(--fs-12);
   padding: var(--space-1) var(--space-3);
 }

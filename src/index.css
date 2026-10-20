@@ -176,31 +176,54 @@
   --kb-cap-edge: rgb(120 110 95 / 0.30);
   --kb-cap-gloss: rgb(255 255 255 / 0.9);
 
-  --font-sans:
+  /*
+   * Three roles, named for what they are for rather than for what they look
+   * like. The split exists because of a real bug: the old Japanese-first sans
+   * token was also the root font, so **every Latin string in the app was being
+   * drawn by a Japanese face**. A Japanese font maps U+005C — backslash — to a
+   * YEN SIGN, a Shift-JIS legacy where byte 0x5C was ¥ in JIS X 0201, and the
+   * `\` keycap duly rendered as `¥` while its DOM text was a perfectly correct
+   * backslash. Verified by drawing both characters to a canvas: under the old
+   * stack the two bitmaps were pixel-identical.
+   */
+
+  /*
+   * The root font, and the one almost everything inherits. Latin families
+   * first, so Latin text is drawn by a Latin face and the yen substitution
+   * cannot happen — then the Japanese families appended as *fallback*, so kana
+   * and kanji still resolve to a real Japanese face.
+   *
+   * The fallback tail is what makes mixed strings work, and mixed strings are
+   * why this is one stack rather than two opt-in classes. A tooltip heading is
+   * `しゃ · 3 misses` and a result chip is `ど 4 misses`: Japanese and Latin
+   * inside one text node, with no element to hang a class on. Per-character
+   * fallback handles that correctly and a per-element rule cannot.
+   */
+  --font-ui:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, system-ui,
+    "Hiragino Sans", "Yu Gothic", "Noto Sans JP", sans-serif;
+
+  /*
+   * Japanese-first, for the large display type where the Japanese face is the
+   * subject and its metrics matter — the practice line. Everywhere else the
+   * fallback tail on `--font-ui` is enough.
+   */
+  --font-jp:
     "Hiragino Sans", "Yu Gothic", "Noto Sans JP", -apple-system, BlinkMacSystemFont, "Segoe UI",
     system-ui, sans-serif;
+
+  /*
+   * Mono means "characters the user types or pastes verbatim, and the spellings
+   * being taught" — the practice target line, `code`, the paste box, `kbd`, and
+   * the romaji annotations and character diagnostics that tell a learner what
+   * to press. Numerals are mono too, for now; moving them to tabular sans is a
+   * separate change, because `font-variant-numeric: tabular-nums` is not the
+   * guarantee it looks like. Segoe UI Semibold 5.65 normalises every digit to
+   * 1137 units under `tnum` **except 7, which stays at 1098** — measured in the
+   * installed font, not assumed — and no feature tag helps with 9 → 10 either.
+   */
   --font-mono:
     "SFMono-Regular", "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
-  /*
-   * Keycap legends, and the reason this is NOT `--font-sans`.
-   *
-   * `--font-sans` leads with Japanese families, because almost every other
-   * string in this app is Japanese. A Japanese font maps U+005C — backslash —
-   * to a YEN SIGN, which is a Shift-JIS legacy: byte 0x5C was ¥ in JIS X 0201,
-   * and the fonts still carry that mapping. So the `\` cap rendered as `¥`
-   * while its DOM text was a perfectly correct backslash, which is exactly the
-   * kind of bug that survives an assertion on `textContent`. Verified by
-   * drawing both characters to a canvas: under `--font-sans` the two bitmaps
-   * are pixel-identical; under this stack they are not.
-   *
-   * Every keycap legend is ASCII or a Unicode symbol (⌘ ⌥ ⌃ ⇧ ⇪ ⇥ ↩ ⌫ ⏻) and
-   * none of them is ever Japanese, so the keyboard wants a Latin-first stack
-   * and no CJK family at all. Font fallback is per character, so the symbols
-   * still resolve from whichever installed font carries them.
-   */
-  --font-keycap:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, system-ui,
-    sans-serif;
 
   /* Type scale. Sized a step up from a typical UI scale: this is a full-screen
    * reading-and-typing surface, not a dense dashboard, and the chrome around
@@ -248,7 +271,7 @@
   background: var(--color-bg);
   color: var(--color-text);
   color-scheme: light dark;
-  font-family: var(--font-sans);
+  font-family: var(--font-ui);
   font-size: var(--fs-14);
   font-synthesis: none;
   line-height: 1.5;

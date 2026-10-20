@@ -624,24 +624,73 @@ line it sits beneath. Measure against the background each one actually has.
 A pressed cap loses its bevel and drops into the deck, because that is what a
 key does. Tinting alone read as a highlight rather than a press.
 
-**Keycaps use `--font-keycap`, never `--font-sans`.** `--font-sans` leads with
-Japanese families, because nearly every other string in this app is Japanese —
-and a Japanese font maps U+005C, backslash, to a **yen sign**. That is a
-Shift-JIS legacy: byte 0x5C was ¥ in JIS X 0201 and the fonts still carry the
-mapping. The `\` cap therefore rendered as `¥` while its DOM text was a
-perfectly correct backslash, so a test asserting on `textContent` passed and a
-dump of the rendered labels printed `|/\`. Only looking at the pixels found it.
-
-Every keycap legend is ASCII or a Unicode symbol (⌘ ⌥ ⌃ ⇧ ⇪ ⇥ ↩ ⌫ ⏻) and none
-is ever Japanese, so the board wants a Latin-first stack with no CJK family at
-all; per-character fallback still resolves the symbols. `--font-sans` is used in
-exactly one place, `.kana-line`, which is Japanese and is where it belongs.
+**Keycaps are drawn Latin-first — the keyboard was where a whole-app bug showed
+up first.** A Japanese font maps U+005C, backslash, to a **yen sign**: a
+Shift-JIS legacy where byte 0x5C was ¥ in JIS X 0201, and the fonts still carry
+the mapping. The `\` cap rendered as `¥` while its DOM text was a perfectly
+correct backslash, so a test asserting on `textContent` passed and a dump of the
+rendered labels printed `|/\`. Only looking at the pixels found it. See
+"Typography" below: the fix is now the root font rather than a keycap patch.
 
 The repeatable check, since no unit test can see a glyph: draw the two
 characters to a canvas in the stack under test and compare the data URLs. Under
-`--font-sans` the bitmaps for `\` and `¥` are identical; under `--font-keycap`
-they are not. The general lesson is the one this cost an exchange to learn —
-**for anything about rendering, assert on pixels, not on `textContent`.**
+a Japanese-first stack the bitmaps for `\` and `¥` are identical; under
+`--font-ui` they are not. The general lesson is the one this cost an exchange to
+learn — **for anything about rendering, assert on pixels, not on `textContent`.**
+
+### Typography
+
+Three font roles, named for what they are *for* rather than what they look like.
+
+- **`--font-ui`** — the root font, inherited by almost everything. Latin
+  families first, then the Japanese families appended as fallback.
+- **`--font-jp`** — Japanese-first. Used by `.kana-line` alone, the large
+  display type where the Japanese face is the subject and its metrics matter.
+- **`--font-mono`** — the typing target, `code`, the paste box, `kbd`, every
+  numeral, and the romaji annotations and character diagnostics.
+
+**The root font used to be the Japanese-first stack**, which meant every Latin
+string in the app was being drawn by a Japanese face — the yen bug above was one
+visible symptom of an app-wide condition, not a keyboard quirk. Latin-first at
+the root is what actually fixes it.
+
+**The Japanese families are a fallback tail on `--font-ui`, not a second opt-in
+class, because the hard case is mixed strings.** A tooltip heading is
+`しゃ · 3 misses` and a result chip is `ど 4 misses`: Japanese and Latin inside
+one text node with no element to hang a class on. Per-character fallback handles
+that; a per-element rule cannot.
+
+**Mono means "what the user types, and the spellings being taught".** The
+practice line, `code`, the paste box and `kbd` are literal input. So are
+`.mastery-cell small` and `.still-weak__chip small`, which teach the romaji a
+learner must press, and `.bar-row span`, which holds confusion pairs (`ふ→ほ`)
+and bigrams — character diagnostics, not labels. Note that
+`.mastery-cell--label` is the chart's row/column headers, *not* the spelling
+under a kana; the two were conflated once and it sent a plan at the wrong
+element.
+
+Chrome — nav, buttons, pills, brand, hints, loading text, chart cohort labels,
+result meta — carries **no `font-family` at all** and inherits `--font-ui`.
+Deleting the override is the whole change; re-stating the token on each rule
+would just be a second place to drift.
+
+**Numerals are still mono, deliberately, and moving them is a separate job.**
+`font-variant-numeric: tabular-nums` is not the guarantee it looks like. It does
+nothing about a digit *count* change — `9 → 10`, `99 → 100` — and it is not even
+reliable per digit: measured in the installed font, Segoe UI Semibold 5.65
+normalises every digit to 1137 units under `tnum` **except `7`, which stays at
+1098**. The app uses `--fw-semibold: 600`, so that face is reachable. Verify
+rendered advances at the weights actually used before moving any numeral.
+
+**Known limit, measured rather than assumed:** `--font-ui` and `--font-jp` do
+not always resolve kana to the *same* Japanese face. On a Linux box with the
+Windows fonts installed, `.kana-line` renders しゃ in Yu Gothic while chrome kana
+resolves elsewhere through the fallback tail. Both are real Japanese faces and
+neither is tofu — the width is identical — but they are not the same face. On
+macOS and Windows the leading Latin families carry no kana, so the tail is
+reached and both agree. If the mismatch ever matters visually, the correct tool
+is an `@font-face` with a CJK `unicode-range`, not reordering the stack —
+putting the Japanese families earlier is what caused the yen bug.
 
 ### The practice toggles
 
