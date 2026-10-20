@@ -181,6 +181,26 @@
     system-ui, sans-serif;
   --font-mono:
     "SFMono-Regular", "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
+  /*
+   * Keycap legends, and the reason this is NOT `--font-sans`.
+   *
+   * `--font-sans` leads with Japanese families, because almost every other
+   * string in this app is Japanese. A Japanese font maps U+005C — backslash —
+   * to a YEN SIGN, which is a Shift-JIS legacy: byte 0x5C was ¥ in JIS X 0201,
+   * and the fonts still carry that mapping. So the `\` cap rendered as `¥`
+   * while its DOM text was a perfectly correct backslash, which is exactly the
+   * kind of bug that survives an assertion on `textContent`. Verified by
+   * drawing both characters to a canvas: under `--font-sans` the two bitmaps
+   * are pixel-identical; under this stack they are not.
+   *
+   * Every keycap legend is ASCII or a Unicode symbol (⌘ ⌥ ⌃ ⇧ ⇪ ⇥ ↩ ⌫ ⏻) and
+   * none of them is ever Japanese, so the keyboard wants a Latin-first stack
+   * and no CJK family at all. Font fallback is per character, so the symbols
+   * still resolve from whichever installed font carries them.
+   */
+  --font-keycap:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, system-ui,
+    sans-serif;
 
   /* Type scale. Sized a step up from a typical UI scale: this is a full-screen
    * reading-and-typing surface, not a dense dashboard, and the chrome around

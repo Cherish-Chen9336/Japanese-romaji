@@ -389,7 +389,9 @@ rt {
   display: flex;
   flex: 0 0 calc(var(--w, 1) * var(--u) + (var(--w, 1) - 1) * var(--kb-gap));
   flex-direction: column;
-  font-family: var(--font-sans);
+  /* Latin-first on purpose — see --font-keycap. `--font-sans` draws the
+     backslash cap as a yen sign. */
+  font-family: var(--font-keycap);
   font-size: calc(var(--u) * 0.36);
   font-weight: 500;
   gap: calc(var(--u) * 0.04);

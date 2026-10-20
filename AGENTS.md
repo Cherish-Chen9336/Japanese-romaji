@@ -592,6 +592,25 @@ line it sits beneath. Measure against the background each one actually has.
 A pressed cap loses its bevel and drops into the deck, because that is what a
 key does. Tinting alone read as a highlight rather than a press.
 
+**Keycaps use `--font-keycap`, never `--font-sans`.** `--font-sans` leads with
+Japanese families, because nearly every other string in this app is Japanese —
+and a Japanese font maps U+005C, backslash, to a **yen sign**. That is a
+Shift-JIS legacy: byte 0x5C was ¥ in JIS X 0201 and the fonts still carry the
+mapping. The `\` cap therefore rendered as `¥` while its DOM text was a
+perfectly correct backslash, so a test asserting on `textContent` passed and a
+dump of the rendered labels printed `|/\`. Only looking at the pixels found it.
+
+Every keycap legend is ASCII or a Unicode symbol (⌘ ⌥ ⌃ ⇧ ⇪ ⇥ ↩ ⌫ ⏻) and none
+is ever Japanese, so the board wants a Latin-first stack with no CJK family at
+all; per-character fallback still resolves the symbols. `--font-sans` is used in
+exactly one place, `.kana-line`, which is Japanese and is where it belongs.
+
+The repeatable check, since no unit test can see a glyph: draw the two
+characters to a canvas in the stack under test and compare the data URLs. Under
+`--font-sans` the bitmaps for `\` and `¥` are identical; under `--font-keycap`
+they are not. The general lesson is the one this cost an exchange to learn —
+**for anything about rendering, assert on pixels, not on `textContent`.**
+
 ### The practice toggles
 
 `Settings` defaults are chosen, not inherited, and each has a reason.
