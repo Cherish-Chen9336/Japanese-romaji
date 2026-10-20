@@ -359,8 +359,24 @@ export function settledToken(
   return token === undefined ? null : { index, kana: token.kana }
 }
 
-/** Hiragana and katakana, including the small forms and the long-vowel mark. */
-const MORA = /^[ぁ-ゖァ-ヺー]+$/
+/**
+ * Hiragana, including the small forms.
+ *
+ * Katakana and ー are deliberately **not** here, though they read as moras to a
+ * human. The token model cannot spell them: `tokenizeKana('コーヒー')` returns
+ * `コ → [コ]`, `ー → [ー]`, `ヒ → [ヒ]`, `ー → [ー]` — four self-spelling tokens
+ * demanding that the literal character be pressed, which no keyboard can do.
+ * A mora this gate admits is a mora the mastery table will rank, chart and aim
+ * drills at, so admitting one that cannot be typed books a bucket that can
+ * never be completed — and ー would get one of its own, though its sound
+ * belongs to the mora before it.
+ *
+ * `parsePastedText` happens to reject katakana today, so the two agree by
+ * accident rather than by design; stored library items and any future bank do
+ * not go through that parser. Widen this only together with the table that
+ * spells them.
+ */
+const MORA = /^[ぁ-ゖ]+$/
 
 /**
  * Whether a token names a real mora and so belongs in mastery tracking.

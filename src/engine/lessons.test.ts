@@ -503,3 +503,84 @@ describe('library text without an explicit reading', () => {
     expect(rejected).toHaveLength(1)
   })
 })
+
+describe('the apostrophe survives the parser', () => {
+  /*
+   * `N_CANDIDATES` accepts `n'` — how ん is written before a vowel — so the
+   * matcher takes this spelling. The parser used to strip the apostrophe to a
+   * space, which made the romaji two words against the kana's one and got the
+   * line rejected for word-mismatch: a spelling accepted downstream, refused
+   * by the parser feeding it.
+   */
+  it("keeps n' in an explicit reading", () => {
+    const { items, rejected } = parsePastedText("あんい|an'i")
+    expect(rejected).toEqual([])
+    expect(items).toEqual([{ kana: 'あんい', romaji: "an'i" }])
+  })
+
+  /*
+   * Surviving the parser is not the claim worth making — being typeable is.
+   * `compileStrict` is the function that can refuse (`compileItem` would
+   * manufacture literal tokens for any romaji at all and make this
+   * unfalsifiable), and `acceptsSpelling` then proves the spelling is actually
+   * consumed rather than merely stored.
+   */
+  it("compiles the n' spelling it kept, and types it", () => {
+    const [item] = parsePastedText("あんい|an'i").items
+    const tokens = compileStrict(item)
+    expect(tokens).not.toBeNull()
+    expect(acceptsSpelling(tokens ?? [], "an'i")).toBe(true)
+  })
+})
+
+/*
+ * Keeping the apostrophe for `n'` has to not resurrect it as a quotation mark.
+ * Removing it from the strip set wholesale regressed exactly this: `'ねこ'` kept
+ * its quotes, derived no reading from them, and was rejected — a plain paste
+ * broken in the course of fixing a rarer one.
+ */
+describe('an apostrophe around the kana is still a quotation mark', () => {
+  it('strips quotes from kana and parses what they wrapped', () => {
+    const { items, rejected } = parsePastedText("'ねこ'")
+    expect(rejected).toEqual([])
+    expect(items).toEqual([{ kana: 'ねこ', romaji: 'neko' }])
+  })
+
+  it('strips them from an explicit pair without stranding the romaji', () => {
+    const { items, rejected } = parsePastedText("'ねこ'|'neko'")
+    expect(rejected).toEqual([])
+    expect(items).toEqual([{ kana: 'ねこ', romaji: 'neko' }])
+  })
+
+  it('strips the typographic pair the same way', () => {
+    expect(parsePastedText('‘ねこ’').items).toEqual([{ kana: 'ねこ', romaji: 'neko' }])
+  })
+
+  it('still strips the marks that are punctuation', () => {
+    const { items } = parsePastedText('おはよう！')
+    expect(items.map((item) => item.kana)).toEqual(['おはよう'])
+  })
+})
+
+describe('the typographic apostrophe', () => {
+  /*
+   * A paste from a document or a web page carries ’ rather than '. Only the
+   * straight one is in `N_CANDIDATES`, so this used to pass every check the
+   * parser makes and produce an item that could not be typed — saved, and
+   * permanently stuck. Rejecting would have been better; accepting it typed is
+   * better still, since the author plainly meant n'.
+   */
+  it("reads ’ as the apostrophe N_CANDIDATES accepts", () => {
+    const { items, rejected } = parsePastedText('あんい|an’i')
+    expect(rejected).toEqual([])
+    expect(items).toEqual([{ kana: 'あんい', romaji: "an'i" }])
+    // Normalizing is only worth anything if what comes out is typeable.
+    expect(acceptsSpelling(compileStrict(items[0]) ?? [], "an'i")).toBe(true)
+  })
+
+  it('normalizes the other apostrophe shapes a paste can carry', () => {
+    for (const mark of ['‘', 'ʼ', 'ʹ', '＇']) {
+      expect(parsePastedText(`あんい|an${mark}i`).items).toEqual([{ kana: 'あんい', romaji: "an'i" }])
+    }
+  })
+})

@@ -514,9 +514,21 @@ declarations** for. Every such rule is preceded by a flat `rgb()` fallback using
 `--color-error-rgb`; without one, a weak cell silently loses the only signal the
 map exists to show.
 
-Known gaps as the corpus grows: katakana and ー reach `isMoraToken` but not the
-token model, so the regex is ahead of what is really supported; ー should not
-become its own bucket, since its sound depends on the mora before it. The
+`isMoraToken` is **hiragana only** (`/^[ぁ-ゖ]+$/`). It used to admit katakana
+and ー as well, which the token model cannot spell: each tokenizes to a
+self-spelling token demanding the literal character, so they became mastery
+buckets no romaji clears, and ー got one of its own even though its sound
+belongs to the mora before it. This project takes romaji input only, so a
+katakana bucket was measuring something nobody can type. `furigana.ts`'s own
+`KANA` regex keeps katakana deliberately — there it separates kana from kanji
+for ruby placement, a different question.
+
+The narrower gap is still open and pinned by a test: it is a character-range
+check rather than a lookup in the romaji map, so ゔ ゕ ゖ ゎ sit inside the
+hiragana block, pass, and tokenize to themselves exactly as コ did. Katakana was
+the large hole, not the last one.
+
+Other known gaps as the corpus grows: the
 "also tracked" strip is one horizontal row and is at eight sokuon after the bank
 expansion — it will not survive many more. Chart groups are hardcoded, so a new `KanaGroup` needs adding in two
 places. Corpus-wide invariants read `allBankItems()` rather than a hand-listed
@@ -800,6 +812,29 @@ which of four reasons. It is named for its input rather than its destination:
 and two functions of the same name doing different jobs on the same data is how
 the wrong one eventually gets called. Returning an empty list and nothing else meant the add
 button simply appeared not to work.
+
+**The apostrophe is romaji or punctuation depending on its neighbours, and the
+parser has to decide which.** `N_CANDIDATES` accepts `n'` — how ん is written
+before a vowel — so stripping every apostrophe to a space made `あんい|an'i`
+arrive as `あんい|an i` and get rejected for word-mismatch: a spelling the
+matcher accepts, refused by the parser feeding it. Removing it from the strip
+set wholesale then broke the commoner case in the other direction — `'ねこ'`
+kept its quotes, derived no reading from them, and was rejected, so a plain
+paste was sacrificed for a rare one. `stripQuoteApostrophes` keeps an
+apostrophe only between two Latin letters and spaces it everywhere else. Do not
+fold this back into `JAPANESE_PUNCTUATION`; both directions are tested.
+
+It runs *after* `normalizeApostrophes`, which folds ’ ‘ ʼ ʹ ＇ onto `'`. Only
+the straight one is in `N_CANDIDATES`, so a paste from a word processor or a web
+page used to pass every check the parser makes and produce an item that could
+not be typed at all — saved, and permanently stuck, which is worse than a
+rejection. Normalizing first also means a typographic quote pair around kana is
+recognised as a quote pair. Assert this over `compileStrict` plus
+`acceptsSpelling`, not over the parser alone: surviving the parser is not the
+claim worth making, being typeable is.
+
+It is written as a replace callback rather than a lookbehind because Safari only
+gained lookbehind in 16.4, and this is the paste box.
 
 `MAX_LIBRARY_ITEM_CHARS` is imported by `readLibrary` rather than repeated. As
 two literals they drifted, and a long line saved, practised once, and vanished on

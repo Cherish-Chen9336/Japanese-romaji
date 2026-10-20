@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  allBankItems,
   difficultBank,
   drillFallbackBank,
   gojuonBank,
@@ -25,7 +26,13 @@ const BANKS: [string, TextItem[]][] = [
   ['gojuonBank', gojuonBank],
 ]
 
-const ALL_ITEMS: TextItem[] = BANKS.flatMap(([, bank]) => bank)
+/*
+ * Corpus-wide invariants read `allBankItems()`, never the list above: a bank
+ * added to `sourceBanks` later joins them by existing, where a hand-listed set
+ * ships unchecked until someone remembers to extend it. `BANKS` stays only to
+ * name the failing bank in the per-bank cases.
+ */
+const ALL_ITEMS: TextItem[] = allBankItems()
 
 describe('acceptsSpelling', () => {
   it('accepts a spelling that tiles the tokens exactly', () => {
@@ -234,5 +241,57 @@ describe('spellingPath performance', () => {
   it('still finds the spelling when one exists in a long run', () => {
     const item = { kana: 'ん'.repeat(50), romaji: 'n'.repeat(50) }
     expect(compileStrict(item)).not.toBeNull()
+  })
+})
+
+/*
+ * Not "what is displayed is what is typed" — that is false by design, and
+ * naming it so would contradict the central split: `kana` is displayed,
+ * `reading ?? kana` is typed, which is what makes 学校 shown and `gakkou`
+ * pressed. The narrower claim is the one worth holding: a reading may differ
+ * from its kana in script, never in the *marks* it carries.
+ */
+describe('a reading carries every mark its kana displays', () => {
+  /*
+   * `compileStrict` tokenizes `reading ?? kana`, so a reading that omits a mark
+   * the kana displays leaves that mark on screen and out of the typing target.
+   * Verified against the current compiler: `{ kana: '学校。', reading: 'がっこう' }`
+   * compiles to が・っこ・う and never asks for the full stop. Nothing else
+   * catches that, because the item compiles perfectly well.
+   *
+   * The sequence is compared unsorted on purpose. Sorted, this checked only how
+   * many marks each side had, so 「ねこ」 against ねこ」「 passed — a reading that
+   * moved a bracket rather than dropping one. Known limit even so: the set below
+   * is the marks the corpus actually uses, not every mark `stripPunctuation`
+   * knows, so a reading could still shed one from outside it.
+   */
+  const MARKS = /[、。！？「」『』（）【】〔〕・…ー～〜]/gu
+
+  const marksIn = (text: string): string => (text.match(MARKS) ?? []).join('')
+
+  it('no bundled item displays a mark its reading does not carry', () => {
+    const offenders = ALL_ITEMS.filter((item) => item.reading !== undefined)
+      .filter((item) => marksIn(item.kana) !== marksIn(item.reading as string))
+      .map((item) => `${item.kana} / ${item.reading}`)
+    expect(offenders).toEqual([])
+  })
+
+  // Guards the guard: order has to matter, or the check is back to counting.
+  it('catches a reading that moves a mark instead of dropping it', () => {
+    expect(marksIn('「ねこ」')).not.toBe(marksIn('ねこ」「'))
+  })
+
+  /*
+   * Pins the hazard against the real compiler rather than against the helper
+   * above. This item compiles cleanly and the full stop is simply absent from
+   * the tokens, so nothing downstream can tell that the screen is showing a
+   * mark the typist is never asked for. When the symbol table lands, this is
+   * the assertion that has to flip.
+   */
+  it('compiles 学校。 without ever asking for the full stop', () => {
+    const tokens = compileStrict({ kana: '学校。', reading: 'がっこう', romaji: 'gakkou' })
+    expect(tokens).not.toBeNull()
+    expect((tokens ?? []).map((token) => token.kana)).toEqual(['が', 'っこ', 'う'])
+    expect((tokens ?? []).some((token) => token.kana === '。')).toBe(false)
   })
 })

@@ -257,10 +257,54 @@ function stripMarkdownChars(text: string): string {
  * as "no reading" — the paste looked unsupported when only the mark was.
  * The ideographic space joins them: it is a space that does not read as one.
  */
-const JAPANESE_PUNCTUATION = /[！？!?「」『』（）()【】〔〕・…ー～〜:;'"]/g
+/*
+ * The apostrophe is **not** here, though it looks like punctuation, because it
+ * is sometimes a romaji character: `N_CANDIDATES` accepts `n'`, which is how ん
+ * is written before a vowel. Stripping it unconditionally turned it into a
+ * space, so `あんい|an'i` arrived as `あんい|an i` and was rejected for
+ * word-mismatch — a spelling the matcher accepts, refused by the parser that
+ * feeds it. It is still a quotation mark everywhere else; which one it is
+ * depends on its neighbours, so `stripQuoteApostrophes` decides it below.
+ */
+const JAPANESE_PUNCTUATION = /[！？!?「」『』（）()【】〔〕・…ー～〜:;"]/g
 
 function stripPunctuation(text: string): string {
   return text.replace(JAPANESE_PUNCTUATION, ' ').replace(/\u3000/g, ' ')
+}
+
+/*
+ * Word processors and web pages substitute a typographic apostrophe, so text
+ * pasted from anywhere but a plain editor carries \u2019 rather than '. Only the
+ * straight one is in `N_CANDIDATES`, so `an\u2019i` was accepted by every check the
+ * parser makes and then could not be typed at all \u2014 worse than a rejection,
+ * because the item is saved and the typist is simply stuck on it.
+ */
+function normalizeApostrophes(text: string): string {
+  return text.replace(/[\u2018\u2019\u02bc\u02b9\uff07]/g, "'")
+}
+
+/*
+ * The apostrophe has to survive as romaji and die as a quotation mark, and the
+ * only thing separating the two is what sits either side of it. In `an'i` it is
+ * flanked by Latin letters and is the `n'` spelling of ん; in `'ねこ'` it is a quote
+ * around the kana and has to go, or the line arrives as `'ねこ'`, derives no
+ * reading, and is rejected outright — which is what keeping every apostrophe did.
+ *
+ * Written as a callback rather than a lookbehind on purpose: Safari only gained
+ * lookbehind in 16.4, and this is the parser for the paste box.
+ */
+function stripQuoteApostrophes(text: string): string {
+  return text.replace(/'+/g, (run, at: number, whole: string) => {
+    const before = whole[at - 1]
+    const after = whole[at + run.length]
+    const isRomaji =
+      run.length === 1 &&
+      before !== undefined &&
+      after !== undefined &&
+      /[A-Za-z]/.test(before) &&
+      /[A-Za-z]/.test(after)
+    return isRomaji ? run : ' '
+  })
 }
 
 /* Runs of spaces collapse to one: a word break is a word break however wide. */
@@ -329,7 +373,10 @@ export function parsePastedText(text: string): LibraryParse {
   const items: TextItem[] = []
   const rejected: LibraryReject[] = []
 
-  for (const raw of collapseSpaces(stripPunctuation(stripMarkdownChars(text))).split(/\n|。|、|\.|,|;/)) {
+  const prepared = collapseSpaces(
+    stripQuoteApostrophes(normalizeApostrophes(stripPunctuation(stripMarkdownChars(text)))),
+  )
+  for (const raw of prepared.split(/\n|。|、|\.|,|;/)) {
     const part = raw.trim()
     if (part === '') continue
 

@@ -3,6 +3,7 @@ import {
   MAPPED_KANA,
   expectedKana,
   initMatch,
+  isMoraToken,
   legalNext,
   projectMatch,
   stepMatch,
@@ -477,5 +478,42 @@ describe('projectMatch witness ranking', () => {
     const tokens = tokenizeKana('し')
     const stray = { positions: [{ tokenIndex: 0, typedInToken: 'zz' }] }
     expect(projectMatch(tokens, stray).tokenIndex).toBe(0)
+  })
+})
+
+describe('isMoraToken admits hiragana only', () => {
+  it('accepts hiragana, including the small forms', () => {
+    for (const kana of ['あ', 'ん', 'しゃ', 'っこ']) {
+      expect(isMoraToken(kana)).toBe(true)
+    }
+  })
+
+  /*
+   * These read as moras but have no romaji spelling: each tokenizes to a
+   * self-spelling token demanding the literal character, so the only way past
+   * one is advance-on-error substituting a key for it. Tracking them gave the
+   * mastery table buckets no spelling can clear, and gave ー one of its own
+   * despite its sound belonging to the mora before it.
+   */
+  it('rejects katakana and the long-vowel mark, which have no spelling', () => {
+    expect(tokenizeKana('コーヒー').map((t) => t.candidates)).toEqual([['コ'], ['ー'], ['ヒ'], ['ー']])
+    for (const kana of ['コ', 'ヒ', 'ー', 'コー']) {
+      expect(isMoraToken(kana)).toBe(false)
+    }
+  })
+
+  /*
+   * The predicate is a character-range test, not a lookup in the romaji map, so
+   * it is still ahead of what can be typed: these four sit inside the hiragana
+   * block, pass, and then tokenize to themselves exactly as コ does. Narrowing
+   * to katakana fixed the large hole, not this one. Pinned so the gap is a
+   * recorded fact rather than a surprise — when the map grows a `vu` row, the
+   * second assertion here is the one that flips.
+   */
+  it('still admits hiragana the romaji map cannot reach', () => {
+    for (const kana of ['ゔ', 'ゕ', 'ゖ', 'ゎ']) {
+      expect(isMoraToken(kana)).toBe(true)
+      expect(tokenizeKana(kana).map((token) => token.candidates)).toEqual([[kana]])
+    }
   })
 })
