@@ -7,7 +7,6 @@ import {
   loadProfile,
   migrateLocalStorage,
   readConfusionMap,
-  readKeyboardLayout,
   readLibrary,
   readLifetimeStats,
   readMissMap,
@@ -28,7 +27,6 @@ const MISSES_KEY = 'japanese-romaji:misses'
 const CONFUSIONS_KEY = 'japanese-romaji:confusions'
 const SHOW_KB_KEY = 'japanese-romaji:show-keyboard'
 const LIFETIME_KEY = 'japanese-romaji:lifetime'
-const KB_LAYOUT_KEY = 'japanese-romaji:keyboard-layout'
 const KANA_GROUP_KEY = 'japanese-romaji:kana-group'
 const SOURCE_KEY = 'japanese-romaji:source'
 
@@ -316,27 +314,6 @@ describe('readShowKeyboard', () => {
   it('returns false when the key stores JSON false', () => {
     localStorage.setItem(SHOW_KB_KEY, 'false')
     expect(readShowKeyboard()).toBe(false)
-  })
-})
-
-describe('readKeyboardLayout', () => {
-  it('defaults to windows when the key is absent', () => {
-    expect(readKeyboardLayout()).toBe('windows')
-  })
-
-  it('returns a stored layout name', () => {
-    localStorage.setItem(KB_LAYOUT_KEY, JSON.stringify('mac'))
-    expect(readKeyboardLayout()).toBe('mac')
-  })
-
-  it('falls back to windows for an unknown layout name', () => {
-    localStorage.setItem(KB_LAYOUT_KEY, JSON.stringify('ergodox'))
-    expect(readKeyboardLayout()).toBe('windows')
-  })
-
-  it('falls back to windows for corrupt JSON', () => {
-    localStorage.setItem(KB_LAYOUT_KEY, '{not json')
-    expect(readKeyboardLayout()).toBe('windows')
   })
 })
 

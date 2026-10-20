@@ -17,7 +17,7 @@ browser.
   table showing which kana you mistake for which.
 - **Mastery map** — which kana groups you have actually learned, split by seion,
   dakuten and yoon.
-- **Settings** — Mac or Windows keyboard layout; system, light, dark or book theme.
+- **Settings** — paragraph length; system, light, dark or book theme.
 
 ## Architecture
 

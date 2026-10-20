@@ -1,9 +1,8 @@
 import { lifetimeStatsFromRuns } from '../engine/stats'
 import { MAX_LIBRARY_ITEM_CHARS } from '../engine/lessons'
-import { isKanaGroup, isKeyboardLayoutName, isThemeName } from '../engine/types'
+import { isKanaGroup, isThemeName } from '../engine/types'
 import type {
   KanaGroup,
-  KeyboardLayoutName,
   ThemeName,
   LifetimeStats,
   RunResult,
@@ -23,6 +22,13 @@ export const MISSES_KEY = 'japanese-romaji:misses'
 export const CONFUSIONS_KEY = 'japanese-romaji:confusions'
 export const SHOW_KEYBOARD_KEY = 'japanese-romaji:show-keyboard'
 export const LIFETIME_KEY = 'japanese-romaji:lifetime'
+/*
+ * Nothing reads or writes this any more — the mac/windows picker is gone, since
+ * the board is now one combined layout. The key stays declared for exactly one
+ * reason: it is still in `ALL_PREFERENCE_KEYS`, so a reset clears it off the
+ * profiles that already have it. Drop it from that list and the dead value sits
+ * in localStorage forever, surviving the one action meant to remove everything.
+ */
 export const KEYBOARD_LAYOUT_KEY = 'japanese-romaji:keyboard-layout'
 export const THEME_KEY = 'japanese-romaji:theme'
 export const KANA_GROUP_KEY = 'japanese-romaji:kana-group'
@@ -316,11 +322,6 @@ export function readTheme(): ThemeName {
   return isThemeName(raw) ? raw : 'system'
 }
 
-export function readKeyboardLayout(): KeyboardLayoutName {
-  const raw = readJson<unknown>(KEYBOARD_LAYOUT_KEY, null)
-  return isKeyboardLayoutName(raw) ? raw : 'windows'
-}
-
 /**
  * The last-picked source. Persisted so someone working through the syllabary
  * comes back to it, rather than being dropped on `auto` every reload — which
@@ -444,7 +445,6 @@ export async function loadProfile(store: RecordStore): Promise<StoredProfile> {
 export type Preferences = {
   settings: Settings
   showKeyboard: boolean
-  keyboardLayout: KeyboardLayoutName
   kanaGroup: KanaGroup
   source: SourceName
 }
@@ -453,7 +453,6 @@ export function readPreferences(): Preferences {
   return {
     settings: readSettings(),
     showKeyboard: readShowKeyboard(),
-    keyboardLayout: readKeyboardLayout(),
     kanaGroup: readKanaGroup(),
     source: readSource(),
   }
@@ -464,7 +463,6 @@ export function writePreferences(preferences: Preferences): boolean {
   const writes = [
     writeJson(SETTINGS_KEY, preferences.settings),
     writeJson(SHOW_KEYBOARD_KEY, preferences.showKeyboard),
-    writeJson(KEYBOARD_LAYOUT_KEY, preferences.keyboardLayout),
     writeJson(KANA_GROUP_KEY, preferences.kanaGroup),
     writeJson(SOURCE_KEY, preferences.source),
   ]
@@ -489,7 +487,6 @@ export function parsePreferences(raw: unknown): Preferences {
   return {
     settings,
     showKeyboard: typeof r.showKeyboard === 'boolean' ? r.showKeyboard : true,
-    keyboardLayout: isKeyboardLayoutName(r.keyboardLayout) ? r.keyboardLayout : 'windows',
     kanaGroup: isKanaGroup(r.kanaGroup) ? r.kanaGroup : 'all',
     source: isStr(r.source) && VALID_SOURCES.has(r.source) ? (r.source as SourceName) : 'auto',
   }
@@ -499,6 +496,7 @@ export function parsePreferences(raw: unknown): Preferences {
 export const ALL_PREFERENCE_KEYS: readonly string[] = [
   SETTINGS_KEY,
   SHOW_KEYBOARD_KEY,
+  // Retired, and kept here so a reset still sweeps it up. See its declaration.
   KEYBOARD_LAYOUT_KEY,
   KANA_GROUP_KEY,
   SOURCE_KEY,

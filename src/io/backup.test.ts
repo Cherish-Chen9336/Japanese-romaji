@@ -103,14 +103,42 @@ describe('parseBackup', () => {
       format: BACKUP_FORMAT,
       version: BACKUP_VERSION,
       records: {},
-      preferences: { keyboardLayout: 'mac', kanaGroup: 'nonsense', source: 'quotes' },
+      preferences: { showKeyboard: false, kanaGroup: 'nonsense', source: 'quotes' },
     })
     const parsed = parseBackup(text)
     expect(parsed.ok).toBe(true)
     if (parsed.ok) {
-      expect(parsed.backup.preferences.keyboardLayout).toBe('mac')
+      expect(parsed.backup.preferences.showKeyboard).toBe(false)
       expect(parsed.backup.preferences.kanaGroup).toBe('all')
       expect(parsed.backup.preferences.source).toBe('quotes')
+    }
+  })
+
+  /*
+   * Why retiring `keyboardLayout` needed no BACKUP_VERSION bump. The bump
+   * exists for a reader that would *misread* a file — the `mode` field was
+   * bumped because a v1 reader would have taken every timed run for a passage
+   * run and polluted personal bests with it. A retired preference carries no
+   * measurement, and `parsePreferences` falls back per field, so a v2 file
+   * written before the picker was removed loses only a setting that no longer
+   * exists. In the other direction, an older build reading a file written now
+   * finds the field absent and defaults it, exactly as it would for a profile
+   * saved before the field existed. Neither reader is wrong, so the version
+   * stays put.
+   */
+  it('imports a backup still carrying the retired keyboard layout', () => {
+    const text = JSON.stringify({
+      format: BACKUP_FORMAT,
+      version: BACKUP_VERSION,
+      records: {},
+      preferences: { keyboardLayout: 'mac', kanaGroup: 'yoon', source: 'quotes' },
+    })
+    const parsed = parseBackup(text)
+    expect(parsed.ok).toBe(true)
+    if (parsed.ok) {
+      expect(parsed.backup.preferences.kanaGroup).toBe('yoon')
+      expect(parsed.backup.preferences.source).toBe('quotes')
+      expect('keyboardLayout' in parsed.backup.preferences).toBe(false)
     }
   })
 })
@@ -132,13 +160,13 @@ describe('export then import', () => {
   })
 
   it('carries preferences across too, not just history', async () => {
-    localStorage.setItem('japanese-romaji:keyboard-layout', JSON.stringify('mac'))
+    localStorage.setItem('japanese-romaji:show-keyboard', JSON.stringify(false))
     localStorage.setItem('japanese-romaji:kana-group', JSON.stringify('yoon'))
     const text = await exportBackup(new InMemoryRecordStore())
 
     localStorage.clear()
     await importBackup(new InMemoryRecordStore(), text)
-    expect(readPreferences().keyboardLayout).toBe('mac')
+    expect(readPreferences().showKeyboard).toBe(false)
     expect(readPreferences().kanaGroup).toBe('yoon')
   })
 
@@ -170,11 +198,23 @@ describe('export then import', () => {
 describe('resetProfile', () => {
   it('empties the store and the preferences together', async () => {
     const store = await seeded()
-    localStorage.setItem('japanese-romaji:keyboard-layout', JSON.stringify('mac'))
+    localStorage.setItem('japanese-romaji:kana-group', JSON.stringify('yoon'))
 
     expect(await resetProfile(store)).toEqual(emptyProfile())
     expect(await store.readAll()).toEqual({})
-    expect(readPreferences().keyboardLayout).toBe('windows')
+    expect(readPreferences().kanaGroup).toBe('all')
+  })
+
+  /*
+   * The retired keyboard-layout key is still in ALL_PREFERENCE_KEYS, and this
+   * is why. Nothing reads or writes it now, so dropping it from that list looks
+   * like tidying — but a profile that already holds the value would then keep
+   * it through the one action whose whole job is to erase everything.
+   */
+  it('sweeps up the retired keyboard-layout key', async () => {
+    localStorage.setItem('japanese-romaji:keyboard-layout', JSON.stringify('mac'))
+    await resetProfile(await seeded())
+    expect(localStorage.getItem('japanese-romaji:keyboard-layout')).toBeNull()
   })
 
   /*

@@ -27,6 +27,16 @@
     --color-error-rgb: 224 112 95;
     --color-on-deep: #f3ead2;
     --color-on-deep-rgb: 243 234 210;
+
+  /* Porcelain's dark counterpart — see the light palette for the reasoning.
+     Graphite caps a step above the page so the board still reads as an object,
+     without becoming the brightest thing on a black-and-gold screen. */
+  --kb-deck-top: #22211b;
+  --kb-deck-bottom: #1a1914;
+  --kb-cap-top: #343229;
+  --kb-cap-bottom: #2a2821;
+  --kb-cap-edge: rgb(0 0 0 / 0.55);
+  --kb-cap-gloss: rgb(255 255 255 / 0.07);
   }
 }
 
@@ -60,6 +70,16 @@
     --color-error-rgb: 224 112 95;
     --color-on-deep: #f3ead2;
     --color-on-deep-rgb: 243 234 210;
+
+  /* Porcelain's dark counterpart — see the light palette for the reasoning.
+     Graphite caps a step above the page so the board still reads as an object,
+     without becoming the brightest thing on a black-and-gold screen. */
+  --kb-deck-top: #22211b;
+  --kb-deck-bottom: #1a1914;
+  --kb-cap-top: #343229;
+  --kb-cap-bottom: #2a2821;
+  --kb-cap-edge: rgb(0 0 0 / 0.55);
+  --kb-cap-gloss: rgb(255 255 255 / 0.07);
   color-scheme: dark;
 }
 
@@ -87,6 +107,15 @@
   --color-error-rgb: 163 57 44;
   --color-on-deep: #fbf3e4;
   --color-on-deep-rgb: 251 243 228;
+
+  /* Porcelain warmed to the paper page, so the deck reads as desk rather than
+     as a grey slab dropped onto parchment. */
+  --kb-deck-top: #e8dfc8;
+  --kb-deck-bottom: #ddd3b8;
+  --kb-cap-top: #fffdf4;
+  --kb-cap-bottom: #f7f2e2;
+  --kb-cap-edge: rgb(120 102 70 / 0.32);
+  --kb-cap-gloss: rgb(255 255 255 / 0.85);
   color-scheme: light;
 }
 
@@ -127,6 +156,25 @@
    */
   --color-on-deep: #ffffff;
   --color-on-deep-rgb: 255 255 255;
+
+  /*
+   * The practice keyboard's own surfaces. Four tokens rather than a full
+   * palette: the caps take their text from `--color-text` and `--color-muted`
+   * like everything else, and only the mouldings — deck, cap, bevel, gloss —
+   * need values a flat background token cannot express.
+   *
+   * These are "Porcelain": warm off-white caps on a slightly darker warm deck,
+   * which is what makes it read as a physical object resting on the page rather
+   * than another panel drawn in it. Chosen per theme, not inverted — a cream
+   * keyboard on the dark theme's black-and-gold page would be the brightest
+   * object on screen and would outrank the kana line it sits beneath.
+   */
+  --kb-deck-top: #e6e3dc;
+  --kb-deck-bottom: #dcd8cf;
+  --kb-cap-top: #fffefb;
+  --kb-cap-bottom: #f4f1ea;
+  --kb-cap-edge: rgb(120 110 95 / 0.30);
+  --kb-cap-gloss: rgb(255 255 255 / 0.9);
 
   --font-sans:
     "Hiragino Sans", "Yu Gothic", "Noto Sans JP", -apple-system, BlinkMacSystemFont, "Segoe UI",

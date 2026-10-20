@@ -129,16 +129,6 @@ export type Settings = {
 }
 
 /**
- * Which physical keyboard the on-screen keyboard draws. A persisted user
- * setting, so the name and its guard live here in `engine/` rather than beside
- * the keycap data in `ui/` — `io/` needs to validate it on read and is not
- * allowed to import from `ui/`.
- */
-export type KeyboardLayoutName = 'mac' | 'windows'
-
-export const KEYBOARD_LAYOUT_NAMES: readonly KeyboardLayoutName[] = ['windows', 'mac']
-
-/**
  * Which palette the app wears. `system` is the default and not a value of its
  * own — it means "whatever the OS is asking for", resolved at read time, so
  * someone who has never opened settings gets a dark app on a dark desktop.
@@ -153,10 +143,6 @@ export const THEME_NAMES: readonly ThemeName[] = ['system', 'light', 'dark', 'bo
 
 export function isThemeName(value: unknown): value is ThemeName {
   return THEME_NAMES.includes(value as ThemeName)
-}
-
-export function isKeyboardLayoutName(value: unknown): value is KeyboardLayoutName {
-  return value === 'mac' || value === 'windows'
 }
 
 /**

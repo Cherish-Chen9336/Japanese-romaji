@@ -48,10 +48,9 @@ import {
   leastPractisedKana,
   weakestKana,
 } from './engine/stats'
-import { KANA_GROUPS, KEYBOARD_LAYOUT_NAMES, STANDARD_TIMED_MS, THEME_NAMES } from './engine/types'
+import { KANA_GROUPS, STANDARD_TIMED_MS, THEME_NAMES } from './engine/types'
 import type {
   KanaGroup,
-  KeyboardLayoutName,
   ThemeName,
   Lesson,
   LifetimeStats,
@@ -70,7 +69,6 @@ import {
 } from './io/backup'
 import {
   KANA_GROUP_KEY,
-  KEYBOARD_LAYOUT_KEY,
   THEME_KEY,
   SETTINGS_KEY,
   SHOW_KEYBOARD_KEY,
@@ -79,7 +77,6 @@ import {
   loadProfile,
   migrateLocalStorage,
   readKanaGroup,
-  readKeyboardLayout,
   readTheme,
   readSettings,
   readShowKeyboard,
@@ -154,7 +151,6 @@ function App() {
     persist(THEME_KEY, next)
     setThemeSignal(next)
   }
-  const [keyboardLayout, setKeyboardLayout] = createSignal<KeyboardLayoutName>(readKeyboardLayout())
   const [kanaGroup, setKanaGroup] = createSignal<KanaGroup>(readKanaGroup())
   const [customText, setCustomText] = createSignal('')
   const [libraryMessage, setLibraryMessage] = createSignal<string | null>(null)
@@ -318,7 +314,6 @@ function App() {
     const preferences = result.preferences as Preferences
     setSettings(preferences.settings)
     setShowKeyboard(preferences.showKeyboard)
-    setKeyboardLayout(preferences.keyboardLayout)
     setKanaGroup(preferences.kanaGroup)
     setSource(preferences.source)
     setLesson(nextLesson(preferences.source, preferences.settings))
@@ -338,7 +333,6 @@ function App() {
     adoptProfile(await resetProfile(recordStore))
     setSettings(readSettings())
     setShowKeyboard(readShowKeyboard())
-    setKeyboardLayout(readKeyboardLayout())
     setKanaGroup(readKanaGroup())
     setSource(readSource())
     setLesson(nextLesson(readSource()))
@@ -620,11 +614,6 @@ function App() {
   const setKeyboardVisible = (visible: boolean) => {
     persist(SHOW_KEYBOARD_KEY, visible)
     setShowKeyboard(visible)
-  }
-
-  const changeKeyboardLayout = (layout: KeyboardLayoutName) => {
-    persist(KEYBOARD_LAYOUT_KEY, layout)
-    setKeyboardLayout(layout)
   }
 
   const updateParagraphLength = (length: number) => {
@@ -943,7 +932,7 @@ function App() {
             </section>
 
             <Show when={showKeyboard()}>
-              <OnScreenKeyboard layout={keyboardLayout()} pressed={pressedKeys} />
+              <OnScreenKeyboard pressed={pressedKeys} />
             </Show>
 
             {/* Source picker sits directly under the keyboard, keyboard
@@ -1526,25 +1515,6 @@ function App() {
                       onClick={() => setTheme(name)}
                     >
                       {name}
-                    </button>
-                  )}
-                </For>
-              </div>
-            </div>
-
-            <div class="field">
-              <span>keyboard layout</span>
-              <div class="pill-row">
-                <For each={KEYBOARD_LAYOUT_NAMES}>
-                  {(layout) => (
-                    <button
-                      type="button"
-                      class="pill"
-                      classList={{ active: keyboardLayout() === layout }}
-                      aria-pressed={keyboardLayout() === layout}
-                      onClick={() => changeKeyboardLayout(layout)}
-                    >
-                      {layout}
                     </button>
                   )}
                 </For>

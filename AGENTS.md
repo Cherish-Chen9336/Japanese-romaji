@@ -45,7 +45,7 @@ split: `engine/` pure logic → `io/` browser adapters → `ui/` SolidJS.
   The v1 single-blob `records.runs` key migrates on first read and is deleted
   rather than copied — it is the whole history, so leaving it doubles the
   profile's size forever. **Preferences** — paragraph length, keyboard
-  visibility and layout, kana
+  visibility, kana
   group, source — stay in localStorage, because reading them synchronously is
   what lets the first paint happen without awaiting a database. Records are
   parsed by the same validators the localStorage path used, so hardening applies
@@ -521,6 +521,76 @@ become its own bucket, since its sound depends on the mora before it. The
 expansion — it will not survive many more. Chart groups are hardcoded, so a new `KanaGroup` needs adding in two
 places. Corpus-wide invariants read `allBankItems()` rather than a hand-listed
 set of banks, so a bank added later joins them by existing.
+
+### The practice keyboard
+
+**One board, not two.** There used to be a `mac` layout and a `windows` layout
+behind a `KeyboardLayoutName`, a guard, a persisted preference and a settings
+picker. Nothing a typist presses during practice differs between them — romaji
+is letters, and the only rows that actually diverge are the function row and the
+modifier row, neither of which is touched in a run. The split cost five pieces
+of machinery and bought a difference nobody typing could feel.
+
+The combined board takes a **glyph** where the platforms disagree on the word
+(⌫ ↩ ⌘ ⌥ ⌃ ⇪ ⇥ ⇧) and the **shared word** where they agree (tab, caps lock,
+shift, control, option, fn), with the word set under the glyph the way an Apple
+keycap reads. The bottom row is the MacBook order — fn · control · option ·
+command · space · command · option · control — which is the laptop arrangement
+with the arrow cluster replaced by a second control key, putting `fn` in the
+bottom-left corner where a laptop has it. Arrow keys are not drawn: nothing in
+the app uses them, and drawing a cluster nobody presses is what made the board
+read as a desktop keyboard with a bite taken out of it.
+
+**`KEYBOARD_LAYOUT_KEY` outlives the preference on purpose.** Nothing reads or
+writes it, but it stays in `ALL_PREFERENCE_KEYS` so a reset still clears it off
+profiles that already hold the value. Dropping it from that list looks like
+tidying and is the opposite: the dead key would then survive the one action
+whose whole job is to erase everything.
+
+**Retiring the field needed no `BACKUP_VERSION` bump**, and the reasoning is the
+mirror of why `mode` did need one. A version bump exists for a reader that would
+*misread* a file — a v1 reader given a v2 file took every timed run for a
+passage run and polluted personal bests with it. A retired preference carries no
+measurement. `parsePreferences` falls back per field, so a file written before
+the removal loses a setting that no longer exists, and an older build reading a
+file written now finds the field absent and defaults it, exactly as it would for
+a profile saved before the field existed. Neither reader is wrong.
+
+**The geometry is the part that breaks silently.** Every row is exactly
+`ROW_WIDTH_U` (15u) and `keyboard-layouts.test.ts` asserts it, because the frame
+is a fixed pixel width — `NATURAL_WIDTH` in `OnScreenKeyboard.tsx`, scaled by a
+ResizeObserver — and a row that doesn't sum to 15u overflows the case or leaves
+a ragged right edge. The mockup this board came from shipped with exactly that
+bug: `padding` on the edge modifiers fell *outside* `flex-basis`, so every row
+ran 0.17u long per edge key. `box-sizing: border-box` is what fixes it, and it
+is restated on `.kb__key` even though `index.css` sets it globally, because the
+flex-basis arithmetic depends on it. Measured in Chromium after the rebuild: all
+six rows 556.17px, spread 0.00px. Changing the deck padding changes
+`NATURAL_WIDTH`; they are two halves of one number and must move together.
+
+Three details carry the laptop silhouette, and all three are cheap: the
+**function row at 0.56 height**, the **home-row nibs** moulded into `f` and `j`
+(decorative, but they mark the hand position the app is teaching), and a
+**wider bezel with a larger corner radius** than a desktop board, which with the
+tight gap makes the caps read as one continuous field rather than separate
+tiles. The cap bevel is a `box-shadow`, never a border: a border on four sides
+reads as an outlined tile, where a single lower edge reads as a cap standing
+proud of the deck.
+
+**The keyboard's surfaces are four tokens, chosen per theme.** `--kb-deck-top`,
+`--kb-deck-bottom`, `--kb-cap-top`, `--kb-cap-bottom`, plus `--kb-cap-edge` and
+`--kb-cap-gloss` for the mouldings. Text comes from `--color-text` and
+`--color-muted` like everything else, so only what a flat background token
+cannot express gets its own name. The light and book values are "Porcelain" —
+warm off-white caps on a slightly darker warm deck, which is what makes the
+board read as a physical object resting on the page rather than another panel
+drawn in it. Dark gets a graphite counterpart rather than the same cream, and
+that is not inversion-for-its-own-sake: a porcelain keyboard on the black-and-
+gold page would be the brightest object on screen and would outrank the kana
+line it sits beneath. Measure against the background each one actually has.
+
+A pressed cap loses its bevel and drops into the deck, because that is what a
+key does. Tinting alone read as a highlight rather than a press.
 
 ### The practice toggles
 

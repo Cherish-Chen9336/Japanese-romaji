@@ -337,18 +337,23 @@ rt {
    * then scales it identically. */
   --u: 22px;
   --kb-gap: max(3px, calc(var(--u) * 0.1));
-  background: var(--color-surface);
+  /* Laptop proportions: a wider bezel and a larger corner radius than a desktop
+   * board, which with the tight gap makes the caps read as one continuous field
+   * rather than separate tiles. */
+  background: linear-gradient(var(--kb-deck-top), var(--kb-deck-bottom));
   border: var(--bw-1) solid var(--color-border);
-  border-radius: calc(var(--u) * 0.35);
-  box-shadow: var(--shadow-md);
+  border-radius: calc(var(--u) * 0.46);
+  box-shadow:
+    0 1px 0 var(--kb-cap-gloss) inset,
+    var(--shadow-md);
   display: flex;
   flex-direction: column;
   gap: var(--kb-gap);
-  padding: calc(var(--u) * 0.35);
+  padding: calc(var(--u) * 0.46);
   /* Matches NATURAL_WIDTH in OnScreenKeyboard.tsx: 15u + 13×3px gap +
-   * 2×0.35u padding + 2px border at --u=22, rounded up for headroom. */
-  width: 388px;
-  /* Absolutely positioned inside the wrapper so the unscaled 388px box doesn't
+   * 2×0.46u padding + 2px border at --u=22, rounded up for headroom. */
+  width: 393px;
+  /* Absolutely positioned inside the wrapper so the unscaled box doesn't
    * push following content sideways via its layout width. */
   left: 50%;
   position: absolute;
@@ -363,18 +368,30 @@ rt {
   height: var(--u);
 }
 
+/* The function row is half height on a laptop, and saying so is most of what
+ * separates this silhouette from a full desktop board. */
+.kb__row--fn {
+  height: calc(var(--u) * 0.56);
+}
+
 .kb__key {
   align-items: center;
-  background: var(--color-bg);
-  border: var(--bw-1) solid var(--color-border);
-  border-bottom-width: 2px;
-  border-radius: calc(var(--u) * 0.15);
+  background: linear-gradient(var(--kb-cap-top), var(--kb-cap-bottom));
+  /* The bevel is a shadow, not a border: a border on four sides reads as an
+   * outlined tile, where a single lower edge reads as a cap standing proud of
+   * the deck. */
+  border: 0;
+  border-radius: calc(var(--u) * 0.28);
+  box-shadow:
+    0 1px 0 var(--kb-cap-gloss) inset,
+    0 1.5px 0 var(--kb-cap-edge);
   color: var(--color-text);
   display: flex;
   flex: 0 0 calc(var(--w, 1) * var(--u) + (var(--w, 1) - 1) * var(--kb-gap));
   flex-direction: column;
-  font-family: var(--font-mono);
-  font-size: calc(var(--u) * 0.34);
+  font-family: var(--font-sans);
+  font-size: calc(var(--u) * 0.36);
+  font-weight: 500;
   gap: calc(var(--u) * 0.04);
   height: 100%;
   justify-content: center;
@@ -384,10 +401,17 @@ rt {
   max-width: calc(var(--w, 1) * var(--u) + (var(--w, 1) - 1) * var(--kb-gap));
   min-width: 0;
   overflow: hidden;
-  padding: 0 calc(var(--u) * 0.12);
+  /* border-box, or an edge modifier's padding is added OUTSIDE the flex basis
+   * and each one pushes its row 0.17u long — which is exactly what left the
+   * mockup's right edge ragged, by one cap's padding per edge key in the row.
+   * `index.css` sets this globally; repeated here because the arithmetic above
+   * depends on it. */
+  box-sizing: border-box;
+  padding: 0 calc(var(--u) * 0.17);
+  position: relative;
   transition:
     background var(--dur-fast) var(--ease-out),
-    border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out),
     color var(--dur-fast) var(--ease-out),
     transform var(--dur-fast) var(--ease-out);
   user-select: none;
@@ -395,11 +419,17 @@ rt {
 
 .kb__key--mod {
   color: var(--color-muted);
-  font-size: calc(var(--u) * 0.3);
+  font-size: calc(var(--u) * 0.26);
+  font-weight: 400;
 }
 
-/* Mac modifier caps hug the outer edge of the cluster, mirroring real Apple
- * keycaps. Centred is the default for everything else. */
+.kb__row--fn .kb__key {
+  font-size: calc(var(--u) * 0.22);
+}
+
+/* Modifier caps hug the outer edge of the cluster, mirroring real keycaps —
+ * "⇧ shift" reading up from the lower left, "⌫ delete" from the lower right.
+ * Centring a word that is not a character makes the cap read as a button. */
 .kb__key--align-start {
   align-items: flex-start;
 }
@@ -409,11 +439,16 @@ rt {
 }
 
 .kb__key--space {
-  background: var(--color-bg);
+  /* The spacebar carries no label, so without this it is the one cap whose
+     gradient has nothing sitting on it — it reads as a gap, not a key. */
+  background: linear-gradient(var(--kb-cap-top), var(--kb-cap-bottom));
 }
 
 .kb__key--pressed {
-  background: color-mix(in oklch, var(--color-accent) 22%, var(--color-bg));
+  background: color-mix(in oklch, var(--color-accent) 22%, var(--kb-cap-top));
+  /* Pressing a cap takes away its bevel and drops it into the deck, which is
+     what a key actually does; tinting alone read as a highlight, not a press. */
+  box-shadow: 0 1px 2px var(--kb-cap-edge) inset;
   transform: translateY(1px);
 }
 
@@ -427,15 +462,19 @@ rt {
   white-space: nowrap;
 }
 
+/* The modifier glyph leads and the word sits under it, both smaller than a
+ * letter cap's glyph — the board's legends should not compete with the kana. */
+.kb__key--mod .kb__key__label {
+  font-size: calc(var(--u) * 0.3);
+  line-height: 1;
+  opacity: 0.8;
+}
+
 .kb__key__sub {
-  /* Sans for the spelled-out modifier names — narrow enough that "control" /
-   * "command" fit a 1u cap, where mono would trigger the ellipsis. */
-  font-family: var(--font-sans);
-  font-size: calc(var(--u) * 0.18);
-  letter-spacing: 0;
-  margin-top: -1px;
+  font-size: calc(var(--u) * 0.2);
+  letter-spacing: 0.01em;
+  line-height: 1;
   max-width: 100%;
-  opacity: 0.55;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -444,11 +483,9 @@ rt {
 /* Shifted glyph on dual-character caps — `!` above `1`, `<` above `,`. Dimmer
  * and smaller so the primary unshifted glyph still leads. */
 .kb__key__shifted {
-  color: var(--color-muted);
-  font-family: var(--font-mono);
   font-size: calc(var(--u) * 0.26);
   line-height: 1;
-  opacity: 0.75;
+  opacity: 0.62;
 }
 
 .kb__key--dual {
@@ -456,24 +493,21 @@ rt {
   justify-content: center;
 }
 
-/* Touch ID — outlined circle at ~66% of the cap, dimmed so it reads as a
- * hardware accent rather than a label. An SVG guarantees geometric centring,
- * unlike a unicode circle glyph whose baseline placement varies by font. */
-.kb__key__icon--touch-id {
-  height: calc(var(--u) * 0.666);
-  opacity: 0.55;
-  width: calc(var(--u) * 0.666);
-}
-
-/* Windows variant — near-square caps with a more pronounced bottom edge,
- * against the Mac variant's rounded low-profile chiclets. */
-.kb--windows {
-  border-radius: calc(var(--u) * 0.18);
-}
-
-.kb--windows .kb__key {
-  border-bottom-width: 3px;
-  border-radius: calc(var(--u) * 0.05);
+/* Home-row nibs: the moulded bar under `f` and `j` that a touch typist finds
+ * without looking. Decorative here, but it is the single detail that reads as
+ * "laptop" more than any other, and it marks the hand position the app is
+ * trying to teach. */
+.kb__key--nib::after {
+  background: currentColor;
+  border-radius: 2px;
+  bottom: calc(var(--u) * 0.13);
+  content: '';
+  height: 1.5px;
+  left: 50%;
+  opacity: 0.45;
+  position: absolute;
+  transform: translateX(-50%);
+  width: calc(var(--u) * 0.26);
 }
 
 .practice-hints {
