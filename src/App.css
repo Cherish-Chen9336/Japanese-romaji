@@ -846,16 +846,47 @@ input[type='range'] {
  * rather than as wrong. This is the same split the kana chart already makes:
  * teal for never-missed, red ramped by how badly, and nothing in between.
  */
+/*
+ * The cap shares its *form* with the practice keyboard and nothing else.
+ *
+ * Same corner ratio (0.28 of the cap, which on a square key is 28%), the same
+ * single lower-edge bevel instead of a four-sided border, and the same
+ * `--font-keycap` — so the two keyboards in this app read as the same object.
+ * They were a porcelain laptop board and a grid of flat pink rectangles.
+ *
+ * What does NOT cross over is colour, in either direction. The fill here *is*
+ * the data, so the cap keeps its state colour and takes none of the deck's
+ * gradient. And the practice board must never take this tint: a per-key mastery
+ * heatmap there is in "Deliberately not built" for a reason that still holds —
+ * `n` alone types な に ぬ ね の and ん, so a tinted cap cannot name the mora
+ * at fault. Sharing a cap shape is exactly the move that would quietly undo
+ * that, so the line is drawn here deliberately.
+ *
+ * The outline is a `box-shadow` ring rather than a `border` because the bevel
+ * is also a shadow and the weak state needs to tint the ring — two borders
+ * cannot coexist, three shadows can.
+ */
 .mini-key {
   align-items: center;
   background: rgb(var(--color-accent-rgb) / 0.16);
   background: color-mix(in oklch, var(--color-accent) 18%, var(--color-surface));
-  border: var(--bw-1) solid var(--color-border);
-  border-radius: 6px;
+  border: 0;
+  /*
+   * The board's ratio is 0.28 of the cap, which on a square key is 28% — but
+   * these keys render up to 56px against the board's 33px, and the ratio alone
+   * came out as pills rather than keycaps. Bounded, so small caps keep the
+   * board's proportion and large ones keep its *look*, which is the thing being
+   * matched.
+   */
+  border-radius: min(28%, 11px);
+  box-shadow:
+    0 0 0 var(--bw-1) var(--color-border),
+    0 1px 0 var(--kb-cap-gloss) inset,
+    0 1.5px 0 var(--kb-cap-edge);
   color: var(--color-text);
   display: flex;
   flex-direction: column;
-  font-family: var(--font-mono);
+  font-family: var(--font-keycap);
   justify-content: center;
   width: var(--mk-key);
   aspect-ratio: 1;
@@ -863,6 +894,14 @@ input[type='range'] {
   overflow: hidden;
 }
 
+/*
+ * Two states, not one blend. Compositing red *over* teal looked right in the
+ * abstract and came out muddy brown on screen — the hues are near enough to
+ * complementary that mixing them lands on grey. The flat `rgb()` line before
+ * each `color-mix` is required, not belt-and-braces: a browser without
+ * `color-mix` drops the whole declaration, and a weak key would silently lose
+ * the only signal this panel exists to show.
+ */
 .mini-key--weak {
   background: rgb(var(--color-error-rgb) / calc(0.12 + var(--mk-heat, 0) * 0.6));
   background: color-mix(
@@ -870,8 +909,14 @@ input[type='range'] {
     var(--color-error) calc(12% + var(--mk-heat, 0) * 60%),
     var(--color-surface)
   );
-  border-color: rgb(var(--color-error-rgb) / 0.4);
-  border-color: color-mix(in oklch, var(--color-error) 40%, var(--color-border));
+  box-shadow:
+    0 0 0 var(--bw-1) rgb(var(--color-error-rgb) / 0.4),
+    0 1px 0 var(--kb-cap-gloss) inset,
+    0 1.5px 0 var(--kb-cap-edge);
+  box-shadow:
+    0 0 0 var(--bw-1) color-mix(in oklch, var(--color-error) 40%, var(--color-border)),
+    0 1px 0 var(--kb-cap-gloss) inset,
+    0 1.5px 0 var(--kb-cap-edge);
 }
 
 .mini-key small {

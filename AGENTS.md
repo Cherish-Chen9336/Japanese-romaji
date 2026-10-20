@@ -448,6 +448,38 @@ last, and are shown rather than folded. A disclosure asks the reader to decide
 whether something is worth opening before they can see what it is; last place
 already says "secondary" without hiding anything.
 
+**The heatmap's caps share their form with the practice keyboard, and nothing
+else.** They were a porcelain laptop board and a grid of flat pink rectangles —
+the same object drawn in two visual languages, in one app. The cap now takes the
+board's corner ratio, its single lower-edge bevel instead of a four-sided
+border, and `--font-keycap`. Colour crosses in neither direction: the fill here
+*is* the data, so it takes none of the deck's gradient, and the practice board
+must never take this tint — a per-key mastery heatmap there is in "Deliberately
+not built", because `n` alone types な に ぬ ね の and ん and a tinted cap cannot
+name the mora at fault. Sharing a cap shape is exactly the move that would
+quietly undo that, so the line is drawn deliberately: same cap, different fill.
+
+The outline is a `box-shadow` ring rather than a `border`, because the bevel is
+also a shadow and the weak state needs to tint the ring. Two borders cannot
+coexist; three shadows can.
+
+The radius is **bounded, not purely proportional** — `min(28%, 11px)`. 0.28 of
+the cap is the board's ratio, but these keys render up to 56px against the
+board's 33px, and the bare ratio came out as pills rather than keycaps. Small
+caps keep the proportion, large ones keep the look, which is the thing being
+matched.
+
+Measured on composited pixels after the change, sweeping `--mk-heat` across its
+full 0→1 rather than trusting the fixture (whose keys only span 0.031–0.095, so
+it never exercises the range): the ramp is monotonic in all three themes, light
+0.8456→0.3104 and book 0.8059→0.2420 falling, dark 0.0173→0.1476 *rising*, which
+is correct on a dark page. Dark's luminance spread is much narrower, 0.13
+against light's 0.54, but it reads clearly because that ramp moves in saturation
+as well as lightness — which is the limit of a luminance-only measurement, not a
+fault in the ramp. The bevel cannot muddy the fill: `0 1.5px 0` has no blur and
+no spread, so it is the cap's shape offset down and drawn behind it, rendering
+entirely in the gap between rows. Measured delta at the fill is 0.0000.
+
 **The key heatmap follows the kana chart's palette exactly**: a key you have
 never missed is the same light teal as a clean mora, and one you miss is the
 error colour ramped by how badly. Two states, not a blend — compositing red over
