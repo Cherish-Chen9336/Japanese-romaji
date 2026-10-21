@@ -491,13 +491,13 @@ to drop the span as well as the template. The overflow predates the layout
 rework: `87727a6` scrolls to 324px at 320 too.
 
 **Above 1120 the column gap becomes a gutter**, widening on a ramp from 28px to
-`--space-16`, 64px, at 1440 and holding there:
+`--space-24`, 96px, at 1440 and holding there:
 
 ```css
 column-gap: clamp(
   var(--space-7),
-  calc(var(--space-7) + (100vw - 1120px) * 0.1125),
-  var(--space-16)
+  calc(var(--space-7) + (100vw - 1120px) * 0.2125),
+  var(--space-24)
 );
 ```
 
@@ -505,19 +505,23 @@ column-gap: clamp(
 eleven of them against the 728px a 760px window leaves — but it is not a
 separation between two panels that each run their content to their own edge. The
 key board's `p` key ended 28px from the `k → l` of "most confused" and the two
-halves read as one field of marks. At the top of the ramp the gutter costs each
-half of a pair 18px (650→632), the `span 8` chart 12px and the `span 4` calendar
-24px: `panel = nW/12 − (12−n)g/12`, so the wider the gutter the more a narrow
-span pays for it.
+halves read as one field of marks. 64px separated them; 96 is where it was left.
+
+**What a wide gutter costs is paid by the narrow span, not evenly.**
+`panel = nW/12 − (12−n)g/12`, so going from 28px to 96px at 1440 takes 34px off
+each half of a `span 6` pair (650→616), 23px off the `span 8` chart (876→853)
+and **45px off the `span 4` calendar** (424→379). Check the calendar before
+widening this further: it is the panel with the least to give.
 
 **A ramp rather than a second breakpoint, because a step at 1120 wrapped a row
-in the pair above.** Stepping straight to 64px there took the chart panel from
-716px to 704px, and its eight cohort buttons sum to 653.8px and need 709.8px
-with their seven 8px gaps — so a gutter meant for one pair cost the page 34px of
-height in a band above 1120. On the ramp the gutter is still 28px where the
-window is narrowest and widens only as there is room, and the buttons never lose
-width at all. Swept at 10px steps from 320 to 1600: the cohort row is one line
-at every width from 750 up, exactly as before the change, and nothing overflows.
+in the pair above.** Stepping straight to a gutter there took the chart panel
+from 716px to 704px, and its eight cohort buttons sum to 653.8px and need
+709.8px with their seven 8px gaps — so a gutter meant for one pair cost the page
+34px of height in a band above 1120. On the ramp the gutter is still 28px where
+the window is narrowest and widens only as there is room, and the buttons never
+lose width at all. Swept at 10px steps from 320 to 1600 at the 96px cap: the
+cohort row is one line at every width from 750 up, exactly as before the change,
+and nothing overflows.
 
 Set `column-gap` alone, never `gap`, so the 24px row gap stays the page's
 vertical rhythm. **A `span 12` panel keeps its width across this whole range**,

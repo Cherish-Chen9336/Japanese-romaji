@@ -823,14 +823,15 @@ input[type='range'] {
    * separation between two panels that each run their content to their own
    * edge: the key board's `p` key ended 28px from the `k → l` of "most
    * confused", and the two halves read as one field of marks. So it holds at
-   * 28 to 1120, then opens to 64 by 1440 and stops, which costs each half of a
-   * pair 18px at the top of the ramp.
+   * 28 to 1120, then opens to 96 by 1440 and stops, which costs each half of a
+   * pair 34px at the top of the ramp.
    *
-   * A ramp and not a second breakpoint. Stepping to 64 at 1120 took the chart
-   * panel from 716px to 704px, and its eight cohort buttons need about 710 —
-   * so a gutter meant for one pair wrapped a row in the pair above it. Here
-   * the gutter is still 28 where the window is narrowest and widens only as
-   * there is room to widen it, and the buttons never lose width at all.
+   * A ramp and not a second breakpoint. Stepping straight to a gutter at 1120
+   * took the chart panel from 716px to 704px, and its eight cohort buttons
+   * need about 710 — so a gutter meant for one pair wrapped a row in the pair
+   * above it. Here the gutter is still 28 where the window is narrowest and
+   * widens only as there is room to widen it, and the buttons never lose width
+   * at all.
    *
    * Column gap only: the row gap above is the page's vertical rhythm. A `span
    * 12` panel keeps its width whatever the gutter is, covering the eleven gaps
@@ -839,8 +840,8 @@ input[type='range'] {
    */
   column-gap: clamp(
     var(--space-7),
-    calc(var(--space-7) + (100vw - 1120px) * 0.1125),
-    var(--space-16)
+    calc(var(--space-7) + (100vw - 1120px) * 0.2125),
+    var(--space-24)
   );
   align-items: start;
 }
