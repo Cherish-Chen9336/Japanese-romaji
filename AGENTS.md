@@ -246,11 +246,12 @@ which on this route is empty, so it reported 100% whatever the history said.
 **All four stay together in the page's first row.** Splitting them across the
 groups they each describe — moras seen and weak moras into the chart's margin,
 accuracy and day streak into "recent progress" — was built and reverted. It is
-defensible by the page's own three-question structure, and it closed the chart's
-margin to 206.8px, but it costs the page its opening summary: a reader arriving
-wants the four numbers before they want them filed. The margin keeps the
-rankings alone and sits at 370.5px unused, which is the price of that and is
-accepted.
+defensible by the page's own three-question structure, but it costs the page its
+opening summary: a reader arriving wants the four numbers before they want them
+filed. The "206.8px" and "370.5px" of closed margin cited for this trade were
+computed across different flex lines and do not describe anything on screen —
+see the mastery panel's entry below. The trade stands on the reading order
+alone, which is the ground it should have been argued on.
 
 The **keyboard stays, but as a diagnostic and not a mastery surface**, titled
 "romaji key errors" under a note saying that one key types many moras and none of
@@ -337,10 +338,19 @@ wrapping at 768 plus the aside having become a two-high stack (strip 77.7 above
 rankings, 218px total) where the strip alone used to be 77.7px.
 
 Unresolved. The cheap move is to lay the aside out horizontally whenever it is a
-full-row footer — strip beside the rankings rather than above them — which is
-what the ≤760 rule already does to `.stat-grid--margin`. Dropping the blank 48px
-row-header cell from the off-chart strip would bring the aside to 465px and make
-all four fit at 1440 (1374 of 1376), but two pixels of slack is not a layout.
+full-row footer — strip beside the rankings rather than above them — using a
+container query on the panel, because the threshold is a property of the panel's
+own width: 1460 behaves like 1024, not like 1500, so no outer-grid breakpoint can
+express it. (The existing narrow rule is `max-width: 680px`, not 760, and it only
+re-columns the rankings grid; it does not put the strip beside them.)
+
+Making four columns fit at 1440 instead is not worth it. Zeroing the blank
+row-header cell's width gives 1374 against 1376; actually removing the cell takes
+a 3px border-spacing interval with it, giving 1371. Neither is headroom. Cutting
+the column gap to 16px and border-spacing to 2px as well would reach 1308 — 68px
+of room, cells and type untouched — but 1308 still does not fit the 992px
+available at 1024, so the footer has to exist regardless and compressing the
+chart buys one width.
 
 **Only two shapes are allowed: a panel on its own row, and a pair summing to
 twelve.** That is what keeps every row full at every width. Between 760 and 1120
@@ -579,13 +589,16 @@ what the chart's own cells already hold, and earned none of the width it took.
 
 **The rankings live in the chart's margin, not in the legend.** A legend says
 what the colours mean; "weakest: のだでさろ" says what the chart *found*, which is
-a different job. The margin is the column to the right of the three grids,
-holding the off-chart strip and the two rankings — `.mastery` is a top-aligned
-flex row whose columns run 613px (plain and contracted), 307 (voiced) and 76
-(the off-chart strip), so the tallest sets the panel's height and the shortest
-left a **537px hole** in the top right. The rankings bring that to 370.5px; the
-two overview counts would close it to 206.8px but they belong in the page's
-first row instead, which is a decision taken above. The rankings are set in
+a different job. It was built as the column to the right of the three grids,
+holding the off-chart strip and the two rankings — but `.mastery` is
+`flex-flow: row wrap` and the aside is its fourth item, so **below about 1500px
+it is a centred strip beneath the tables and not a margin at all**. The 537px
+hole it was meant to close, and the 370.5px and 206.8px it was recorded as
+leaving, all came from comparing heights of children that do not share a flex
+line. The measured table is in the stats-page layout section above. The one real
+void is 306px under the short `voiced` table on line one, and it costs the
+document nothing, because the two 613px tables already set that row's height.
+The rankings are set in
 `--font-jp` at the chart's own size, because a run of bare kana is the value
 itself there and not a label.
 
