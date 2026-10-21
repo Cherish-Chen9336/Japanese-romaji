@@ -397,28 +397,36 @@ box: an inline-size container is sized as if it had no contents, so a container
 on the box would collapse it to nothing.
 
 **A panel description is separated from what it introduces by 32px**
-(`.panel > h3 + .muted { margin: 0 0 var(--space-8) }`), because `.muted` sets no
-margin and the browser's own is collapsed away here, so the content began
-immediately under the line describing it — the kana chart under its caption, the
-key board under its disclaimer, both measured at 0px. The rule is scoped to a
-`.muted` **directly after** the heading so that a trailing caption, like the
-milestones' `N of 9 reached.`, is not given a gap below it that it has no use
-for.
+(`.panel > h3 + .muted { margin: 0 0 var(--space-8) }`). `.muted` is a `<p>` and
+`index.css` resets `p { margin: 0 }` — nothing is being collapsed away here, the
+margin simply is not there — so the content began immediately under the line
+describing it. The mastery panel held this margin on its own as
+`.panel--map > .muted`; widening the selector gives the key board the same,
+where its disclaimer measured 0px above the keys. Scoped to a `.muted`
+**directly after** the heading so that a trailing caption, like the milestones'
+`N of 9 reached.`, is not given a gap below it that it has no use for.
 
 **Two more gaps that measured zero or near it**, found the same way:
 
-- `.achievement__list { margin-block-end: var(--space-4) }` — the chips and the
-  count that sums them were touching at 0px. The count belongs to the chips, so
-  this is the smaller step, not `--space-8`.
+- `.achievement__list + .muted { margin-block-start: var(--space-4) }` — the
+  chips and the count that sums them were touching at 0px. The count belongs to
+  the chips, so this is the smaller step, not `--space-8`. **Carried by the
+  count and not by the list**: the same `.achievement__list` ends the result
+  screen's milestone section, where no count follows it and the buttons below
+  have their own spacing, so a `margin-block-end` on the list would have moved a
+  surface nobody asked about.
 - `.bar-list { margin-block-start: var(--space-8) }` — the bars started 16px
-  under their heading while the panel beside them began 32px down, so two panels
-  on one row opened at different depths. `--space-8` and not the `--space-4`
-  that would appear to make up the difference: this margin meets the heading's
-  own 16px bottom margin in a block container, where the two **collapse to the
-  larger** rather than adding, so 16 changed nothing at all.
+  under their heading while the panel beside them began 32px below its own
+  introductory line. `--space-8` and not the `--space-4` that would appear to
+  close the difference: this margin meets the heading's own 16px bottom margin
+  in a block container, where the two **collapse to the larger** rather than
+  adding, so 16 changed nothing at all and 20 would have moved it by 4. This
+  equalises the step from text to content, not the depth at which the two
+  panels open: the key board also has a disclaimer above it, so its keys still
+  start lower than the bars.
 
-Together they cost about 48px of page height between 1024 and 1440 (1440:
-2273→2321) and about 80px on a phone, where the panels are stacked and the
+Together they cost about 46px of page height between 1024 and 1440 (1440:
+2273→2319) and about 80px on a phone, where the panels are stacked and the
 heading pairs occur more often (390: 4410→4490). No width overflows.
 
 **The legend lives in the right-hand column, at its foot**, not in a row under
@@ -471,8 +479,8 @@ a quarter-width panel is only a quarter width when there is a window to spare.
 **Twelve tracks are only possible where twelve tracks fit.** Below 760px
 `.stats-grid` is a single `minmax(0, 1fr)` track and `.stats-grid > .panel` is
 `grid-column: auto`; the twelve-track template and the `span 12` default are
-declared from 760 up. The column gap is `--space-7`, 28px below 1120, and a
-twelve-track template has eleven of them — 308px of gap against the 288px a 320px viewport
+declared from 760 up. The column gap is `--space-7`, 28px, wherever the window
+is narrower than 1120, and a twelve-track template has eleven of them — 308px of gap against the 288px a 320px viewport
 leaves after the page padding. The `minmax(0, …)` floors then let every track
 collapse to zero, so a `span 12` panel measured exactly 308px, the gaps alone,
 and pushed the document to 324px against a 320px window. **Tracks that can
@@ -482,27 +490,42 @@ the template would regenerate those implicit columns, so the narrow default has
 to drop the span as well as the template. The overflow predates the layout
 rework: `87727a6` scrolls to 324px at 320 too.
 
-**From 1120 up the column gap is a gutter, not a gap**: `--space-16`, 64px,
-set as `column-gap` alone so the row gap stays the page's vertical rhythm. 28px
-is what the twelve-track template can afford where it first appears — eleven of
-them against the 728px a 760px window leaves — but it is not a separation
-between two panels that each run their content to their own edge. The key
-board's `p` key ended 28px from the `k → l` of "most confused" and the two
-halves read as one field of marks. The gutter costs each half of a pair 18px
-(650→632 at 1440 and above, 530→512 at 1120) and the calendar 24px.
+**Above 1120 the column gap becomes a gutter**, widening on a ramp from 28px to
+`--space-16`, 64px, at 1440 and holding there:
 
-A `span 12` panel is the same width at any gap, since it covers all eleven of
-them along with the twelve tracks, so **the mastery panel's container-query
-thresholds do not move.** Measured: the column gap is 64px from 1120 up and
-28px below it, nothing overflows at 320–1600, and the page is 2px *shorter* at
-1200–1600.
+```css
+column-gap: clamp(
+  var(--space-7),
+  calc(var(--space-7) + (100vw - 1120px) * 0.1125),
+  var(--space-16)
+);
+```
 
-The one cost is a band roughly **1120–1135px wide**, where the chart's eight
-cohort buttons wrap to a second line and the page is 34px taller. The buttons
-sum to 654px and need about 710px with their gaps; a `span 8` panel is 704px at
-1120 with the gutter and 717px at 1140. This is a knife edge in the cohort row,
-not in the gutter — at 28px the same row clears it by 7px — so the fix belongs
-to the buttons if it is ever worth making.
+28px is what the twelve-track template can afford where it first appears —
+eleven of them against the 728px a 760px window leaves — but it is not a
+separation between two panels that each run their content to their own edge. The
+key board's `p` key ended 28px from the `k → l` of "most confused" and the two
+halves read as one field of marks. At the top of the ramp the gutter costs each
+half of a pair 18px (650→632), the `span 8` chart 12px and the `span 4` calendar
+24px: `panel = nW/12 − (12−n)g/12`, so the wider the gutter the more a narrow
+span pays for it.
+
+**A ramp rather than a second breakpoint, because a step at 1120 wrapped a row
+in the pair above.** Stepping straight to 64px there took the chart panel from
+716px to 704px, and its eight cohort buttons sum to 653.8px and need 709.8px
+with their seven 8px gaps — so a gutter meant for one pair cost the page 34px of
+height in a band above 1120. On the ramp the gutter is still 28px where the
+window is narrowest and widens only as there is room, and the buttons never lose
+width at all. Swept at 10px steps from 320 to 1600: the cohort row is one line
+at every width from 750 up, exactly as before the change, and nothing overflows.
+
+Set `column-gap` alone, never `gap`, so the 24px row gap stays the page's
+vertical rhythm. **A `span 12` panel keeps its width across this whole range**,
+covering the eleven gaps along with the twelve tracks, so the mastery panel's
+container-query thresholds do not move with the gutter. That invariance is not
+unconditional: it holds while the tracks have width to give, and a gutter large
+enough that eleven of them exceed the container reproduces the collapsed-track
+overflow described above.
 
 **Check the row ends after moving any panel between groups.** Changing spans
 without reordering the panels left every row ending in a gap, since the calendar

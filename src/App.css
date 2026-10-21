@@ -814,30 +814,35 @@ input[type='range'] {
    * nothing hide the gap arithmetic until it is the only thing left.
    */
   grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-6) var(--space-7);
+  row-gap: var(--space-6);
+  /*
+   * A gutter between a pair of panels, not a gap.
+   *
+   * 28px is what the twelve-track template can afford where it first appears —
+   * eleven of them against the 728px a 760px window leaves — but it is not a
+   * separation between two panels that each run their content to their own
+   * edge: the key board's `p` key ended 28px from the `k → l` of "most
+   * confused", and the two halves read as one field of marks. So it holds at
+   * 28 to 1120, then opens to 64 by 1440 and stops, which costs each half of a
+   * pair 18px at the top of the ramp.
+   *
+   * A ramp and not a second breakpoint. Stepping to 64 at 1120 took the chart
+   * panel from 716px to 704px, and its eight cohort buttons need about 710 —
+   * so a gutter meant for one pair wrapped a row in the pair above it. Here
+   * the gutter is still 28 where the window is narrowest and widens only as
+   * there is room to widen it, and the buttons never lose width at all.
+   *
+   * Column gap only: the row gap above is the page's vertical rhythm. A `span
+   * 12` panel keeps its width whatever the gutter is, covering the eleven gaps
+   * along with the twelve tracks, so the mastery panel's container-query
+   * thresholds do not move with it.
+   */
+  column-gap: clamp(
+    var(--space-7),
+    calc(var(--space-7) + (100vw - 1120px) * 0.1125),
+    var(--space-16)
+  );
   align-items: start;
-}
-
-/*
- * A gutter between a pair of panels, not a gap.
- *
- * 28px is what the twelve-track template can afford where it first appears —
- * eleven of them against the 728px a 760px window leaves — but it is not a
- * separation between two panels that each run their content to their own
- * edge: the key board's `p` key ended 28px from the `k → l` of "most
- * confused", so the two halves read as one field of marks. From 1120 up the
- * column gap doubles to 64px, which costs each half of a pair 18px and buys a
- * margin wide enough to read as a column break.
- *
- * Column gap only. The row gap is the page's vertical rhythm and is set once.
- * A `span 12` panel is unaffected at any gap, since it covers all eleven of
- * them along with the twelve tracks, so the mastery panel's container-query
- * thresholds do not move.
- */
-@media (min-width: 1120px) {
-  .stats-grid {
-    column-gap: var(--space-16);
-  }
 }
 
 .stats-grid > .panel {
@@ -1042,6 +1047,15 @@ input[type='range'] {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+  /*
+   * 32px clear of the heading above, which is what the panel beside it puts
+   * between its own introductory line and its keys. `--space-8` and not the
+   * `--space-4` that looks like it would close the difference: this margin
+   * meets the heading's own 16px bottom margin in a block container, where the
+   * two collapse to the larger rather than adding, so 16 changed nothing at
+   * all — 20 would have moved it by 4.
+   */
+  margin-block-start: var(--space-8);
 }
 
 .bar-row {
@@ -1431,35 +1445,23 @@ meter::-webkit-meter-optimum-value {
 
 /*
  * A description sitting under a panel heading, which introduces whatever comes
- * next. `.muted` sets no margin of its own and the browser's default collapses
- * away here, so the content began immediately under the line describing it —
- * the kana chart under its caption, the key board under its disclaimer. Scoped
- * to a `.muted` directly after the heading so trailing captions, like the
- * milestones' "N of 9 reached.", are not given a gap below them they have no
- * use for.
+ * next. `.muted` is a `<p>` and `index.css` resets `p { margin: 0 }`, so the
+ * content began immediately under the line describing it. The mastery panel
+ * held this margin on its own; widening the selector gives the key board the
+ * same, where the disclaimer sat 0px above the keys. Scoped to a `.muted`
+ * directly after the heading so a trailing caption — the milestones' "N of 9
+ * reached." — is not given a gap below it that it has no use for.
  */
 .panel > h3 + .muted {
   margin: 0 0 var(--space-8);
 }
 
-/* The chips and the count that sums them were touching: measured 0px. The
-   count belongs to the chips, so this is the smaller step, not `--space-8`. */
-.achievement__list {
-  margin-block-end: var(--space-4);
-}
-
-/*
- * Bars read as a block, and against a heading alone they started 16px below it
- * while the panel beside them put its content 32px down — so two panels on one
- * row began at different depths. This brings the pair level.
- *
- * `--space-8` rather than the `--space-4` that would make up the difference:
- * this margin meets the heading's own `--space-4` bottom margin in a block
- * container, where the two collapse to the larger of them rather than adding.
- * Set to 16 it changed nothing at all.
- */
-.bar-list {
-  margin-block-start: var(--space-8);
+/* The count that sums the chips, 16px under them rather than touching. Carried
+   by the count and not by the list, because the same list ends the result
+   screen's milestone section, where no count follows and the buttons below it
+   have their own spacing. */
+.achievement__list + .muted {
+  margin-block-start: var(--space-4);
 }
 
 /*
