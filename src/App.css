@@ -1388,15 +1388,22 @@ meter::-webkit-meter-optimum-value {
 }
 
 /*
- * The chart's right-hand margin: the off-chart strip and the weakest/slowest
- * rankings.
+ * The off-chart strip and the weakest/slowest rankings.
  *
- * `.mastery` is a top-aligned flex row and its columns have very different row
- * counts — plain and contracted 613px, voiced 307, the off-chart strip 76 — so
- * the tallest set the panel's height and the shortest left a 537px hole in the
- * top right. Stacking the margin's content into one column narrows it to
- * 370.5px. The two overview counts would close it further, but they belong in
- * the page's first row — see AGENTS.md, which records that trade deliberately.
+ * Called a right-hand margin when it was written, and it is not one below about
+ * 1500px. `.mastery` is `row wrap` and this is its fourth item, after all three
+ * tables, so flexbox fills the line in document order and wraps whatever is
+ * left: preferred widths are plain 309, voiced 309, contracted 207 and this 513,
+ * which with 28px gaps wants 1422px against the 1376px a 1440 viewport leaves.
+ * So at every width this project calls desktop it renders as a centred strip
+ * BELOW the tables, and only from ~1500 does it sit beside them. Measured.
+ *
+ * The 537px hole this was meant to close, and the 370.5px it was recorded as
+ * leaving, both came from subtracting one child's height from another's without
+ * checking they shared a flex line — at 1440 they never did. Where all four do
+ * share a line the unused height under this column is 395.3px. What is real at
+ * 1024 and up is 306px of unused height under the short `voiced` table on line
+ * one. See AGENTS.md for the full table and what is still open.
  */
 .mastery-aside {
   display: flex;

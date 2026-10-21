@@ -302,10 +302,45 @@ actually contain:
 
 So the rework is shorter on phones and above 1120 and **taller by 200–280px
 between 760 and 1024**, which the original measurement could not show because
-the fixture under-populated the one panel that drives it. Between 760 and 1120
-the mastery panel is full width and `.mastery-aside` still claims 513px of it,
-leaving 451px for three kana tables that then stack. The margin that closes a
-537px hole at 1440 costs more than it saves at 1024. Unresolved.
+the fixture under-populated the one panel that drives it.
+
+**The cause is not what was first written here.** The first explanation said
+`.mastery-aside` claims 513px of the full-width panel and leaves the three kana
+tables 451px, so they stack. That is false, and measuring the flex lines shows
+why: `.mastery` is `flex-flow: row wrap` and the aside is its **fourth item**,
+after all three tables, so it can never hold a column beside them — flexbox
+fills a line in document order and wraps what is left over. The preferred widths
+are plain 309, voiced 309, contracted 207, aside 513, with 28px gaps:
+
+| viewport | `.mastery` width | line 1 | line 2 | line 3 | panel height |
+|---|---|---|---|---|---|
+| 1920 | 1688 | all four, 1422 used | — | — | 613.3 |
+| 1600 | 1536 | all four, 1422 used | — | — | 613.3 |
+| 1500 | 1436 | all four, 1422 used | — | — | 613.3 |
+| 1460 | 1396 | three tables, 881 | aside 513 | — | 851.3 |
+| 1440 | 1376 | three tables, 881 | aside 513 | — | 851.3 |
+| 1024 | 992 | three tables, 881 | aside 513 | — | 851.3 |
+| 768 | 736 | plain + voiced, 646 | contracted 207 | aside 513 | 1484.5 |
+
+**The right-hand margin needs a viewport of about 1500px and has never rendered
+below it.** Four columns want 1422px and 1440 leaves 1376, so at every width this
+project treats as desktop the aside is a centred 513px strip *below* the tables,
+not a margin beside them. The "537px hole closed to 370.5px" recorded for
+`0a61372` therefore described a layout that does not exist at the width it was
+measured at; subtracting one child's height from another's only means something
+when they share a flex line. Where all four do share a line (1500 and up) the
+unused height under the aside is **395.3px**.
+
+What is real: line 1 carries **306px of unused height** under the short `voiced`
+column at every width from 1024 up, and the 760–1024 cost is the three tables
+wrapping at 768 plus the aside having become a two-high stack (strip 77.7 above
+rankings, 218px total) where the strip alone used to be 77.7px.
+
+Unresolved. The cheap move is to lay the aside out horizontally whenever it is a
+full-row footer — strip beside the rankings rather than above them — which is
+what the ≤760 rule already does to `.stat-grid--margin`. Dropping the blank 48px
+row-header cell from the off-chart strip would bring the aside to 465px and make
+all four fit at 1440 (1374 of 1376), but two pixels of slack is not a layout.
 
 **Only two shapes are allowed: a panel on its own row, and a pair summing to
 twelve.** That is what keeps every row full at every width. Between 760 and 1120
