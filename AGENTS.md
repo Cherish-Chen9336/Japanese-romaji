@@ -201,8 +201,9 @@ Targets are the weakest moras **plus the least-practised ones**. Weakness alone
 cannot drive practice: a mora is only found weak once you have met it and failed
 it, so a pool built only of known weaknesses stops showing you anything else.
 Simulated over 150 runs, the exploit-only pool collapsed to four items and two
-genuinely hard moras were never shown once; with exploration all 108 corpus moras
-get seen and all three planted weaknesses are found and fixed.
+genuinely hard moras were never shown once; with exploration every corpus mora
+gets seen (the simulation reported 108, the corpus size at the time; it holds 113
+since the bank expansion and has not been re-run) and all three planted weaknesses are found and fixed.
 
 Known limitation: selection filters but does not weight, so a weak mora appearing
 in one item gets less practice than an equally weak one appearing in ten.
@@ -281,13 +282,49 @@ document order, and carry **no chrome at all** — no border, no fill, no radius
 12 and 6+6, which a two-column grid gives for free. "Recent progress" is 8+4
 above 1120px — the chart beside the calendar — then milestones across the row.
 "Typing mechanics" is 6+6: the key board beside the two bar lists, which stack
-into one column rather than taking a row of their own. The page went 2588px to
-2182px at 1440 and no colour was touched to do it.
+into one column rather than taking a row of their own. No colour was touched to
+do it.
+
+**The height figures first recorded here (2588px to 2182px at 1440) came from a
+fixture missing two real moras and should not be quoted.** Re-measured against
+`87727a6`, the commit before the rework, with every off-chart mora the banks
+actually contain:
+
+| width | before | after | change |
+|---|---|---|---|
+| 320 | 4431 (overflowed) | 4327 | −104 |
+| 390 | 4421 | 4340 | −81 |
+| 760 | 3082 | **3364** | **+282** |
+| 768 | 3086 | **3366** | **+280** |
+| 1024 | 2561 | **2764** | **+203** |
+| 1120 | 2610 | 2431 | −179 |
+| 1440 | 2680 | 2414 | −266 |
+
+So the rework is shorter on phones and above 1120 and **taller by 200–280px
+between 760 and 1024**, which the original measurement could not show because
+the fixture under-populated the one panel that drives it. Between 760 and 1120
+the mastery panel is full width and `.mastery-aside` still claims 513px of it,
+leaving 451px for three kana tables that then stack. The margin that closes a
+537px hole at 1440 costs more than it saves at 1024. Unresolved.
 
 **Only two shapes are allowed: a panel on its own row, and a pair summing to
 twelve.** That is what keeps every row full at every width. Between 760 and 1120
 a panel asking for 4 or 8 takes the whole row and only `--span-6` pairs, because
 a quarter-width panel is only a quarter width when there is a window to spare.
+
+**Twelve tracks are only possible where twelve tracks fit.** Below 760px
+`.stats-grid` is a single `minmax(0, 1fr)` track and `.stats-grid > .panel` is
+`grid-column: auto`; the twelve-track template and the `span 12` default are
+declared from 760 up. The column gap is `--space-7`, 28px, and a twelve-track
+template has eleven of them — 308px of gap against the 288px a 320px viewport
+leaves after the page padding. The `minmax(0, …)` floors then let every track
+collapse to zero, so a `span 12` panel measured exactly 308px, the gaps alone,
+and pushed the document to 324px against a 320px window. **Tracks that can
+collapse to nothing hide the gap arithmetic until the gaps are all that is
+left**, which is why this survived every wider breakpoint. A `span` wider than
+the template would regenerate those implicit columns, so the narrow default has
+to drop the span as well as the template. The overflow predates the layout
+rework: `87727a6` scrolls to 324px at 320 too.
 
 **Check the row ends after moving any panel between groups.** Changing spans
 without reordering the panels left every row ending in a gap, since the calendar
@@ -466,6 +503,15 @@ headings rendered at 16px/500 *against* panel headings at 14px/600 — the
 hierarchy inverted, and the page read flat for it. That is the second time this
 exact pair has bitten; the stats-grid spans were the first.
 
+**The third was `.stat-grid__rank b`.** It ties with `.stat-grid b` — one class
+plus one element each — and the base rule is declared below it, so the base won
+on source order and the weakest/slowest rankings rendered at 26.25px in
+`--font-mono` instead of 16.875px in `--font-jp`. It looked plausible because a
+mono stack falls through to a Japanese face for kana, so the glyphs were right
+and only the size and metrics were wrong. Written `.stat-grid .stat-grid__rank b`
+now. **A modifier that shares a base's specificity is not a modifier**; scope it,
+or it is decoration waiting on source order.
+
 A meter is a magnitude, not a verdict: `meter--error` for confusions, which are
 mistakes, and `meter--neutral` for latency, which is neither good nor bad. All of
 them were accent, so a list of errors read as green-for-good. The "YOU" avatar is
@@ -583,6 +629,13 @@ missed. A single ramp collapses the first two into the same pale cell, which
 tells a beginner they are fine at every kana they have yet to see. Only the
 missed cells carry colour.
 
+**Open bug, pre-existing: the chart's cells do not react.** `MasteryMap`
+captures `stat` and `state` once while rendering each cell, so a cell drawn from
+stale stats stays stale while the route is open. It does not show up in normal
+use, because stats do not change while you are looking at them — it needs a run
+to complete with the page already open. Found by review, left alone: fixing it
+means restructuring the cell body into accessors, which is not a restyle.
+
 **Accuracy gets the colour; timing goes in the tooltip.** See "Deliberately not
 built" for why speed never gets a channel of its own here.
 
@@ -622,8 +675,18 @@ map exists to show.
 Known gaps as the corpus grows: katakana and ー reach `isMoraToken` but not the
 token model, so the regex is ahead of what is really supported; ー should not
 become its own bucket, since its sound depends on the mora before it. The
-"also tracked" strip is one horizontal row and is at eight sokuon after the bank
-expansion — it will not survive many more. Chart groups are hardcoded, so a new `KanaGroup` needs adding in two
+"also tracked" strip is one horizontal row and is at **nine** off-chart moras
+after the bank expansion — still one row, verified, but the table needs 513px to
+draw it, and that width is what costs the 760–1024 band its height. It will not
+survive many more.
+
+**Do not enumerate the off-chart moras with `grep -oP 'っ.'`.** That matches っ
+plus one character, so it truncates the three-character yoon sokuon: っぴょ comes
+back as っぴ and っしょ collapses into っし, yielding a confident "eight" that
+contains one mora which does not exist and misses two that do. This file said
+eight for exactly that reason. Count from the engine instead — `chartMoras()`
+against a corpus built from `allBankItems()` and `itemMoras()` gives **104 chart
+cells, 113 corpus moras, nine off chart, no unreachable cell**. Chart groups are hardcoded, so a new `KanaGroup` needs adding in two
 places. Corpus-wide invariants read `allBankItems()` rather than a hand-listed
 set of banks, so a bank added later joins them by existing.
 
@@ -1141,9 +1204,10 @@ audit disagree, this section is current.
   21% in the difficult bank, so the loss is worst exactly where the material is
   hardest. The practice keyboard already has a job, orientation and pressed-state
   feedback, and persistent historical colour competes with it. Mastery belongs on
-  the 五十音 grid instead, which fits the data almost exactly: 104 of the 108
+  the 五十音 grid instead, which fits the data almost exactly: 104 of the 113
   tracked moras sit on the chart, every chart cell is reachable from the corpus,
-  and the only four outside it are sokuon (っこ っし って っと).
+  and the nine outside it are sokuon (っか っこ っし っしょ って っと っぱ っぴょ
+  っぽ).
 - **A keyboard heatmap tinted by speed, anywhere.** `keyStats` timing charges the
   interval to the key just pressed, so whichever key *starts* a mora absorbs the
   kana-recall pause. Twelve consonants — `b c d f g j m n p r w z` — never once

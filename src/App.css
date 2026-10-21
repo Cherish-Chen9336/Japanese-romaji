@@ -711,7 +711,18 @@ input[type='range'] {
  * size rather than the headline numerals'. `--font-jp` because this is the one
  * place on the page where a run of bare kana is the value itself.
  */
-.stat-grid__rank b {
+/*
+ * Scoped through `.stat-grid`, because `.stat-grid__rank b` and `.stat-grid b`
+ * are both one class plus one element and so tie on specificity — and the base
+ * rule is declared below this one, so source order handed it the win. The
+ * rankings rendered at 26.25px in `--font-mono` instead of 16.875px in
+ * `--font-jp`, which looked plausible only because mono falls through to a
+ * Japanese face for kana.
+ *
+ * Third time this exact pair has bitten: see `.page .stats-group__label` and
+ * `.stats-grid > .panel--span-N`. Out-specify; never rely on order.
+ */
+.stat-grid .stat-grid__rank b {
   color: var(--color-text);
   display: block;
   font-family: var(--font-jp);
@@ -720,7 +731,7 @@ input[type='range'] {
   line-height: 1.4;
 }
 
-.stat-grid__rank span {
+.stat-grid .stat-grid__rank span {
   color: var(--color-muted);
 }
 
@@ -792,13 +803,25 @@ input[type='range'] {
  */
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
+  /*
+   * One track below 760, where every panel is full width anyway — because
+   * twelve tracks do not fit a phone no matter how narrow the tracks go. The
+   * column gap is `--space-7` (28px) and a twelve-track template has eleven of
+   * them: 308px of gap against the 288px a 320px viewport leaves after the
+   * page's padding. The `minmax(0, …)` floors let every track collapse to
+   * zero, so a `span 12` panel measured 308px — the gaps alone — and pushed
+   * the document to 324px against a 320px window. Tracks that can collapse to
+   * nothing hide the gap arithmetic until it is the only thing left.
+   */
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-6) var(--space-7);
   align-items: start;
 }
 
 .stats-grid > .panel {
-  grid-column: span 12;
+  /* Auto, not `span 12`: a `span` wider than the template would generate the
+     eleven implicit columns this single track exists to avoid. */
+  grid-column: auto;
   min-width: 0;
 }
 
@@ -822,6 +845,17 @@ input[type='range'] {
  * 510px gap at 1024 that none of the spans themselves were wrong about.
  */
 @media (min-width: 760px) {
+  .stats-grid {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+  }
+
+  /* Restores the full-width default now that there are twelve tracks to span.
+     Declared before the `--span-6` rule below, which ties with it on
+     specificity and wins on order alone. */
+  .stats-grid > .panel {
+    grid-column: span 12;
+  }
+
   .stats-grid > .panel--span-6 { grid-column: span 6; }
 }
 
@@ -1354,26 +1388,50 @@ meter::-webkit-meter-optimum-value {
 }
 
 /*
- * The chart's right-hand margin: the off-chart strip, and the two numbers that
- * describe the chart beside it.
+ * The chart's right-hand margin: the off-chart strip and the weakest/slowest
+ * rankings.
  *
  * `.mastery` is a top-aligned flex row and its columns have very different row
  * counts — plain and contracted 613px, voiced 307, the off-chart strip 76 — so
  * the tallest set the panel's height and the shortest left a 537px hole in the
- * top right. Stacking the margin's content into one column closes it, and the
- * content is exactly what belonged there: "78 moras seen · of 104" sitting next
- * to the 104 cells it counts.
+ * top right. Stacking the margin's content into one column narrows it to
+ * 370.5px. The two overview counts would close it further, but they belong in
+ * the page's first row — see AGENTS.md, which records that trade deliberately.
  */
 .mastery-aside {
   display: flex;
   flex-direction: column;
   gap: var(--space-7);
+  /* A flex item, so it needs the same release as `.mastery-grid` below: the
+     rankings' romaji can be long, and nothing should widen this column. */
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
+.mastery-aside > * {
+  min-inline-size: 0;
+  max-inline-size: 100%;
 }
 
 .mastery-grid {
-  /* The chart is wide on a narrow screen and must scroll in its own box rather
+  /* The grid is wide on a narrow screen and must scroll in its own box rather
      than pushing the page sideways. */
   overflow-x: auto;
+  /*
+   * Which `overflow-x` needs this to mean anything: a flex item's automatic
+   * minimum size is its content, so without the floor released this box
+   * cannot shrink below the table and widens `.mastery` instead of scrolling
+   * inside it.
+   *
+   * A safety valve rather than a fix for a measured overflow. At 320px the
+   * table still shrinks to the column — 288px, cells 44.7px against the
+   * 47.9px they get with room — so the scroller does not engage, and nothing
+   * clips: the kana stays 16.875px and the romaji 9.375px. The overflow
+   * actually measured at that width came from the grid template instead; see
+   * `.stats-grid`.
+   */
+  min-inline-size: 0;
+  max-inline-size: 100%;
 }
 
 .mastery-table {

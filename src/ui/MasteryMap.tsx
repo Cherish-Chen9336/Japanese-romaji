@@ -1,4 +1,4 @@
-import { For, Show, createMemo } from 'solid-js'
+import { For, Show, children, createMemo } from 'solid-js'
 import type { JSX } from 'solid-js'
 import {
   cellState,
@@ -84,6 +84,12 @@ export function MasteryMap(props: {
   aside?: JSX.Element
 }) {
   const statFor = (kana: string) => props.stats.get(kana)
+  /*
+   * Resolved once. `props.aside` is a getter, so reading it twice — in the
+   * `Show` guard and again in the body — built the slot's JSX twice and left
+   * one copy unattached. `children` memoizes the resolution.
+   */
+  const aside = children(() => props.aside)
   const offChart = createMemo(() =>
     offChartMoras(props.stats).map((kana) => ({ kana, romaji: romajiFor(kana) })),
   )
@@ -160,7 +166,7 @@ export function MasteryMap(props: {
           </div>
         )}
       </For>
-      <Show when={offChart().length > 0 || props.aside !== undefined}>
+      <Show when={offChart().length > 0 || aside() !== undefined}>
         <div class="mastery-aside">
           <Show when={offChart().length > 0}>
             <div class="mastery-grid">
@@ -177,7 +183,7 @@ export function MasteryMap(props: {
               </table>
             </div>
           </Show>
-          {props.aside}
+          {aside()}
         </div>
       </Show>
     </div>
