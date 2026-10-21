@@ -1378,6 +1378,16 @@ meter::-webkit-meter-optimum-value {
  * the same information is roughly 700px wide and 500px tall, which is the shape
  * the panel actually had to offer.
  */
+/*
+ * The mastery panel is a size container so its strip-and-rankings column can
+ * answer to the panel's own width. A viewport breakpoint cannot express this:
+ * `.mastery` wraps on its own capacity, so a 1460px window behaves like a
+ * 1024px one and not like a 1500px one.
+ */
+.panel--map {
+  container: mastery-panel / inline-size;
+}
+
 .mastery {
   display: flex;
   flex-flow: row wrap;
@@ -1418,6 +1428,41 @@ meter::-webkit-meter-optimum-value {
 .mastery-aside > * {
   min-inline-size: 0;
   max-inline-size: 100%;
+}
+
+/*
+ * Where the aside is a full-row footer, lay it out along the row instead of
+ * down it: the strip beside the rankings, both growing into the slack. Stacked
+ * it stands 218px tall where the strip alone needs 77.7px, and at 1440 it
+ * leaves 863px of its own line unused.
+ *
+ * 721 = 513 strip + 28 gap + 180 rankings (12rem at the 15px root this page
+ * sets, not 16). 1462 = the 1422 four-column arrangement + 40px of headroom:
+ * below that the fourth column wraps regardless, and at 1436 — what a 1500px
+ * window gives — it has 14px to spare, which is not a layout. Both numbers
+ * describe nine off-chart moras and have to be revisited if the banks grow.
+ */
+@container mastery-panel (721px <= width < 1462px) {
+  .mastery > .mastery-aside {
+    flex: 0 0 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  /* Grows into the line without stretching the table — the cells keep their
+     48px, since `.mastery-cell` sets a width and the table never fills its
+     box. */
+  .mastery-aside > .mastery-grid {
+    flex: 1 1 513px;
+  }
+
+  /* Three classes, to clear the one-column rule above and the phone rule
+     below; both are two classes and would otherwise be settled by order. */
+  .mastery-aside > .stat-grid.stat-grid--margin {
+    flex: 1 1 12rem;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  }
 }
 
 .mastery-grid {

@@ -337,12 +337,34 @@ column at every width from 1024 up, and the 760–1024 cost is the three tables
 wrapping at 768 plus the aside having become a two-high stack (strip 77.7 above
 rankings, 218px total) where the strip alone used to be 77.7px.
 
-Unresolved. The cheap move is to lay the aside out horizontally whenever it is a
-full-row footer — strip beside the rankings rather than above them — using a
-container query on the panel, because the threshold is a property of the panel's
-own width: 1460 behaves like 1024, not like 1500, so no outer-grid breakpoint can
-express it. (The existing narrow rule is `max-width: 680px`, not 760, and it only
-re-columns the rankings grid; it does not put the strip beside them.)
+**Resolved by laying the aside out along the row wherever it is a full-row
+footer** — strip beside the rankings rather than above them — through a
+container query on `.panel--map`, because the threshold is a property of the
+panel's own width: 1460 behaves like 1024, not like 1500, so no outer-grid
+breakpoint can express it. (The existing narrow rule is `max-width: 680px`, not
+760, and it only re-columns the rankings grid; it does not put the strip beside
+them.) The footer runs from 721px of panel width — 513 strip + 28 gap + 180
+rankings, 12rem at the 15px root — to 1462px, the four-column 1422 plus 40px of
+headroom. Both numbers describe nine off-chart moras.
+
+Measured: the aside goes from 218px tall to 77.7px, so `.mastery` drops 140.3px
+from 1440 to 1524 and 105.8px from 768 to 1024, and the document drops 140px at
+1440 and 105–106px at 760–1120. Phones are untouched, since a 358px panel is
+below the 721px threshold and keeps the column. The threshold is exact: a panel
+of 1462 keeps the margin at 613.3px tall, 1460 flips to the footer at 711px.
+
+**It halves the 760–1024 cost rather than erasing it.** Against `87727a6` that
+band is now +98px at 1024 and +174 to +177px at 760/768, where it was +203 and
++280. What is left is the three tables wrapping at 768, which no footer can
+help, and the rankings having moved into this panel at all.
+
+Robustness, measured rather than assumed: a fresh profile drops the column
+entirely — `App.tsx` passes `aside` as `undefined` when neither ranking has
+anything to say, because as a footer an empty wrapper would otherwise claim a
+whole flex line. Five long sokuon rankings cost 47px at 768 and nothing at 1024
+or 1440. With no off-chart moras the strip drops out and the rankings sit alone
+at 46.1px. Text enlarged to a 24px root overflows at no width, and at 768 the
+footer wraps to two lines.
 
 Making four columns fit at 1440 instead is not worth it. Zeroing the blank
 row-header cell's width gives 1374 against 1376; actually removing the cell takes
