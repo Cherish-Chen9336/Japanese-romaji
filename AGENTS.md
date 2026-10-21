@@ -242,14 +242,14 @@ every stored run while `best wpm` was progression-gated — the two disagreeing
 about which runs counted — and `current acc` read the *live typing session*,
 which on this route is empty, so it reported 100% whatever the history said.
 
-**The four numbers are not a band, and they are not all about the same thing.**
-Two of them describe the kana chart and two describe recent runs, so each pair
-sits with the group that answers its question: moras seen and weak moras in the
-chart's own margin, recent accuracy and day streak at the head of "recent
-progress". As one strip above the page they were the most generic object on it —
-four numbers of equal weight, spread over 1328px, saying nothing about where to
-look next — and the page's own three-question structure already said where each
-belonged.
+**All four stay together in the page's first row.** Splitting them across the
+groups they each describe — moras seen and weak moras into the chart's margin,
+accuracy and day streak into "recent progress" — was built and reverted. It is
+defensible by the page's own three-question structure, and it closed the chart's
+margin to 206.8px, but it costs the page its opening summary: a reader arriving
+wants the four numbers before they want them filed. The margin keeps the
+rankings alone and sits at 370.5px unused, which is the price of that and is
+accepted.
 
 The **keyboard stays, but as a diagnostic and not a mastery surface**, titled
 "romaji key errors" under a note saying that one key types many moras and none of
@@ -277,22 +277,31 @@ misinterpret. Whether to drop it from the format is a separate decision.
 Panels sit in a twelve-column grid **inside each group**, with the groups in
 document order, and carry **no chrome at all** — no border, no fill, no radius.
 
-**The twelve columns are used as twelve, and in three arrangements rather than
-two.** The grid was only ever addressed as 12 and 6+6, which a two-column grid
-gives for free. "Recent progress" is now 8+4 then 6+6 above 1120px — the chart
-beside the calendar, the key board beside the milestones — which cost the page
-337px and took the calendar's cells from 53.2px to 30.6px without touching a
-colour. Between 760 and 1120 a panel asking for 4 gets 6 and one asking for 8
-gets the row, because a quarter-width panel is only a quarter width when there
-is a window to spare: measured on the calendar, whose cells flex to fill, the
-literal span gives 19.4px cells at 1024 and **10.9px at 768**. Dropping the
-spans in that range instead is worse still — the panels fall back to `span 12`,
-the calendar goes full width and its cells grow to 87px, larger than before any
-of this.
+**The twelve columns are used as twelve.** The grid was only ever addressed as
+12 and 6+6, which a two-column grid gives for free. "Recent progress" is 8+4
+above 1120px — the chart beside the calendar — then milestones across the row.
+"Typing mechanics" is 6+6: the key board beside the two bar lists, which stack
+into one column rather than taking a row of their own. The page went 2588px to
+2182px at 1440 and no colour was touched to do it.
 
-**Panel order carries the layout, not just the spans.** The panels are chart,
-calendar, keys, milestones, and that order packs with no row ending short in
-both arrangements: 8+4 then 6+6 above 1120, and 12 then 6+6 then 12 between.
+**Only two shapes are allowed: a panel on its own row, and a pair summing to
+twelve.** That is what keeps every row full at every width. Between 760 and 1120
+a panel asking for 4 or 8 takes the whole row and only `--span-6` pairs, because
+a quarter-width panel is only a quarter width when there is a window to spare.
+
+**Check the row ends after moving any panel between groups.** Changing spans
+without reordering the panels left every row ending in a gap, since the calendar
+could not follow the chart. Later, moving the key board out of "recent progress"
+left the calendar with nothing to pair with and opened a **510px gap at 1024**
+that none of the spans themselves were wrong about. The panels are chart,
+calendar, milestones; then keys, bar-list stack.
+
+**The romaji key panel sits in "typing mechanics", where the opening
+specification above always said it belonged.** It spent a while under "recent
+progress", which is the group about improving, while the spec assigned romaji
+keys to the group about fingers. The two bar lists are capped at five rows each
+and stacked beside it: as a full row of their own they took the width of the
+group while the board, which at least points at a key, had none of it.
 Changing the spans without reordering was tried first and every row ended in a
 gap, because the calendar could not follow the chart.
 A heading and a gap already say where one section ends; drawing a box around
@@ -488,15 +497,16 @@ separate column chart was tried and removed: it restated in a second surface
 what the chart's own cells already hold, and earned none of the width it took.
 
 **The rankings live in the chart's margin, not in the legend.** A legend says
-what the colours mean; "weakest: のだでさろ" says what the chart found, which is
-the same job the two counts above it do. The margin is the column to the right
-of the three grids, holding the off-chart strip, the two kana counts and the two
-rankings — `.mastery` is a top-aligned flex row whose columns run 613px (plain
-and contracted), 307 (voiced) and 76 (the off-chart strip), so the tallest set
-the panel's height and the shortest left a **537px hole** in the top right.
-Filling it with the text that was already describing the chart brought that to
-206.8px. The rankings are set in `--font-jp` at the chart's own size, because a
-run of bare kana is the value itself there and not a label.
+what the colours mean; "weakest: のだでさろ" says what the chart *found*, which is
+a different job. The margin is the column to the right of the three grids,
+holding the off-chart strip and the two rankings — `.mastery` is a top-aligned
+flex row whose columns run 613px (plain and contracted), 307 (voiced) and 76
+(the off-chart strip), so the tallest sets the panel's height and the shortest
+left a **537px hole** in the top right. The rankings bring that to 370.5px; the
+two overview counts would close it to 206.8px but they belong in the page's
+first row instead, which is a decision taken above. The rankings are set in
+`--font-jp` at the chart's own size, because a run of bare kana is the value
+itself there and not a label.
 
 The progress plots, the key heatmap and the calendar pair off in rows beneath.
 Confusions and bigrams — the only surfaces left that cannot name a mora — come
@@ -542,6 +552,13 @@ error colour ramped by how badly. Two states, not a blend — compositing red ov
 teal reads as muddy brown on screen, because the hues are near enough to
 complementary that mixing them lands on grey, so the worst keys looked dirty
 rather than wrong.
+
+**The calendar is bounded, not stretched.** Its day tracks are `1fr`, so the
+cell size used to be whatever column the panel landed in — 53.2px in a half,
+87px across a full row — which made the least actionable panel on the page its
+loudest object and tied cell size to a breakpoint. A `max-width` on `.calendar`
+decouples the two: 28.7px cells at 1440, 1024 and 768 alike, shrinking only when
+the column is genuinely narrower than the block.
 
 The calendar labels every row with the day it starts. It had been unlabelled
 squares whose only date lived in a `title`, so it said "you practised sometimes"

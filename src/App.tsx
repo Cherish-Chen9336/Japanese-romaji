@@ -188,10 +188,15 @@ function App() {
   const accuracy = () => metrics().accuracy
   const speed = () => metrics().wpm
 
+  /*
+   * Five, not eight. These two lists sit stacked in one column beside the key
+   * board, and the column's height is what the row costs; eight rows each made
+   * it the tallest thing in the group for the page's least actionable data.
+   */
   const topConfusions = createMemo(() =>
     Object.entries(confusionMap())
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 8),
+      .slice(0, 5),
   )
   const totalMinutes = createMemo(() => Math.round(lifetimeStats().totalElapsedMs / 60_000))
   const totalSessions = createMemo(() => lifetimeStats().totalSessions)
@@ -203,7 +208,7 @@ function App() {
   })
   const keyStats = createMemo(() => mergeTimingStats(runs(), 'keyStats'))
   const bigramStats = createMemo(() => mergeTimingStats(runs(), 'bigramStats'))
-  const slowBigrams = createMemo(() => topTimingStats(bigramStats(), 8))
+  const slowBigrams = createMemo(() => topTimingStats(bigramStats(), 5))
   const kanaStats = createMemo(() => mergeMoraStats(runs()))
   const weakestMoras = createMemo(() => weakestKana(kanaStats(), 8))
   const coverage = createMemo(() => chartCoverage(kanaStats()))
@@ -1144,6 +1149,37 @@ function App() {
               </div>
             </div>
 
+            {/* Learner metrics, not leaderboard metrics. `avg wpm` averaged
+                every stored run while `best wpm` was progression-gated, so the
+                two disagreed about which runs counted; and `current acc` read
+                the *live typing session*, which on this route is empty and so
+                reported 100% whatever the history said. Speed lives in the
+                progress section, where a trend can give it context.
+
+                All four stay together in the page's first row. Splitting them
+                across the groups they each describe was tried and reverted: it
+                is defensible by the page's three-question structure, but it
+                costs the page its opening summary, and a reader arriving wants
+                the four numbers before they want them filed. */}
+            <div class="stat-grid">
+              <div>
+                <b>{coverage().met}</b>
+                <span>moras seen · of {coverage().total}</span>
+              </div>
+              <div>
+                <b>{weakMoras()}</b>
+                <span>weak moras</span>
+              </div>
+              <div>
+                <b>{recentAcc()}%</b>
+                <span>accuracy · last 10 runs</span>
+              </div>
+              <div>
+                <b>{streaks().current}</b>
+                <span>day streak</span>
+              </div>
+            </div>
+
             <div class="stats-group stats-group--wide">
               <h2 class="stats-group__label">kana learning</h2>
               <div class="stats-grid">
@@ -1157,37 +1193,16 @@ function App() {
                 <p class="muted">
                   Red is weakness, weighted by how often you've met the mora.
                 </p>
-                {/* Learner metrics, not leaderboard metrics. `avg wpm` averaged
-                    every stored run while `best wpm` was progression-gated, so
-                    the two disagreed about which runs counted; and `current acc`
-                    read the *live typing session*, which on this route is empty
-                    and so reported 100% whatever the history said.
-
-                    These two sit in the chart's margin rather than in a band
-                    above the page, because they are statements *about this
-                    chart* — "78 of 104" names the cells beside it. The band was
-                    the most generic object on the page and it left the chart's
-                    top-right corner empty. The other two overview numbers
-                    describe recent runs, not kana, so they moved to the group
-                    that answers that question instead of coming along. */}
                 <MasteryMap
                   stats={kanaStats()}
                   aside={
                     <div class="stat-grid stat-grid--margin">
-                      <div>
-                        <b>{coverage().met}</b>
-                        <span>moras seen · of {coverage().total}</span>
-                      </div>
-                      <div>
-                        <b>{weakMoras()}</b>
-                        <span>weak moras</span>
-                      </div>
-                      {/* The rankings belong with the numbers, not in the
+                      {/* The rankings sit in the chart's margin, not in the
                           legend. A legend explains what the colours mean; these
-                          two say what the chart found, which is the same job
-                          the two counts above them do. They also carry kana
-                          rather than digits, so they read as a list and fill
-                          the margin the way three more numbers would not. */}
+                          say what the chart *found*, which is a different job.
+                          They also carry kana rather than digits, so they read
+                          as a list and fill the column the off-chart strip
+                          leaves mostly empty. */}
                       <Show when={weakestMoras().length > 0}>
                         <div class="stat-grid__rank">
                           <b>{weakestMoras().slice(0, 5).map(([kana]) => kana).join(' ')}</b>
@@ -1227,16 +1242,6 @@ function App() {
 
             <div class="stats-group">
               <h2 class="stats-group__label">recent progress</h2>
-              <div class="stat-grid stat-grid--pair">
-                <div>
-                  <b>{recentAcc()}%</b>
-                  <span>accuracy · last 10 runs</span>
-                </div>
-                <div>
-                  <b>{streaks().current}</b>
-                  <span>day streak</span>
-                </div>
-              </div>
               <div class="stats-grid">
                 <section class="panel panel--span-8">
                   <h3>speed and accuracy</h3>
@@ -1299,6 +1304,36 @@ function App() {
                   what you just crossed and what is next, and nothing else. Seeing
                   the reached ones is the point — progress you can look back at
                   rather than a notification you either caught or missed. */}
+              <section class="panel panel--span-12">
+                <h3>milestones</h3>
+                <div class="achievement__list">
+                  <For each={milestones()}>
+                    {(item) => (
+                      <span
+                        class="achievement__chip"
+                        classList={{ 'achievement__chip--next': !item.reached }}
+                        aria-label={`${item.label} — ${item.reached ? 'reached' : 'not yet reached'}`}
+                      >
+                        {item.label}
+                        <Show when={item.reached}>
+                          <small aria-hidden="true">✔</small>
+                        </Show>
+                      </span>
+                    )}
+                  </For>
+                </div>
+                <p class="muted">
+                  <b>{milestones().filter((item) => item.reached).length}</b> of{' '}
+                  {milestones().length} reached.
+                </p>
+              </section>
+
+              </div>
+            </div>
+
+            <div class="stats-group">
+              <h2 class="stats-group__label">typing mechanics</h2>
+              <div class="stats-grid">
               <section class="panel panel--span-6">
                 <h3>romaji key errors</h3>
                 <p class="muted">
@@ -1364,37 +1399,20 @@ function App() {
                   </For>
                 </div>
               </section>
-              <section class="panel panel--span-6">
-                <h3>milestones</h3>
-                <div class="achievement__list">
-                  <For each={milestones()}>
-                    {(item) => (
-                      <span
-                        class="achievement__chip"
-                        classList={{ 'achievement__chip--next': !item.reached }}
-                        aria-label={`${item.label} — ${item.reached ? 'reached' : 'not yet reached'}`}
-                      >
-                        {item.label}
-                        <Show when={item.reached}>
-                          <small aria-hidden="true">✔</small>
-                        </Show>
-                      </span>
-                    )}
-                  </For>
-                </div>
-                <p class="muted">
-                  <b>{milestones().filter((item) => item.reached).length}</b> of{' '}
-                  {milestones().length} reached.
-                </p>
-              </section>
-
-              </div>
-            </div>
-
-            <div class="stats-group">
-              <h2 class="stats-group__label">typing mechanics</h2>
-              <div class="stats-grid">
-              <section class="panel panel--span-6">
+              {/*
+                * The two bar lists stack into one column beside the board
+                * rather than sitting side by side under it. They are the page's
+                * secondary surfaces — neither can name a mora — and as a full
+                * row of their own they took the width of the group while the
+                * board, which at least points at a key, had none of it.
+                *
+                * The wrapper carries `panel` as well as `panel-stack` because
+                * `.stats-grid > .panel` is what sets the single-column default;
+                * without it the wrapper would fall to one grid column below the
+                * first breakpoint instead of spanning the row.
+                */}
+              <div class="panel panel-stack panel--span-6">
+              <section class="panel">
                 <h3>most confused</h3>
                 <div class="bar-list">
                   <For each={topConfusions()} fallback={<p class="muted">No confused pairs yet.</p>}>
@@ -1408,7 +1426,7 @@ function App() {
                   </For>
                 </div>
               </section>
-              <section class="panel panel--span-6">
+              <section class="panel">
                 <h3>slowest pairs</h3>
                 <div class="bar-list">
                   <For each={slowBigrams()} fallback={<p class="muted">No pair timing yet.</p>}>
@@ -1422,6 +1440,7 @@ function App() {
                   </For>
                 </div>
               </section>
+              </div>
               </div>
             </div>
           </section>

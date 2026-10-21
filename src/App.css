@@ -724,15 +724,6 @@ input[type='range'] {
   color: var(--color-muted);
 }
 
-/* The two run metrics that head "recent progress". Held to a readable measure
-   rather than spread over the full column, which is what made the old
-   four-number band read as empty. */
-.stat-grid--pair {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  margin-bottom: var(--space-6);
-  max-width: 34rem;
-}
-
 /* Not accent. Colour on this page means *state* — teal is "known", red is
    "missed" — and painting every headline number teal spent the one signal the
    reader has on decoration. */
@@ -817,20 +808,20 @@ input[type='range'] {
  * Three arrangements, not two, because a quarter-width panel is only a quarter
  * width when there is a window to spare.
  *
- * Below 760 everything is one column. Between 760 and 1120 the twelve columns
- * are only ever used as halves: a panel asking for 4 gets 6 and a panel asking
- * for 8 gets the full row. Above 1120 each span is taken literally. Measured on
- * the calendar, whose cells flex to fill whatever they are given: 30.6px at
- * four columns on a 1440 window, 19.4px at 1024 and **10.9px at 768** — so the
- * literal span is wrong below 1120, and leaving the spans out entirely is wrong
- * too, since that reverted the calendar to full width and 87px cells.
+ * Below 760 everything is one column. Between 760 and 1120 only halves are
+ * used: a panel asking for 4 or 8 takes the whole row, and only `--span-6`
+ * pairs. Above 1120 each span is taken literally. Measured on the calendar,
+ * whose day tracks shrink to fit: a literal quarter-width column gives 30.6px
+ * cells at 1440 but **10.9px at 768**, so the quarter is only honoured where
+ * there is a window to spare.
  *
- * Panel order is chart, calendar, keys, milestones, which packs in both
- * arrangements with no row ending short: 8+4 then 6+6 above 1120, and 12 then
- * 6+6 then 12 between.
+ * A panel on its own row and a pair that sums to twelve are the only two
+ * shapes, which is what keeps every row full at every width. Check the row
+ * ends after moving any panel between groups: taking the key board out of
+ * "recent progress" left the calendar with nothing to pair with and opened a
+ * 510px gap at 1024 that none of the spans themselves were wrong about.
  */
 @media (min-width: 760px) {
-  .stats-grid > .panel--span-4 { grid-column: span 6; }
   .stats-grid > .panel--span-6 { grid-column: span 6; }
 }
 
@@ -843,6 +834,15 @@ input[type='range'] {
 
 .panel {
   padding: 0;
+}
+
+/* Two panels sharing one grid column, stacked. The gap matches the grid's own
+   row gap so the stack reads as part of the same rhythm rather than as a
+   nested group. */
+.panel-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
 }
 
 /*
@@ -1043,10 +1043,19 @@ meter::-webkit-meter-optimum-value {
 
 /* --- practice calendar --------------------------------------------------- */
 
+/*
+ * Bounded, because the day tracks are `1fr` and so the cell size was whatever
+ * the panel's column happened to be: 53.2px in a half-width panel, 87px in a
+ * full-width one. That made the calendar the loudest object on the page for
+ * the least actionable data on it, and it tied cell size to a breakpoint.
+ * A max-width decouples the two — the block sits at its own size in whatever
+ * column it is given, and only shrinks when the column is genuinely narrower.
+ */
 .calendar {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  max-width: 27rem;
 }
 
 .calendar__row {
