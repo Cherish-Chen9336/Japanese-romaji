@@ -247,6 +247,24 @@ The **keyboard stays, but as a diagnostic and not a mastery surface**, titled
 this can say which mora is at fault. It is the widest panel because legibility is
 its only problem; being bigger does not make it mean more.
 
+**Every channel on a cap reads one table.** The count, the error rate, the
+weak/clean state and the tint all come from `keyStats`, aggregated over
+*completed* runs. The printed count used to read the `misses` record instead —
+written on every keystroke and persisted immediately, finished run or not — so
+the number and the colour described different populations. On a fresh profile:
+type six wrong keys, leave the run, and a cap printed `6` in the teal that means
+"never missed". A true number beside a contradicting colour, and the rate under
+it was `0% of 0`. A rate needs its own denominator, and `keyStats` is the only
+table carrying both halves, so it wins all four channels rather than two.
+
+`misses` is therefore **no longer written**, and had no other reader — the cap's
+count was the only one in the app. The record is left readable, importable and
+clearable rather than purged: `resetProfile` clears the whole records store, so
+nothing is stranded, and an older build reading a backup still finds the field.
+No `BACKUP_VERSION` bump, for the same reason retiring the keyboard layout
+needed none — a count map carries no measurement another reader could
+misinterpret. Whether to drop it from the format is a separate decision.
+
 Panels sit in a twelve-column grid **inside each group**, with the groups in
 document order, and carry **no chrome at all** — no border, no fill, no radius.
 A heading and a gap already say where one section ends; drawing a box around
@@ -663,8 +681,11 @@ that; a per-element rule cannot.
 **Mono means "what the user types, and the spellings being taught".** The
 practice line, `code`, the paste box and `kbd` are literal input. So are
 `.mastery-cell small` and `.still-weak__chip small`, which teach the romaji a
-learner must press, and `.bar-row span`, which holds confusion pairs (`ふ→ほ`)
-and bigrams — character diagnostics, not labels. Note that
+learner must press, and `.bar-row span`, which holds confusion pairs and
+bigrams — character diagnostics, not labels. A confusion pair is **romaji**,
+built at the keystroke as `${legal.map(label).join('/')} → ${label(typed)}`, so
+it reads `h/i → x`; this was once written here as `ふ→ほ`, a label the app
+cannot produce, and a screenshot fixture had been built to match the error. Note that
 `.mastery-cell--label` is the chart's row/column headers, *not* the spelling
 under a kana; the two were conflated once and it sent a plan at the wrong
 element.

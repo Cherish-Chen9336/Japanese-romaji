@@ -120,7 +120,6 @@ function App() {
   const [ready, setReady] = createSignal(false)
   const [runs, setRuns] = createSignal<RunResult[]>([])
   const [lifetimeStats, setLifetimeStats] = createSignal<LifetimeStats>(emptyProfile().lifetime)
-  const [missMap, setMissMap] = createSignal<Record<string, number>>({})
   const [confusionMap, setConfusionMap] = createSignal<Record<string, number>>({})
   const [library, setLibrary] = createSignal<TextItem[]>([])
   const [source, setSource] = createSignal<SourceName>(readSource())
@@ -278,7 +277,6 @@ function App() {
   const adoptProfile = (profile: StoredProfile) => {
     setRuns(profile.runs)
     setLifetimeStats(profile.lifetime)
-    setMissMap(profile.misses)
     setConfusionMap(profile.confusions)
     setLibrary(profile.library)
     setLastRun(profile.runs[0] ?? null)
@@ -555,17 +553,18 @@ function App() {
     if (result.missed) {
       const { legal, typed } = result.missed
       const label = (char: string) => (char === ' ' ? 'space' : char)
-      // Only a single legal continuation names one key to blame. After `s` on
-      // し both `h` and `i` were legal, and charging either would invent a miss
-      // on a key the typist never got wrong.
-      if (legal.length === 1) {
-        setMissMap((current) => {
-          const key = label(legal[0])
-          const next = { ...current, [key]: (current[key] ?? 0) + 1 }
-          persistRecord('misses', next)
-          return next
-        })
-      }
+      /*
+       * The `misses` record is no longer written. It counted a miss against the
+       * single legal continuation, live, on every keystroke — a different
+       * population from the per-run `keyStats` that the key panel reads for
+       * everything else, and its only reader was that panel's printed count.
+       * Two sources behind one cap is what let a profile with no completed run
+       * show a miss count on a key drawn as never missed.
+       *
+       * The stored record is left readable and importable rather than purged:
+       * `resetProfile` clears the whole records store, so nothing is stranded,
+       * and an older build reading a backup still finds the field it expects.
+       */
       setConfusionMap((current) => {
         const pair = `${legal.map(label).join('/')} → ${label(typed)}`
         const next = { ...current, [pair]: (current[pair] ?? 0) + 1 }
@@ -1240,12 +1239,24 @@ function App() {
                       <div class="mini-keyboard-row">
                         <For each={row.split('')}>
                           {(letter) => {
-                            const count = () => missMap()[letter] ?? 0
                             const stat = () => keyStats().get(letter)
+                            /*
+                             * Count, rate, state and tint all read `keyStats`,
+                             * which aggregates COMPLETED runs. The count used to
+                             * read the live `misses` record instead — written on
+                             * every keystroke and saved immediately — so the cap's
+                             * number and its colour described different
+                             * populations. On a profile with no finished run at
+                             * all, a cap printed "6" in the teal that means "never
+                             * missed": a true number beside a contradicting
+                             * colour. A rate needs its own denominator anyway, and
+                             * only `keyStats` carries both halves.
+                             */
+                            const count = () => stat()?.misses ?? 0
                             return (
                               <span
                                 class="mini-key"
-                                classList={{ 'mini-key--weak': (stat()?.misses ?? 0) > 0 }}
+                                classList={{ 'mini-key--weak': count() > 0 }}
                                 style={{
                                   /*
                                    * Accuracy alone, and in the error colour. This
@@ -1256,14 +1267,14 @@ function App() {
                                    * opposite — teal is "never missed" on the kana
                                    * chart. Speed keeps its own panel.
                                    */
-                                  '--mk-heat': String(
-                                    stat()?.misses ? smoothedErrorRate(stat()!) : 0,
-                                  ),
+                                  '--mk-heat': String(count() ? smoothedErrorRate(stat()!) : 0),
                                 }}
                                 tabindex="0"
                                 {...tipFor(
                                   () =>
-                                    `${letter} · ${count()} misses, ${Math.round(
+                                    `${letter} · ${count()} ${
+                                      count() === 1 ? 'miss' : 'misses'
+                                    }, ${Math.round(
                                       (stat()?.errorRate ?? 0) * 100,
                                     )}% of ${stat()?.attempts ?? 0} · ${Math.round(
                                       stat()?.avgMs ?? 0,
