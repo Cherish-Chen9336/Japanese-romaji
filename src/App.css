@@ -1434,7 +1434,8 @@ meter::-webkit-meter-optimum-value {
 }
 
 /*
- * The off-chart strip and the weakest/slowest rankings.
+ * The chart's right-hand column: the off-chart strip, the weakest/slowest
+ * rankings, and the legend at its foot.
  *
  * Called a right-hand margin when it was written, and it is not one below about
  * 1500px. `.mastery` is `row wrap` and this is its fourth item, after all three
@@ -1459,6 +1460,20 @@ meter::-webkit-meter-optimum-value {
      rankings' romaji can be long, and nothing should widen this column. */
   min-inline-size: 0;
   max-inline-size: 100%;
+  /* `.mastery` aligns its items to the top, so this column is only as tall as
+     its own content and the legend could not be pushed anywhere. Stretching it
+     to the line gives the auto margin below something to work against. */
+  align-self: stretch;
+}
+
+/*
+ * At the foot of the column, level with the bottom of the tallest kana table.
+ * The legend is reference material, not a finding: it belongs where the eye
+ * lands last, and the column's lower half is empty anyway — the rankings are
+ * short and the tables beside them are 613px.
+ */
+.mastery-aside > .mastery-legend {
+  margin-block-start: auto;
 }
 
 .mastery-aside > * {

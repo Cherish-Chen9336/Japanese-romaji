@@ -374,12 +374,21 @@ on the box would collapse it to nothing.
 
 The description carries `margin-block-end: var(--space-8)`, because `.muted` sets
 no margin and the browser's own collapsed away, so the chart began immediately
-under the line describing it. The legend is a left-aligned column at the foot of
-the chart rather than a row across the bottom, where three keys competed with the
-chart's own rows for the same horizontal scan. Together these cost **101px** of
-document height at every width — 32 for the description, ~58 for the legend's two
-extra rows, 8 for its larger top margin — which is most of what the footer saved
-and is a deliberate trade for legibility.
+under the line describing it. That is 32px at every width.
+
+**The legend lives in the right-hand column, at its foot**, not in a row under
+the chart. It is reference material rather than a finding, so it belongs where
+the eye lands last — and the column's lower half is empty anyway, since the
+rankings are short and the tables beside them are 613px. `.mastery-aside` takes
+`align-self: stretch` so the column fills the line (`.mastery` aligns its items
+to the top, so otherwise there is nothing for an auto margin to work against),
+and the legend takes `margin-block-start: auto`. Measured level with the bottom
+of the tallest table to the pixel at 1600, on a full profile, a profile with no
+sokuon, and a fresh one.
+
+It is free where the margin arrangement applies, because it fills a void that
+already existed. Below 1462px of panel width it joins the footer row instead and
+costs 33px at 1024–1120, 105px at 768 where it wraps, and 70px on a phone.
 
 **The strip shrinks but must not grow.** `flex: 1 1 513px` on it opened a
 327.5px void at 1440 and 135.5px at 1024 between the last mora and the
