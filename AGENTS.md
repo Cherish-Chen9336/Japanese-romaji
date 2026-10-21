@@ -490,38 +490,42 @@ the template would regenerate those implicit columns, so the narrow default has
 to drop the span as well as the template. The overflow predates the layout
 rework: `87727a6` scrolls to 324px at 320 too.
 
-**Above 1120 the column gap becomes a gutter**, widening on a ramp from 28px to
-`--space-24`, 96px, at 1440 and holding there:
+**One row opts into a gutter**, `.stats-grid--gutter` on "typing mechanics",
+where the column gap widens on a ramp from 28px to `--space-24`, 96px, at 1440
+and holds there:
 
 ```css
-column-gap: clamp(
-  var(--space-7),
-  calc(var(--space-7) + (100vw - 1120px) * 0.2125),
-  var(--space-24)
-);
+.stats-grid--gutter {
+  column-gap: clamp(
+    var(--space-7),
+    calc(var(--space-7) + (100vw - 1120px) * 0.2125),
+    var(--space-24)
+  );
+}
 ```
 
 28px is what the twelve-track template can afford where it first appears —
 eleven of them against the 728px a 760px window leaves — but it is not a
 separation between two panels that each run their content to their own edge. The
 key board's `p` key ended 28px from the `k → l` of "most confused" and the two
-halves read as one field of marks. 64px separated them; 96 is where it was left.
+halves read as one field of marks.
 
-**What a wide gutter costs is paid by the narrow span, not evenly.**
-`panel = nW/12 − (12−n)g/12`, so going from 28px to 96px at 1440 takes 34px off
-each half of a `span 6` pair (650→616), 23px off the `span 8` chart (876→853)
-and **45px off the `span 4` calendar** (424→379). Check the calendar before
-widening this further: it is the panel with the least to give.
+**Opt-in, not the grid's default, because the gutter is paid for by the panels
+beside it and not every row has it to give.** `panel = nW/12 − (12−n)g/12`, so
+the narrower the span the more of the gutter it pays: at 1440 a 96px gutter
+costs each half of a `span 6` pair 34px (650→616), the `span 8` chart 23px
+(876→853) and the `span 4` calendar **45px** (424→379). Nothing in "recent
+progress" is crowding its column, so it keeps the 28px gap and its panels keep
+their widths. This was tried as a grid-wide rule first and reverted; a gutter
+belongs to a row whose two panels crowd each other, not to the page.
 
-**A ramp rather than a second breakpoint, because a step at 1120 wrapped a row
-in the pair above.** Stepping straight to a gutter there took the chart panel
-from 716px to 704px, and its eight cohort buttons sum to 653.8px and need
-709.8px with their seven 8px gaps — so a gutter meant for one pair cost the page
-34px of height in a band above 1120. On the ramp the gutter is still 28px where
-the window is narrowest and widens only as there is room, and the buttons never
-lose width at all. Swept at 10px steps from 320 to 1600 at the 96px cap: the
-cohort row is one line at every width from 750 up, exactly as before the change,
-and nothing overflows.
+**A ramp rather than a second breakpoint.** Stepping straight to the gutter at
+1120 would take each half of the pair from 530px to 496 at the width where they
+have least to spare, and when the rule was still grid-wide the same step took
+the chart panel from 716px to 704px — below the 709.8px its eight cohort buttons
+need — and cost the page 34px of height in a band above 1120. On the ramp the
+gutter is 28px where the window is narrowest and widens only as there is room.
+Swept at 10px steps from 320 to 1600: nothing overflows at any width.
 
 Set `column-gap` alone, never `gap`, so the 24px row gap stays the page's
 vertical rhythm. **A `span 12` panel keeps its width across this whole range**,

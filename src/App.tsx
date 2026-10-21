@@ -1466,7 +1466,9 @@ function App() {
 
             <div class="stats-group">
               <h2 class="stats-group__label">typing mechanics</h2>
-              <div class="stats-grid">
+              {/* The key board and the bar lists both run their content to the
+                  edge they share, so this row takes the wide gutter. */}
+              <div class="stats-grid stats-grid--gutter">
                 <section class="panel panel--span-6">
                   <h3>romaji key errors</h3>
                   <p class="muted">
