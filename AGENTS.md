@@ -396,9 +396,30 @@ not fill. This is why the size container lives on `.panel--map` and not on that
 box: an inline-size container is sized as if it had no contents, so a container
 on the box would collapse it to nothing.
 
-The description carries `margin-block-end: var(--space-8)`, because `.muted` sets
-no margin and the browser's own collapsed away, so the chart began immediately
-under the line describing it. That is 32px at every width.
+**A panel description is separated from what it introduces by 32px**
+(`.panel > h3 + .muted { margin: 0 0 var(--space-8) }`), because `.muted` sets no
+margin and the browser's own is collapsed away here, so the content began
+immediately under the line describing it — the kana chart under its caption, the
+key board under its disclaimer, both measured at 0px. The rule is scoped to a
+`.muted` **directly after** the heading so that a trailing caption, like the
+milestones' `N of 9 reached.`, is not given a gap below it that it has no use
+for.
+
+**Two more gaps that measured zero or near it**, found the same way:
+
+- `.achievement__list { margin-block-end: var(--space-4) }` — the chips and the
+  count that sums them were touching at 0px. The count belongs to the chips, so
+  this is the smaller step, not `--space-8`.
+- `.bar-list { margin-block-start: var(--space-8) }` — the bars started 16px
+  under their heading while the panel beside them began 32px down, so two panels
+  on one row opened at different depths. `--space-8` and not the `--space-4`
+  that would appear to make up the difference: this margin meets the heading's
+  own 16px bottom margin in a block container, where the two **collapse to the
+  larger** rather than adding, so 16 changed nothing at all.
+
+Together they cost about 48px of page height between 1024 and 1440 (1440:
+2273→2321) and about 80px on a phone, where the panels are stacked and the
+heading pairs occur more often (390: 4410→4490). No width overflows.
 
 **The legend lives in the right-hand column, at its foot**, not in a row under
 the chart. It is reference material rather than a finding, so it belongs where

@@ -1407,10 +1407,37 @@ meter::-webkit-meter-optimum-value {
   padding-inline-start: var(--group-bleed, 0px);
 }
 
-/* Zero by default — `.muted` sets no margin and the browser's own is collapsed
-   away here — so the chart started immediately under the line describing it. */
-.panel--map > .muted {
+/*
+ * A description sitting under a panel heading, which introduces whatever comes
+ * next. `.muted` sets no margin of its own and the browser's default collapses
+ * away here, so the content began immediately under the line describing it —
+ * the kana chart under its caption, the key board under its disclaimer. Scoped
+ * to a `.muted` directly after the heading so trailing captions, like the
+ * milestones' "N of 9 reached.", are not given a gap below them they have no
+ * use for.
+ */
+.panel > h3 + .muted {
   margin: 0 0 var(--space-8);
+}
+
+/* The chips and the count that sums them were touching: measured 0px. The
+   count belongs to the chips, so this is the smaller step, not `--space-8`. */
+.achievement__list {
+  margin-block-end: var(--space-4);
+}
+
+/*
+ * Bars read as a block, and against a heading alone they started 16px below it
+ * while the panel beside them put its content 32px down — so two panels on one
+ * row began at different depths. This brings the pair level.
+ *
+ * `--space-8` rather than the `--space-4` that would make up the difference:
+ * this margin meets the heading's own `--space-4` bottom margin in a block
+ * container, where the two collapse to the larger of them rather than adding.
+ * Set to 16 it changed nothing at all.
+ */
+.bar-list {
+  margin-block-start: var(--space-8);
 }
 
 /*
