@@ -355,25 +355,26 @@ less room, not because the rule works differently. Phones are untouched, since a
 exact: a panel of 1462 keeps the margin at 613.3px tall, 1460 flips to the
 footer at 711px.
 
-**The panel's text is aligned to the chart, not to the panel.** The chart
-centres itself, so a heading and description flush with the panel's left edge
-were stranded beside nothing: 57px clear of the first table on a full profile,
-and 253px on one with no sokuon yet, where the off-chart strip is absent and the
-chart is narrower still. Heading, description, chart and legend now share one
-`inline-size: fit-content` box centred in the panel, so all four align to
-whatever width the chart actually takes. This is why the size container lives on
-`.panel--map` and not on that box: an inline-size container is sized as if it
-had no contents, so a container on the box would collapse it to the width of its
-text.
+**The bleed is for the chart, not for the words.** This group is full-bleed, so
+its own left edge sits `--group-bleed` outside the column every other heading on
+the page starts at — 104px at 1600. Both the group heading and the panel heading
+inherited that, and so hung to the left of `your statistics` and of every other
+group label: the one thing on the page that did not line up. They now carry
+`padding-inline-start: var(--group-bleed)`, inherited from `.stats-group--wide`
+so it tracks the same clamp and goes to zero with it. Verified aligned to the
+page's `h1` at 1600, 1280, 1024 and 390 — the bleed is 104px at the first and
+0px at the rest.
 
-The group heading above it (`kana learning`) is deliberately **not** in that box.
-It belongs to the group rather than the panel, and the group labels down the page
-share a left edge that is the page's rhythm; indenting one of them to match one
-panel's content would break it.
+**The chart and its legend share a box only as wide as the chart**
+(`.mastery-panel`, `inline-size: fit-content`, centred), so the legend sits
+inside the chart's own width instead of ranging across a panel the chart does
+not fill. This is why the size container lives on `.panel--map` and not on that
+box: an inline-size container is sized as if it had no contents, so a container
+on the box would collapse it to nothing.
 
 The description carries `margin-block-end: var(--space-8)`, because `.muted` sets
 no margin and the browser's own collapsed away, so the chart began immediately
-under the line describing it. The legend is a right-aligned column at the foot of
+under the line describing it. The legend is a left-aligned column at the foot of
 the chart rather than a row across the bottom, where three keys competed with the
 chart's own rows for the same horizontal scan. Together these cost **101px** of
 document height at every width — 32 for the description, ~58 for the legend's two

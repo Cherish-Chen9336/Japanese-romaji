@@ -1389,16 +1389,13 @@ meter::-webkit-meter-optimum-value {
 }
 
 /*
- * Heading, description, chart and legend in one box that is only as wide as the
- * chart, centred in the panel. The chart centres itself, so left-aligning the
- * text to the panel stranded it: at 1600 the first table starts 57px in, and on
- * a profile with no sokuon — where the off-chart strip is absent and the chart
- * is narrower still — the heading sat hundreds of pixels left of anything it
- * named.
+ * The chart and its legend in one box only as wide as the chart, centred in the
+ * panel, so the legend sits inside the chart's own width instead of ranging
+ * across a panel the chart does not fill.
  *
- * `fit-content` is why the container lives on the panel above rather than here:
- * an inline-size container is sized as if it had no contents, so a container on
- * this box would collapse it to the width of its text.
+ * `fit-content` is why the size container lives on the panel above rather than
+ * here: an inline-size container is sized as if it had no contents, so a
+ * container on this box would collapse it to nothing.
  */
 .mastery-panel {
   inline-size: fit-content;
@@ -1406,9 +1403,24 @@ meter::-webkit-meter-optimum-value {
   max-inline-size: 100%;
 }
 
+/*
+ * This group is full-bleed, so its own left edge is `--group-bleed` outside the
+ * column every other heading on the page starts at — 104px at 1600, which left
+ * the group heading and this panel's heading hanging to the left of "your
+ * statistics" and of every other group label. The bleed is for the chart, which
+ * wants the width; the words that introduce it belong in the column. Inherited
+ * from `.stats-group--wide`, so it tracks the same clamp and goes to zero with
+ * it on a narrow window.
+ */
+.page .stats-group--wide > .stats-group__label,
+.panel--map > h3,
+.panel--map > .muted {
+  padding-inline-start: var(--group-bleed, 0px);
+}
+
 /* Zero by default — `.muted` sets no margin and the browser's own is collapsed
    away here — so the chart started immediately under the line describing it. */
-.mastery-panel > .muted {
+.panel--map > .muted {
   margin: 0 0 var(--space-8);
 }
 
@@ -1641,7 +1653,7 @@ meter::-webkit-meter-optimum-value {
   flex-direction: column;
   flex-wrap: wrap;
   gap: var(--space-3);
-  align-items: flex-end;
+  align-items: flex-start;
   margin-top: var(--space-6);
   font-size: var(--fs-12);
   color: var(--color-muted);

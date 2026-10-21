@@ -1277,17 +1277,19 @@ function App() {
               <h2 class="stats-group__label">kana learning</h2>
               <div class="stats-grid">
                 <section class="panel panel--span-12 panel--map">
-                  <div class="mastery-panel">
-                    <h3>kana typing mastery</h3>
-                    {/* Not "accuracy": the colour is weakness weighted by how much
+                  <h3>kana typing mastery</h3>
+                  {/* Not "accuracy": the colour is weakness weighted by how much
                     evidence stands behind it, which is why one miss in a hundred
                     barely shows. The plain rate is in each cell's own detail.
                     And nothing here may promise hovering — on a touch screen
                     there is no hover to offer. */}
-                    <p class="muted">
-                      Red is weakness, weighted by how often you've met the
-                      mora.
-                    </p>
+                  <p class="muted">
+                    Red is weakness, weighted by how often you've met the mora.
+                  </p>
+                  {/* The chart and its legend only: the heading and the line
+                      above sit with the page's other headings, not with the
+                      chart. */}
+                  <div class="mastery-panel">
                     <MasteryMap
                       stats={kanaStats()}
                       aside={
