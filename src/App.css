@@ -1450,11 +1450,15 @@ meter::-webkit-meter-optimum-value {
     align-items: flex-start;
   }
 
-  /* Grows into the line without stretching the table — the cells keep their
-     48px, since `.mastery-cell` sets a width and the table never fills its
-     box. */
+  /*
+   * Shrinks but does not grow. The table inside never fills its box — the
+   * cells carry a fixed 48px — so a growing container only opens a void
+   * between the last mora and the rankings: measured at 327.5px at 1440 and
+   * 135.5px at 1024 when this was `flex: 1 1 513px`. The rankings take the
+   * slack instead, and the two sit next to each other.
+   */
   .mastery-aside > .mastery-grid {
-    flex: 1 1 513px;
+    flex: 0 1 513px;
   }
 
   /* Three classes, to clear the one-column rule above and the phone rule

@@ -348,14 +348,23 @@ rankings, 12rem at the 15px root — to 1462px, the four-column 1422 plus 40px o
 headroom. Both numbers describe nine off-chart moras.
 
 Measured: the aside goes from 218px tall to 77.7px, so `.mastery` drops 140.3px
-from 1440 to 1524 and 105.8px from 768 to 1024, and the document drops 140px at
-1440 and 105–106px at 760–1120. Phones are untouched, since a 358px panel is
-below the 721px threshold and keeps the column. The threshold is exact: a panel
-of 1462 keeps the margin at 613.3px tall, 1460 flips to the footer at 711px.
+everywhere from 1024 to 1524, and the document drops 140px at 1024, 1120 and
+1440 and 105px at 760/768 — less there only because the strip and rankings have
+less room, not because the rule works differently. Phones are untouched, since a
+358px panel is below the 721px threshold and keeps the column. The threshold is
+exact: a panel of 1462 keeps the margin at 613.3px tall, 1460 flips to the
+footer at 711px.
 
-**It halves the 760–1024 cost rather than erasing it.** Against `87727a6` that
-band is now +98px at 1024 and +174 to +177px at 760/768, where it was +203 and
-+280. What is left is the three tables wrapping at 768, which no footer can
+**The strip shrinks but must not grow.** `flex: 1 1 513px` on it opened a
+327.5px void at 1440 and 135.5px at 1024 between the last mora and the
+rankings, because the table inside never fills its box — the cells carry a
+fixed 48px. `flex: 0 1 513px` lets the rankings take the slack instead, which
+also gives them two columns at 1024 rather than one and takes another 35px off
+the document there.
+
+**It mostly closes the 760–1024 cost but does not erase it.** Against `87727a6`
+that band is now +63px at 1024 and +174 to +177px at 760/768, where it was +203
+and +280. What is left is the three tables wrapping at 768, which no footer can
 help, and the rankings having moved into this panel at all.
 
 Robustness, measured rather than assumed: a fresh profile drops the column
