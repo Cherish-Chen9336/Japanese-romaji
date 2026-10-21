@@ -1144,31 +1144,6 @@ function App() {
               </div>
             </div>
 
-            <div class="stat-grid">
-              {/* Learner metrics, not leaderboard metrics. `avg wpm` averaged
-                  every stored run while `best wpm` was progression-gated, so the
-                  two disagreed about which runs counted; and `current acc` read
-                  the *live typing session*, which on this route is empty and so
-                  reported 100% whatever the history said. Speed now lives in the
-                  progress section, where a trend can give it context. */}
-              <div>
-                <b>{coverage().met}</b>
-                <span>moras seen · of {coverage().total}</span>
-              </div>
-              <div>
-                <b>{weakMoras()}</b>
-                <span>weak moras</span>
-              </div>
-              <div>
-                <b>{recentAcc()}%</b>
-                <span>accuracy · last 10 runs</span>
-              </div>
-              <div>
-                <b>{streaks().current}</b>
-                <span>day streak</span>
-              </div>
-            </div>
-
             <div class="stats-group stats-group--wide">
               <h2 class="stats-group__label">kana learning</h2>
               <div class="stats-grid">
@@ -1182,7 +1157,56 @@ function App() {
                 <p class="muted">
                   Red is weakness, weighted by how often you've met the mora.
                 </p>
-                <MasteryMap stats={kanaStats()} />
+                {/* Learner metrics, not leaderboard metrics. `avg wpm` averaged
+                    every stored run while `best wpm` was progression-gated, so
+                    the two disagreed about which runs counted; and `current acc`
+                    read the *live typing session*, which on this route is empty
+                    and so reported 100% whatever the history said.
+
+                    These two sit in the chart's margin rather than in a band
+                    above the page, because they are statements *about this
+                    chart* — "78 of 104" names the cells beside it. The band was
+                    the most generic object on the page and it left the chart's
+                    top-right corner empty. The other two overview numbers
+                    describe recent runs, not kana, so they moved to the group
+                    that answers that question instead of coming along. */}
+                <MasteryMap
+                  stats={kanaStats()}
+                  aside={
+                    <div class="stat-grid stat-grid--margin">
+                      <div>
+                        <b>{coverage().met}</b>
+                        <span>moras seen · of {coverage().total}</span>
+                      </div>
+                      <div>
+                        <b>{weakMoras()}</b>
+                        <span>weak moras</span>
+                      </div>
+                      {/* The rankings belong with the numbers, not in the
+                          legend. A legend explains what the colours mean; these
+                          two say what the chart found, which is the same job
+                          the two counts above them do. They also carry kana
+                          rather than digits, so they read as a list and fill
+                          the margin the way three more numbers would not. */}
+                      <Show when={weakestMoras().length > 0}>
+                        <div class="stat-grid__rank">
+                          <b>{weakestMoras().slice(0, 5).map(([kana]) => kana).join(' ')}</b>
+                          <span>weakest</span>
+                        </div>
+                      </Show>
+                      {/* The chart's colour says what you get *wrong*; this says
+                          what you have to *think about*. Each cell already
+                          carries its own excess in its detail — this is the
+                          ranking, which a grid cannot show. */}
+                      <Show when={slowMoras().length > 0}>
+                        <div class="stat-grid__rank">
+                          <b>{slowMoras().slice(0, 5).map(([kana]) => kana).join(' ')}</b>
+                          <span>slowest to recall</span>
+                        </div>
+                      </Show>
+                    </div>
+                  }
+                />
                 <div class="mastery-legend">
                   <span>
                     <i class="is-unseen" />
@@ -1196,20 +1220,6 @@ function App() {
                     <i class="is-weak" />
                     missed — deeper is weaker
                   </span>
-                  <Show when={weakestMoras().length > 0}>
-                    <span>
-                      weakest: <b>{weakestMoras().slice(0, 5).map(([kana]) => kana).join(' ')}</b>
-                    </span>
-                  </Show>
-                  {/* The chart's colour says what you get *wrong*; this says what
-                      you have to *think about*. Each cell already carries its own
-                      excess in its detail — this is the ranking, which a grid
-                      cannot show. */}
-                  <Show when={slowMoras().length > 0}>
-                    <span>
-                      slowest: <b>{slowMoras().slice(0, 5).map(([kana]) => kana).join(' ')}</b>
-                    </span>
-                  </Show>
                 </div>
               </section>
               </div>
@@ -1217,8 +1227,18 @@ function App() {
 
             <div class="stats-group">
               <h2 class="stats-group__label">recent progress</h2>
+              <div class="stat-grid stat-grid--pair">
+                <div>
+                  <b>{recentAcc()}%</b>
+                  <span>accuracy · last 10 runs</span>
+                </div>
+                <div>
+                  <b>{streaks().current}</b>
+                  <span>day streak</span>
+                </div>
+              </div>
               <div class="stats-grid">
-                <section class="panel panel--span-12">
+                <section class="panel panel--span-8">
                   <h3>speed and accuracy</h3>
                   <ProgressChart
                     points={progress()}
@@ -1227,6 +1247,58 @@ function App() {
                     onCohort={setCohort}
                   />
                 </section>
+              <section class="panel panel--span-4">
+                <h3>last 60 days</h3>
+                {/* Ten days a row, each row labelled with the day it starts.
+                    The grid was unlabelled squares whose only date lived in a
+                    `title`, so it said "you practised sometimes" and nothing a
+                    reader could place in time. */}
+                <div class="calendar">
+                  <For each={calendarWeeks()}>
+                    {(week) => (
+                      <div class="calendar__row">
+                        <span class="calendar__date">{week.label}</span>
+                        <div class="calendar__days">
+                          <For each={week.days}>
+                            {(key) => {
+                              const count = () => dayStats().get(key) ?? 0
+                              const max = () => Math.max(1, ...dayStats().values())
+                              return (
+                                <span
+                                  class="calendar-cell"
+                                  classList={{ active: count() > 0 }}
+                                  style={{
+                                    '--day-heat': String(count() === 0 ? 0 : 0.35 + 0.65 * (count() / max())),
+                                  }}
+                                  tabindex="0"
+                                  {...tipFor(
+                                    () =>
+                                      `${new Date(`${key}T00:00:00Z`).toLocaleDateString(undefined, {
+                                        day: 'numeric',
+                                        month: 'short',
+                                        timeZone: 'UTC',
+                                      })} · ${count()} ${count() === 1 ? 'run' : 'runs'}`,
+                                  )}
+                                >
+                                  <span class="sr-only">{`${key}: ${count()} runs`}</span>
+                                </span>
+                              )
+                            }}
+                          </For>
+                        </div>
+                      </div>
+                    )}
+                  </For>
+                </div>
+                <p class="muted">
+                  Longest streak <b>{streaks().longest}</b> days.
+                </p>
+              </section>
+
+              {/* The whole ladder, which the result screen cannot show: it names
+                  what you just crossed and what is next, and nothing else. Seeing
+                  the reached ones is the point — progress you can look back at
+                  rather than a notification you either caught or missed. */}
               <section class="panel panel--span-6">
                 <h3>romaji key errors</h3>
                 <p class="muted">
@@ -1293,58 +1365,6 @@ function App() {
                 </div>
               </section>
               <section class="panel panel--span-6">
-                <h3>last 60 days</h3>
-                {/* Ten days a row, each row labelled with the day it starts.
-                    The grid was unlabelled squares whose only date lived in a
-                    `title`, so it said "you practised sometimes" and nothing a
-                    reader could place in time. */}
-                <div class="calendar">
-                  <For each={calendarWeeks()}>
-                    {(week) => (
-                      <div class="calendar__row">
-                        <span class="calendar__date">{week.label}</span>
-                        <div class="calendar__days">
-                          <For each={week.days}>
-                            {(key) => {
-                              const count = () => dayStats().get(key) ?? 0
-                              const max = () => Math.max(1, ...dayStats().values())
-                              return (
-                                <span
-                                  class="calendar-cell"
-                                  classList={{ active: count() > 0 }}
-                                  style={{
-                                    '--day-heat': String(count() === 0 ? 0 : 0.35 + 0.65 * (count() / max())),
-                                  }}
-                                  tabindex="0"
-                                  {...tipFor(
-                                    () =>
-                                      `${new Date(`${key}T00:00:00Z`).toLocaleDateString(undefined, {
-                                        day: 'numeric',
-                                        month: 'short',
-                                        timeZone: 'UTC',
-                                      })} · ${count()} ${count() === 1 ? 'run' : 'runs'}`,
-                                  )}
-                                >
-                                  <span class="sr-only">{`${key}: ${count()} runs`}</span>
-                                </span>
-                              )
-                            }}
-                          </For>
-                        </div>
-                      </div>
-                    )}
-                  </For>
-                </div>
-                <p class="muted">
-                  Longest streak <b>{streaks().longest}</b> days.
-                </p>
-              </section>
-
-              {/* The whole ladder, which the result screen cannot show: it names
-                  what you just crossed and what is next, and nothing else. Seeing
-                  the reached ones is the point — progress you can look back at
-                  rather than a notification you either caught or missed. */}
-              <section class="panel panel--span-12">
                 <h3>milestones</h3>
                 <div class="achievement__list">
                   <For each={milestones()}>

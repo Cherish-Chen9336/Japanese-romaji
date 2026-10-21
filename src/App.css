@@ -686,6 +686,53 @@ input[type='range'] {
   padding-left: 0;
 }
 
+/*
+ * One column, no rules. In the chart's margin the cells stack, so the
+ * `border-left` that separates them in a row would be a rule hanging down the
+ * left edge of each one.
+ *
+ * Descendant-scoped rather than a bare modifier class on purpose: the phone
+ * block below sets `.stat-grid` to two columns, and a single class would tie
+ * with it and be decided by source order.
+ */
+.mastery-aside .stat-grid--margin {
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-5);
+}
+
+.mastery-aside .stat-grid--margin div,
+.mastery-aside .stat-grid--margin div + div {
+  border-left: 0;
+  padding: 0;
+}
+
+/*
+ * A ranking in the margin: kana, not a digit, so it sets at the chart's own
+ * size rather than the headline numerals'. `--font-jp` because this is the one
+ * place on the page where a run of bare kana is the value itself.
+ */
+.stat-grid__rank b {
+  color: var(--color-text);
+  display: block;
+  font-family: var(--font-jp);
+  font-size: var(--fs-18);
+  font-weight: var(--fw-medium);
+  line-height: 1.4;
+}
+
+.stat-grid__rank span {
+  color: var(--color-muted);
+}
+
+/* The two run metrics that head "recent progress". Held to a readable measure
+   rather than spread over the full column, which is what made the old
+   four-number band read as empty. */
+.stat-grid--pair {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: var(--space-6);
+  max-width: 34rem;
+}
+
 /* Not accent. Colour on this page means *state* — teal is "known", red is
    "missed" — and painting every headline number teal spent the one signal the
    reader has on decoration. */
@@ -766,14 +813,31 @@ input[type='range'] {
 
 /* Each of these has to out-specify `.stats-grid > .panel` above, or the
    single-column default wins at every width and the spans never apply. */
+/*
+ * Three arrangements, not two, because a quarter-width panel is only a quarter
+ * width when there is a window to spare.
+ *
+ * Below 760 everything is one column. Between 760 and 1120 the twelve columns
+ * are only ever used as halves: a panel asking for 4 gets 6 and a panel asking
+ * for 8 gets the full row. Above 1120 each span is taken literally. Measured on
+ * the calendar, whose cells flex to fill whatever they are given: 30.6px at
+ * four columns on a 1440 window, 19.4px at 1024 and **10.9px at 768** — so the
+ * literal span is wrong below 1120, and leaving the spans out entirely is wrong
+ * too, since that reverted the calendar to full width and 87px cells.
+ *
+ * Panel order is chart, calendar, keys, milestones, which packs in both
+ * arrangements with no row ending short: 8+4 then 6+6 above 1120, and 12 then
+ * 6+6 then 12 between.
+ */
 @media (min-width: 760px) {
-  .stats-grid > .panel--span-6 {
-    grid-column: span 6;
-  }
+  .stats-grid > .panel--span-4 { grid-column: span 6; }
+  .stats-grid > .panel--span-6 { grid-column: span 6; }
 }
 
 @media (min-width: 1120px) {
+  .stats-grid > .panel--span-4 { grid-column: span 4; }
   .stats-grid > .panel--span-6 { grid-column: span 6; }
+  .stats-grid > .panel--span-8 { grid-column: span 8; }
   .stats-grid > .panel--span-12 { grid-column: span 12; }
 }
 
@@ -1204,6 +1268,14 @@ meter::-webkit-meter-optimum-value {
     padding-left: 0;
   }
 
+  /* The chart's margin is only a margin while there is a window beside the
+     chart. On a phone it is a full-width strip under it, so its two numbers go
+     side by side like every other pair — stacked they cost 45px of a document
+     already past four thousand. */
+  .mastery-aside .stat-grid--margin {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .library-item {
     align-items: flex-start;
     flex-direction: column;
@@ -1270,6 +1342,23 @@ meter::-webkit-meter-optimum-value {
   /* Centred: it has the row to itself and is the page's subject. */
   justify-content: center;
   gap: var(--space-5) var(--space-7);
+}
+
+/*
+ * The chart's right-hand margin: the off-chart strip, and the two numbers that
+ * describe the chart beside it.
+ *
+ * `.mastery` is a top-aligned flex row and its columns have very different row
+ * counts — plain and contracted 613px, voiced 307, the off-chart strip 76 — so
+ * the tallest set the panel's height and the shortest left a 537px hole in the
+ * top right. Stacking the margin's content into one column closes it, and the
+ * content is exactly what belonged there: "78 moras seen · of 104" sitting next
+ * to the 104 cells it counts.
+ */
+.mastery-aside {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-7);
 }
 
 .mastery-grid {

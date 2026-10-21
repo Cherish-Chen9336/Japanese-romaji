@@ -1,4 +1,5 @@
 import { For, Show, createMemo } from 'solid-js'
+import type { JSX } from 'solid-js'
 import {
   cellState,
   gojuonGrids,
@@ -68,7 +69,20 @@ function statusText(cell: MasteryCell, stat: AggregatedMoraStat | undefined): st
   return `${head} · ${stat.misses} of ${stat.attempts} missed (${rate}%) · ${timing}`
 }
 
-export function MasteryMap(props: { stats: Map<string, AggregatedMoraStat> }) {
+export function MasteryMap(props: {
+  stats: Map<string, AggregatedMoraStat>
+  /**
+   * Content for the chart's right-hand margin, stacked under the "also
+   * tracked" strip.
+   *
+   * The three gojuon grids have very different row counts — plain and
+   * contracted run 613px while voiced runs 307 and the off-chart strip 76 — and
+   * `.mastery` is a top-aligned flex row, so the tallest column decided the
+   * panel's height and the shortest left a 537px hole in the top right. The
+   * margin is that hole, given something to hold.
+   */
+  aside?: JSX.Element
+}) {
   const statFor = (kana: string) => props.stats.get(kana)
   const offChart = createMemo(() =>
     offChartMoras(props.stats).map((kana) => ({ kana, romaji: romajiFor(kana) })),
@@ -146,19 +160,24 @@ export function MasteryMap(props: { stats: Map<string, AggregatedMoraStat> }) {
           </div>
         )}
       </For>
-      <Show when={offChart().length > 0}>
-        <div class="mastery-grid">
-          <table class="mastery-table">
-            <caption>also tracked</caption>
-            <tbody>
-              <tr>
-                <th scope="row" class="mastery-cell mastery-cell--label">
-                  <span class="sr-only">off-chart moras</span>
-                </th>
-                <For each={offChart()}>{(cell) => renderCell(cell)}</For>
-              </tr>
-            </tbody>
-          </table>
+      <Show when={offChart().length > 0 || props.aside !== undefined}>
+        <div class="mastery-aside">
+          <Show when={offChart().length > 0}>
+            <div class="mastery-grid">
+              <table class="mastery-table">
+                <caption>also tracked</caption>
+                <tbody>
+                  <tr>
+                    <th scope="row" class="mastery-cell mastery-cell--label">
+                      <span class="sr-only">off-chart moras</span>
+                    </th>
+                    <For each={offChart()}>{(cell) => renderCell(cell)}</For>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </Show>
+          {props.aside}
         </div>
       </Show>
     </div>
