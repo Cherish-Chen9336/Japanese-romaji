@@ -818,6 +818,28 @@ input[type='range'] {
   align-items: start;
 }
 
+/*
+ * A gutter between a pair of panels, not a gap.
+ *
+ * 28px is what the twelve-track template can afford where it first appears —
+ * eleven of them against the 728px a 760px window leaves — but it is not a
+ * separation between two panels that each run their content to their own
+ * edge: the key board's `p` key ended 28px from the `k → l` of "most
+ * confused", so the two halves read as one field of marks. From 1120 up the
+ * column gap doubles to 64px, which costs each half of a pair 18px and buys a
+ * margin wide enough to read as a column break.
+ *
+ * Column gap only. The row gap is the page's vertical rhythm and is set once.
+ * A `span 12` panel is unaffected at any gap, since it covers all eleven of
+ * them along with the twelve tracks, so the mastery panel's container-query
+ * thresholds do not move.
+ */
+@media (min-width: 1120px) {
+  .stats-grid {
+    column-gap: var(--space-16);
+  }
+}
+
 .stats-grid > .panel {
   /* Auto, not `span 12`: a `span` wider than the template would generate the
      eleven implicit columns this single track exists to avoid. */

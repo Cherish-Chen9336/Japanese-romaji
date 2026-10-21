@@ -471,8 +471,8 @@ a quarter-width panel is only a quarter width when there is a window to spare.
 **Twelve tracks are only possible where twelve tracks fit.** Below 760px
 `.stats-grid` is a single `minmax(0, 1fr)` track and `.stats-grid > .panel` is
 `grid-column: auto`; the twelve-track template and the `span 12` default are
-declared from 760 up. The column gap is `--space-7`, 28px, and a twelve-track
-template has eleven of them — 308px of gap against the 288px a 320px viewport
+declared from 760 up. The column gap is `--space-7`, 28px below 1120, and a
+twelve-track template has eleven of them — 308px of gap against the 288px a 320px viewport
 leaves after the page padding. The `minmax(0, …)` floors then let every track
 collapse to zero, so a `span 12` panel measured exactly 308px, the gaps alone,
 and pushed the document to 324px against a 320px window. **Tracks that can
@@ -481,6 +481,28 @@ left**, which is why this survived every wider breakpoint. A `span` wider than
 the template would regenerate those implicit columns, so the narrow default has
 to drop the span as well as the template. The overflow predates the layout
 rework: `87727a6` scrolls to 324px at 320 too.
+
+**From 1120 up the column gap is a gutter, not a gap**: `--space-16`, 64px,
+set as `column-gap` alone so the row gap stays the page's vertical rhythm. 28px
+is what the twelve-track template can afford where it first appears — eleven of
+them against the 728px a 760px window leaves — but it is not a separation
+between two panels that each run their content to their own edge. The key
+board's `p` key ended 28px from the `k → l` of "most confused" and the two
+halves read as one field of marks. The gutter costs each half of a pair 18px
+(650→632 at 1440 and above, 530→512 at 1120) and the calendar 24px.
+
+A `span 12` panel is the same width at any gap, since it covers all eleven of
+them along with the twelve tracks, so **the mastery panel's container-query
+thresholds do not move.** Measured: the column gap is 64px from 1120 up and
+28px below it, nothing overflows at 320–1600, and the page is 2px *shorter* at
+1200–1600.
+
+The one cost is a band roughly **1120–1135px wide**, where the chart's eight
+cohort buttons wrap to a second line and the page is 34px taller. The buttons
+sum to 654px and need about 710px with their gaps; a `span 8` panel is 704px at
+1120 with the gutter and 717px at 1140. This is a knife edge in the cohort row,
+not in the gutter — at 28px the same row clears it by 7px — so the fix belongs
+to the buttons if it is ever worth making.
 
 **Check the row ends after moving any panel between groups.** Changing spans
 without reordering the panels left every row ending in a gap, since the calendar
