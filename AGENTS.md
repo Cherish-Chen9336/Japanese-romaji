@@ -343,17 +343,41 @@ container query on `.panel--map`, because the threshold is a property of the
 panel's own width: 1460 behaves like 1024, not like 1500, so no outer-grid
 breakpoint can express it. (The existing narrow rule is `max-width: 680px`, not
 760, and it only re-columns the rankings grid; it does not put the strip beside
-them.) The footer runs from 721px of panel width — 513 strip + 28 gap + 180
-rankings, 12rem at the 15px root — to 1462px, the four-column 1422 plus 40px of
-headroom. Both numbers describe nine off-chart moras.
+them.)
 
-Measured: the aside goes from 218px tall to 77.7px, so `.mastery` drops 140.3px
-everywhere from 1024 to 1524, and the document drops 140px at 1024, 1120 and
-1440 and 105px at 760/768 — less there only because the strip and rankings have
-less room, not because the rule works differently. Phones are untouched, since a
-358px panel is below the 721px threshold and keeps the column. The threshold is
-exact: a panel of 1462 keeps the margin at 613.3px tall, 1460 flips to the
-footer at 711px.
+**The column keeps its place; the tables give way.** The three kana tables are
+one flex item (`.mastery-tables`) that wraps internally. As four siblings of
+`.mastery`, the aside was the last item on the line and so the first pushed off
+it, and the rankings and the legend jumped to the foot of the panel the moment
+the window narrowed. The tables are a grid of equals and reflow without losing
+anything; the column beside them is two fixed things that should stay put.
+
+**The footer's thresholds are content-aware, because the geometry is.** The
+three tables and their gap are 909px. The column is 513px with the off-chart
+strip and the width of the rankings alone without it, so it stops fitting beside
+them at 1422px of panel width in the first case and about 1078px in the second.
+`.mastery-aside--strip` carries that distinction from `MasteryMap`, and each
+threshold has its own `@container` block. One fixed threshold would either drop
+the column early on a profile that has met no sokuon — the common case for a
+new learner, and the one that keeps it beside down to a 1140px window — or let
+it stand up tall on one that has. 721px is the floor in both.
+
+**Scope each block's child rules to its own threshold.** Written once for both,
+`flex: 1 1 12rem` on the rankings reached an aside that was still a column,
+where `flex-grow` runs down the page rather than across it: the rankings
+stretched to fill the column and the legend's `margin-block-start: auto` was
+zeroed, so on a fresh profile the legend sat at the top of the column instead of
+its foot. The footer's rules only make sense where the footer applies.
+
+Measured: as a footer the aside is 77.7px tall against 218px standing up, and
+the document holds at 2273px at 1440, 2656px at 1024 and 3365px at 768 on a full
+profile. On a profile with no sokuon the column stays beside the tables from
+1600 down to a 1108px panel — a 1140px window — with `.mastery` at 613.3px
+throughout, where a single 1462px threshold dropped it to a footer at 1526.
+Phones are untouched: a 358px panel is below the 721px floor. Verified on three
+profiles — full, no sokuon, and fresh — at 1600, 1440, 1024, 768 and 390, with
+the legend level with the bottom of the tallest table wherever the column
+stands.
 
 **The bleed is for the chart, not for the words.** This group is full-bleed, so
 its own left edge sits `--group-bleed` outside the column every other heading on
