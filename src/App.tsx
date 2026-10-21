@@ -1277,26 +1277,28 @@ function App() {
               <h2 class="stats-group__label">kana learning</h2>
               <div class="stats-grid">
                 <section class="panel panel--span-12 panel--map">
-                  <h3>kana typing mastery</h3>
-                  {/* Not "accuracy": the colour is weakness weighted by how much
+                  <div class="mastery-panel">
+                    <h3>kana typing mastery</h3>
+                    {/* Not "accuracy": the colour is weakness weighted by how much
                     evidence stands behind it, which is why one miss in a hundred
                     barely shows. The plain rate is in each cell's own detail.
                     And nothing here may promise hovering — on a touch screen
                     there is no hover to offer. */}
-                  <p class="muted">
-                    Red is weakness, weighted by how often you've met the mora.
-                  </p>
-                  <MasteryMap
-                    stats={kanaStats()}
-                    aside={
-                      // Undefined, not an empty wrapper: as a footer the aside
-                      // takes a whole flex line, and on a fresh profile neither
-                      // ranking has anything to say. MasteryMap's guard drops the
-                      // column entirely when this is undefined.
-                      weakestMoras().length === 0 &&
-                      slowMoras().length === 0 ? undefined : (
-                        <div class="stat-grid stat-grid--margin">
-                          {/* The rankings sit with the chart, not in the
+                    <p class="muted">
+                      Red is weakness, weighted by how often you've met the
+                      mora.
+                    </p>
+                    <MasteryMap
+                      stats={kanaStats()}
+                      aside={
+                        // Undefined, not an empty wrapper: as a footer the aside
+                        // takes a whole flex line, and on a fresh profile neither
+                        // ranking has anything to say. MasteryMap's guard drops the
+                        // column entirely when this is undefined.
+                        weakestMoras().length === 0 &&
+                        slowMoras().length === 0 ? undefined : (
+                          <div class="stat-grid stat-grid--margin">
+                            {/* The rankings sit with the chart, not in the
                           legend. A legend explains what the colours mean; these
                           say what the chart *found*, which is a different job.
                           Beside it above 1462px of panel width, beneath it in a
@@ -1305,49 +1307,50 @@ function App() {
                           They also carry kana rather than digits, so they read
                           as a list and fill the column the off-chart strip
                           leaves mostly empty. */}
-                          <Show when={weakestMoras().length > 0}>
-                            <div class="stat-grid__rank">
-                              <b>
-                                {weakestMoras()
-                                  .slice(0, 5)
-                                  .map(([kana]) => kana)
-                                  .join(" ")}
-                              </b>
-                              <span>weakest</span>
-                            </div>
-                          </Show>
-                          {/* The chart's colour says what you get *wrong*; this says
+                            <Show when={weakestMoras().length > 0}>
+                              <div class="stat-grid__rank">
+                                <b>
+                                  {weakestMoras()
+                                    .slice(0, 5)
+                                    .map(([kana]) => kana)
+                                    .join(" ")}
+                                </b>
+                                <span>weakest</span>
+                              </div>
+                            </Show>
+                            {/* The chart's colour says what you get *wrong*; this says
                           what you have to *think about*. Each cell already
                           carries its own excess in its detail — this is the
                           ranking, which a grid cannot show. */}
-                          <Show when={slowMoras().length > 0}>
-                            <div class="stat-grid__rank">
-                              <b>
-                                {slowMoras()
-                                  .slice(0, 5)
-                                  .map(([kana]) => kana)
-                                  .join(" ")}
-                              </b>
-                              <span>slowest to recall</span>
-                            </div>
-                          </Show>
-                        </div>
-                      )
-                    }
-                  />
-                  <div class="mastery-legend">
-                    <span>
-                      <i class="is-unseen" />
-                      not yet seen
-                    </span>
-                    <span>
-                      <i class="is-clean" />
-                      seen, never missed
-                    </span>
-                    <span>
-                      <i class="is-weak" />
-                      missed — deeper is weaker
-                    </span>
+                            <Show when={slowMoras().length > 0}>
+                              <div class="stat-grid__rank">
+                                <b>
+                                  {slowMoras()
+                                    .slice(0, 5)
+                                    .map(([kana]) => kana)
+                                    .join(" ")}
+                                </b>
+                                <span>slowest to recall</span>
+                              </div>
+                            </Show>
+                          </div>
+                        )
+                      }
+                    />
+                    <div class="mastery-legend">
+                      <span>
+                        <i class="is-unseen" />
+                        not yet seen
+                      </span>
+                      <span>
+                        <i class="is-clean" />
+                        seen, never missed
+                      </span>
+                      <span>
+                        <i class="is-weak" />
+                        missed — deeper is weaker
+                      </span>
+                    </div>
                   </div>
                 </section>
               </div>

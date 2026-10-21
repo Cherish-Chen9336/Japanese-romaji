@@ -1388,6 +1388,30 @@ meter::-webkit-meter-optimum-value {
   container: mastery-panel / inline-size;
 }
 
+/*
+ * Heading, description, chart and legend in one box that is only as wide as the
+ * chart, centred in the panel. The chart centres itself, so left-aligning the
+ * text to the panel stranded it: at 1600 the first table starts 57px in, and on
+ * a profile with no sokuon — where the off-chart strip is absent and the chart
+ * is narrower still — the heading sat hundreds of pixels left of anything it
+ * named.
+ *
+ * `fit-content` is why the container lives on the panel above rather than here:
+ * an inline-size container is sized as if it had no contents, so a container on
+ * this box would collapse it to the width of its text.
+ */
+.mastery-panel {
+  inline-size: fit-content;
+  margin-inline: auto;
+  max-inline-size: 100%;
+}
+
+/* Zero by default — `.muted` sets no margin and the browser's own is collapsed
+   away here — so the chart started immediately under the line describing it. */
+.mastery-panel > .muted {
+  margin: 0 0 var(--space-8);
+}
+
 .mastery {
   display: flex;
   flex-flow: row wrap;
@@ -1611,10 +1635,14 @@ meter::-webkit-meter-optimum-value {
 
 .mastery-legend {
   display: flex;
+  /* A column at the foot of the chart's right edge: three keys read as a list
+     down the side, and across the bottom they competed with the chart's own
+     rows for the same horizontal scan. */
+  flex-direction: column;
   flex-wrap: wrap;
-  gap: var(--space-4);
-  align-items: center;
-  margin-top: var(--space-4);
+  gap: var(--space-3);
+  align-items: flex-end;
+  margin-top: var(--space-6);
   font-size: var(--fs-12);
   color: var(--color-muted);
 }

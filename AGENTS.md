@@ -355,6 +355,31 @@ less room, not because the rule works differently. Phones are untouched, since a
 exact: a panel of 1462 keeps the margin at 613.3px tall, 1460 flips to the
 footer at 711px.
 
+**The panel's text is aligned to the chart, not to the panel.** The chart
+centres itself, so a heading and description flush with the panel's left edge
+were stranded beside nothing: 57px clear of the first table on a full profile,
+and 253px on one with no sokuon yet, where the off-chart strip is absent and the
+chart is narrower still. Heading, description, chart and legend now share one
+`inline-size: fit-content` box centred in the panel, so all four align to
+whatever width the chart actually takes. This is why the size container lives on
+`.panel--map` and not on that box: an inline-size container is sized as if it
+had no contents, so a container on the box would collapse it to the width of its
+text.
+
+The group heading above it (`kana learning`) is deliberately **not** in that box.
+It belongs to the group rather than the panel, and the group labels down the page
+share a left edge that is the page's rhythm; indenting one of them to match one
+panel's content would break it.
+
+The description carries `margin-block-end: var(--space-8)`, because `.muted` sets
+no margin and the browser's own collapsed away, so the chart began immediately
+under the line describing it. The legend is a right-aligned column at the foot of
+the chart rather than a row across the bottom, where three keys competed with the
+chart's own rows for the same horizontal scan. Together these cost **101px** of
+document height at every width — 32 for the description, ~58 for the legend's two
+extra rows, 8 for its larger top margin — which is most of what the footer saved
+and is a deliberate trade for legibility.
+
 **The strip shrinks but must not grow.** `flex: 1 1 513px` on it opened a
 327.5px void at 1440 and 135.5px at 1024 between the last mora and the
 rankings, because the table inside never fills its box — the cells carry a
