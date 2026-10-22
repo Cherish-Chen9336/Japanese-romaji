@@ -749,11 +749,28 @@ function App() {
   const reviewAction = createMemo(() => {
     const ready = reviewedItems().length;
     const total = (reviews() ?? []).length;
-    if (ready === 0)
+    if (ready === 0) {
+      // No box to fill and nothing ready means the lines are refused for some
+      // other reason — too long, or not typable. "fill in 0 readings" names an
+      // action that does not exist; the hint under each line gives the reason.
+      if (readingsOwed() === 0) return "nothing here can be practised";
       return readingsOwed() === 1
         ? "fill in 1 reading"
         : `fill in ${readingsOwed()} readings`;
+    }
     return ready < total ? `practise ${ready} of ${total}` : "practise";
+  });
+
+  /*
+   * The review is a step on the way to practice, not a document. Leaving the
+   * library page ends it, because the library page is the only place that
+   * draws it: coming back to a half-filled review from somewhere else showed a
+   * screen with no paste box, no way to start another paste, and a primary
+   * button that could not be pressed — which reads as the app having lost the
+   * ability to take a paste at all.
+   */
+  createEffect(() => {
+    if (route() !== "library") setReviews(null);
   });
 
   /** Why a line cannot be practised yet, in a sentence rather than a code. */
