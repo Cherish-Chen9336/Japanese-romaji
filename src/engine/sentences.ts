@@ -38,18 +38,54 @@ import type { PracticeText, TextItem } from './types'
  * stored run that names `kyou` still names the same sentence after the list is
  * reordered, which `sentence-1` would not.
  *
- * The first three texts are **short passages** — four sentences that belong
- * together, with a title. They exist because a request for "articles" is a
- * request for something to read, and a list of unrelated one-liners is not
- * that however many of them there are. They are deliberately short: long
- * documents need a position to return to, a way to deal consecutive chunks and
- * a run that spans them, none of which exists yet.
+ * The texts with titles are **passages** — sentences that belong together,
+ * because a request for "articles" is a request for something to read, and a
+ * list of unrelated one-liners is not that however many of them there are.
+ * Four sentences each for the short ones, seven for the two long ones, which
+ * come to about 300 romaji characters — a single sitting rather than a
+ * document. Anything genuinely longer needs a position to return to,
+ * consecutive chunks dealt in order and a run that spans them, none of which
+ * exists yet.
+ *
+ * 二人 in "Cooking at the weekend" is the one reading kuromoji disagreed with
+ * across all 49 sentences here. It splits the word into 二 + 人 and reads it
+ * ににん; it is ふたり. That is the same number-and-counter failure as 一人 →
+ * イチニン and 二十歳 → ニジュウサイ in the accuracy measurements, and it is
+ * why these are checked rather than taken.
  *
  * Their sentences are in `sentenceBank` like any other, so random practice
  * still draws on them. Order is only honoured when a passage is chosen, since
  * `dealPassage` shuffles everything it is given.
  */
 export const sentenceTexts: PracticeText[] = [
+  {
+    id: 'hikkoshi',
+    title: 'Moving house',
+    source: 'sentences',
+    items: [
+      { kana: '先週 新しい 部屋 に 引っ越しました', reading: 'せんしゅう あたらしい へや に ひっこしました', romaji: 'senshuu atarashii heya ni hikkoshimashita' },
+      { kana: '駅 から 歩いて 五分 の ところ です', reading: 'えき から あるいて ごふん の ところ です', romaji: 'eki kara aruite gofun no tokoro desu' },
+      { kana: '前 の 部屋 より 少し 広く なりました', reading: 'まえ の へや より すこし ひろく なりました', romaji: 'mae no heya yori sukoshi hiroku narimashita' },
+      { kana: '窓 から 大きな 木 が 見えます', reading: 'まど から おおきな き が みえます', romaji: 'mado kara ookina ki ga miemasu' },
+      { kana: '荷物 を 運ぶ の は 大変 でした が 友達 が 手伝って くれました', reading: 'にもつ を はこぶ の わ たいへん でした が ともだち が てつだって くれました', romaji: 'nimotsu wo hakobu no wa taihen deshita ga tomodachi ga tetsudatte kuremashita' },
+      { kana: '夜 は とても 静か で よく 眠れます', reading: 'よる わ とても しずか で よく ねむれます', romaji: 'yoru wa totemo shizuka de yoku nemuremasu' },
+      { kana: '早く この 町 に 慣れたい です', reading: 'はやく この まち に なれたい です', romaji: 'hayaku kono machi ni naretai desu' },
+    ],
+  },
+  {
+    id: 'shuumatsu-no-ryouri',
+    title: 'Cooking at the weekend',
+    source: 'sentences',
+    items: [
+      { kana: '土曜日 の 午後 に 料理 を します', reading: 'どようび の ごご に りょうり を します', romaji: 'doyoubi no gogo ni ryouri wo shimasu' },
+      { kana: '今日 は カレー を 作る こと に しました', reading: 'きょう わ カレー を つくる こと に しました', romaji: 'kyou wa karee wo tsukuru koto ni shimashita' },
+      { kana: '野菜 を 切って 肉 と 一緒 に 炒めます', reading: 'やさい を きって にく と いっしょ に いためます', romaji: 'yasai wo kitte niku to issho ni itamemasu' },
+      { kana: '水 を 入れて しばらく 煮ます', reading: 'みず を いれて しばらく にます', romaji: 'mizu wo irete shibaraku nimasu' },
+      { kana: '台所 が いい 匂い で いっぱい に なりました', reading: 'だいどころ が いい におい で いっぱい に なりました', romaji: 'daidokoro ga ii nioi de ippai ni narimashita' },
+      { kana: '妹 が 待ちきれない と 言って 台所 に 来ました', reading: 'いもうと が まちきれない と いって だいどころ に きました', romaji: 'imouto ga machikirenai to itte daidokoro ni kimashita' },
+      { kana: '二人 で 食べた カレー は とても おいしかった です', reading: 'ふたり で たべた カレー わ とても おいしかった です', romaji: 'futari de tabeta karee wa totemo oishikatta desu' },
+    ],
+  },
   {
     id: 'asa-no-sanpo',
     title: 'A morning walk',

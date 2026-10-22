@@ -1800,7 +1800,7 @@ function App() {
         </Show>
 
         <Show when={route() === "library"}>
-          <section class="page">
+          <section class="page library">
             <h1>library</h1>
             <p class="muted">
               Everything you can type, one text at a time. Picking one practises
@@ -1816,10 +1816,15 @@ function App() {
               )}
             </Show>
             <Show when={reviews() === null}>
-              <h2>
-                short texts <span class="count">{passages().length}</span>
-              </h2>
-              <div class="text-list">
+              {/* Side by side, because stacked they made one very long page:
+                  thirty-five sentences in a single column pushed everything
+                  else — including the way to add your own — below the fold. */}
+              <div class="library-columns">
+                <section class="library-col">
+                  <h2>
+                    texts <span class="count">{passages().length}</span>
+                  </h2>
+                  <div class="text-list">
                 <For each={passages()}>
                   {(text) => (
                     <div class="text-row">
@@ -1842,14 +1847,18 @@ function App() {
                       </button>
                     </div>
                   )}
-                </For>
-              </div>
+                    </For>
+                  </div>
+                </section>
 
-              <h2>
-                sentences <span class="count">{singles().length}</span>
-              </h2>
-              <div class="text-list">
-                <For each={singles()}>
+                <section class="library-col">
+                  <h2>
+                    sentences <span class="count">{singles().length}</span>
+                  </h2>
+                  {/* Scrolls rather than running down the page. The list is
+                      long by design and getting longer. */}
+                  <div class="text-list text-list--scroll">
+                    <For each={singles()}>
                   {(text) => (
                     <div class="text-row">
                       <Furigana items={text.items} />
@@ -1862,7 +1871,9 @@ function App() {
                       </button>
                     </div>
                   )}
-                </For>
+                    </For>
+                  </div>
+                </section>
               </div>
 
               <h2>

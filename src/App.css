@@ -576,6 +576,16 @@ rt {
   max-width: 520px;
 }
 
+/*
+ * Wider than the 760px reading column, because this page is an index rather
+ * than something to read: two lists side by side in 760px leave 364px each,
+ * which is narrower than most of the sentences in them. Opted into by this one
+ * route, the same way the stats page takes `--stats-max`.
+ */
+.library {
+  max-width: 1000px;
+}
+
 .page h1,
 .page h2 {
   color: var(--color-text);
@@ -730,6 +740,38 @@ input[type='range'] {
 }
 
 /*
+ * The two collections share a row above 900px and stack below it.
+ *
+ * Stacked everywhere, thirty-five sentences in one column made a page four
+ * screens tall, with "add your own text" at the bottom of it — so the two
+ * things a person comes here to do were as far apart as the page allowed.
+ */
+.library-columns {
+  display: grid;
+  gap: var(--space-6) var(--space-8);
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 900px) {
+  .library-columns {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.library-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-inline-size: 0;
+}
+
+/* The collection headings carry the page, so they are a size that says so
+   rather than the same weight as the running text under them. */
+.library h2 {
+  font-size: var(--fs-22);
+}
+
+/*
  * A list of things to choose, ruled rather than boxed. Thirty-five cards would
  * be thirty-five borders competing with the Japanese, which is the only thing
  * on the row worth looking at.
@@ -737,6 +779,30 @@ input[type='range'] {
 .text-list {
   display: flex;
   flex-direction: column;
+}
+
+/*
+ * Bounded and scrolling, with room for roughly eight rows. Tied to the
+ * viewport so a short window does not hand the box more than the screen has,
+ * and capped so a tall one does not stretch it to a column of its own.
+ */
+.text-list--scroll {
+  /* Drawn as a box, which is the one place on this page that earns a border:
+     it marks where the scrolling region starts and stops. The rule elsewhere
+     still holds — hierarchy comes from type and space, and this is not
+     hierarchy. */
+  border: var(--bw-1) solid var(--color-border);
+  border-radius: 8px;
+  max-block-size: clamp(320px, 52vh, 620px);
+  overflow-y: auto;
+  padding: 0 var(--space-3);
+  scrollbar-width: thin;
+}
+
+/* The last rule inside the box would otherwise draw a second line just above
+   the border. */
+.text-list--scroll .text-row:last-child {
+  border-bottom: none;
 }
 
 .text-row {
@@ -799,6 +865,13 @@ input[type='range'] {
    as one sentence, so the gap is set here instead. */
 .furigana__word + .furigana__word {
   margin-inline-start: 0.4em;
+}
+
+/* Japanese breaks between any two characters, so a line that ran out of room
+   split かかります into かかりま / す. The words are already marked, so the
+   break goes between them instead. */
+.furigana__word {
+  white-space: nowrap;
 }
 
 .furigana rt {
