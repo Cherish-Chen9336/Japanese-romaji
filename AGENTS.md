@@ -1338,6 +1338,42 @@ offset rather than written out, so the two cannot disagree and a hundred
 hand-typed rows cannot carry a typo the sweep would miss. The token keeps the
 script it was written in; folding カ to か would decide the chart question above
 by accident.
+
+#### Authoring a bank
+
+Spaces in `kana`, `reading` and `romaji` mark **display words**, and the three
+strings must split into the same number of them, Nth matching Nth. That is what
+puts furigana over the right characters. Three rules follow, and
+`prompt.test.ts` enforces all of them over `allBankItems()`:
+
+- **A space may separate typing units. It may never fall inside one.** 行って is
+  one word, never `いっ て` — that spells itself `ixtsu te` rather than `itte`
+  and records moras い/っ/て where there is い/って. Nothing else catches it: the
+  split compiles, its word counts agree, and no character is unsupported. The
+  check tokenises the reading with and without its spaces and compares.
+- **A particle is its own display word.** は read わ has to stand alone, or
+  `rubySegments` prints わ above は instead of leaving it as written.
+- **`reading` is what you type, not what a dictionary prints.** Topic は is
+  written わ and direction へ is written え, following `こんにちは` in `wordBank`.
+  を keeps its own spelling, because it is typed `wo` (`o` is also accepted).
+
+Banks are split by the shape of their items, and the split is load-bearing:
+`phraseBanks` hold items a passage is assembled from and set
+`LONGEST_PHRASE_ROMAJI`, the bound on how much typing one passage may be;
+`passageBanks` hold items that are a passage already. A sentence in the wrong
+group raises the bound for every source that uses it, `library` included — whose
+whole reason for being bounded is that pasted text has no trustworthy length.
+
+`drillBankFromWeakKana` draws from named banks rather than the catalog, on
+purpose. Most sentences contain most common moras, so a drill on き drawn from
+everything becomes general practice that happens to contain some き.
+
+Write readings by hand and **check them against a dictionary afterwards**, not
+the other way round. For `sentenceBank` all thirty-five agreed with kuromoji's
+IPADIC readings; the one disagreement was 十分, which the dictionary read
+じゅうぶん where the sentence meant じゅっぷん. A word with two readings is a bad
+teaching item whichever one wins, so that sentence was changed to 十五分 rather
+than arbitrated.
 Pasting おはよう is enough and pasting 学校 is not —
 `tokenizeKana` falls back to one self-spelling token per character for anything
 it cannot read, which is exactly the "no reading available" case. Requiring
@@ -1503,10 +1539,12 @@ audit disagree, this section is current.
   21% in the difficult bank, so the loss is worst exactly where the material is
   hardest. The practice keyboard already has a job, orientation and pressed-state
   feedback, and persistent historical colour competes with it. Mastery belongs on
-  the 五十音 grid instead, which fits the data almost exactly: 104 of the 113
-  tracked moras sit on the chart, every chart cell is reachable from the corpus,
-  and the nine outside it are sokuon (っか っこ っし っしょ って っと っぱ っぴょ
-  っぽ).
+  the 五十音 grid instead, which fits the data closely: 104 of the 119 tracked
+  moras sit on the chart and every chart cell is reachable from the corpus. The
+  fifteen outside it are eleven sokuon (っか っく っこ っし っしょ って っと っぱ
+  っぴょ っぷ っぽ) and four katakana (コ パ ヒ ン), tracked as themselves rather
+  than folded into their hiragana cells. `offChartMoras` shows all fifteen
+  beside the grid rather than dropping them.
 - **A keyboard heatmap tinted by speed, anywhere.** `keyStats` timing charges the
   interval to the key just pressed, so whichever key *starts* a mora absorbs the
   kana-recall pause. Twelve consonants — `b c d f g j m n p r w z` — never once
@@ -1518,6 +1556,27 @@ audit disagree, this section is current.
   own. This is the same rule `weakestKana` already follows — speed breaks ties
   but never ranks a mora on its own — and one shade standing for two different
   problems is what made the old `avgMs / 600 + errorRate` tint unreadable.
+- **A kanji dictionary loaded at runtime, to fill in readings for pasted text.**
+  Proposed 2026-10-22 and deferred, after measuring kuromoji 0.1.2 on this
+  machine: dictionary 17,791,956 bytes over 12 gzipped files, 872 ms to build in
+  a browser, JS heap 1 MB → 214 MB, and 19 of 25 right on deliberately hard
+  words — 一日中, 一人, 二十歳 and 一月一日 all wrong. The cost buys a *suggestion*
+  that still has to be checked, so the review screen survives either way.
+
+  The reframing that settled it: on 寿司打 and e-typing the readings are authored
+  in advance, and on Typing Tube and マイタイピング the person who registers a text
+  supplies its reading — in both cases a fluent reader doing a one-time job. Only
+  this app asked the learner to author their own kanji content, and the
+  dictionary was being brought in to paper over that. Authoring the content
+  removes the task rather than automating it, and a dictionary used at
+  *authoring* time (as `sentenceBank` was) gives the same help with no download,
+  no worker and no runtime dependency.
+
+  Yahoo's ルビ振り API is the better runtime option if this ever comes back — no
+  download, no resident memory, 300 req/min, 4 KB per request, non-commercial by
+  default — but it needs a Yahoo! JAPAN Client ID, and their account support says
+  overseas mobile numbers cannot be used for SMS verification. Unverified whether
+  that blocks registration from outside Japan; check before building on it.
 - **Colemak/Dvorak keycap maps, digit and ASCII-punctuation drills, and
   source-code passages.** All three are real capabilities in the reference and
   all three are about typing English. Romaji has no digits or ASCII punctuation
