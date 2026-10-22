@@ -449,10 +449,46 @@ describe('library text without an explicit reading', () => {
     expect(derivedRomaji('ねこ cat')).toBeNull()
   })
 
+  /* Katakana is kana, and used to be refused as though it were not. */
+  it('works out the romaji for katakana too', () => {
+    expect(derivedRomaji('カナ')).toBe('kana')
+    expect(derivedRomaji('キャベツ')).toBe('kyabetsu')
+    expect(derivedRomaji('ニホンゴ')).toBe('nihongo')
+  })
+
+  it('holds the vowel across ー', () => {
+    expect(derivedRomaji('コーヒー')).toBe('koohii')
+    expect(derivedRomaji('ラーメン')).toBe('raamen')
+    expect(derivedRomaji('らーめん')).toBe('raamen')
+  })
+
+  /* No vowel to hold is no reading, said rather than guessed at. */
+  it('gives up where ー follows nothing it can lengthen', () => {
+    expect(derivedRomaji('ンー')).toBeNull()
+    expect(derivedRomaji('ー')).toBeNull()
+  })
+
   it('accepts a bare kana line', () => {
     const { items, rejected } = parsePastedText('おはよう')
     expect(items).toEqual([{ kana: 'おはよう', romaji: 'ohayou' }])
     expect(rejected).toEqual([])
+  })
+
+  /*
+   * ー was in the punctuation list and came out as a space. らーめん was saved
+   * as the two words `ら めん`, and コーヒー as `コ ヒ`, which no longer matched
+   * its own romaji — so a loanword was either corrupted or refused outright.
+   */
+  it('keeps the length mark instead of deleting it', () => {
+    expect(parsePastedText('らーめん').items).toEqual([
+      { kana: 'らーめん', romaji: 'raamen' },
+    ])
+    expect(parsePastedText('コーヒー').items).toEqual([
+      { kana: 'コーヒー', romaji: 'koohii' },
+    ])
+    expect(parsePastedText('コーヒー|koohii').items).toEqual([
+      { kana: 'コーヒー', romaji: 'koohii' },
+    ])
   })
 
   it('still takes an explicit reading, and prefers it', () => {

@@ -41,13 +41,12 @@ export type MatchProjection = {
 }
 
 /**
- * Covers hiragana seion/dakuten/handakuten, youon, sokuon, and ん — the
- * full range used by the current word banks. Not yet covered: katakana
- * (untested rows would need their own table entries), the chōonpu long-vowel
- * mark ー, loanword extended combos (ふぁ/fa, てぃ/thi, ゔ/vu, etc.), and
- * explicit mid-word small-tsu spellings (typing "kixtute" instead of
- * "kitte") — none of these appear in any bank today, so they're
- * deliberately left out rather than built speculatively.
+ * Covers seion/dakuten/handakuten, youon, sokuon and ん, in **both scripts**,
+ * plus the chōonpu ー. Still not covered: loanword extended combos (ふぁ/ファ,
+ * てぃ/ティ, ゔ/ヴ, etc.) and explicit mid-word small-tsu spellings (typing
+ * "kixtute" instead of "kitte"). Those appear in no bank, and a kana outside
+ * the table spells itself, which is the signal `derivedRomaji` reads to refuse
+ * a line rather than guess at it.
  */
 
 /**
@@ -57,7 +56,7 @@ export type MatchProjection = {
  * ぢ (not じ) and "dya"/"cya" belong to ぢゃ/ちゃ (not じゃ/しゃ) — an
  * earlier pass had those on the wrong kana.
  */
-const ROMAJI_MAP: Record<string, string[]> = {
+const HIRAGANA_MAP: Record<string, string[]> = {
   あ: ['a'], い: ['i'], う: ['u'], え: ['e'], お: ['o'],
   か: ['ka'], き: ['ki'], く: ['ku'], け: ['ke'], こ: ['ko'],
   さ: ['sa'], し: ['shi', 'si', 'ci'], す: ['su'], せ: ['se'], そ: ['so'],
@@ -90,12 +89,51 @@ const ROMAJI_MAP: Record<string, string[]> = {
 }
 
 /**
+ * The katakana half, mirrored from the hiragana table rather than written out.
+ *
+ * The two scripts sit one on top of the other in Unicode — ぁ U+3041 against ァ
+ * U+30A1, and so on for every kana this table uses — so the katakana row is the
+ * hiragana row plus 0x60, per character, which covers the youon pairs as well
+ * (きゃ → キャ). Copying a hundred rows by hand to say the same thing would
+ * only be a hundred chances to mistype one, and the sweep in
+ * `romanization.test.ts` would not catch a spelling that is wrong in both
+ * scripts at once.
+ *
+ * **The token keeps the script it was written in.** カ is not folded to か,
+ * because the chart is about reading a character and コ and こ are two
+ * characters to read, not one. What that should mean for the mastery chart —
+ * whether カ earns the か cell, its own, or a chart of its own — is still open;
+ * until then a katakana mora is simply off-chart, as any mora without a cell
+ * is.
+ */
+const KATAKANA_OFFSET = 0x60
+
+function toKatakana(kana: string): string {
+  return [...kana]
+    .map((char) => String.fromCodePoint((char.codePointAt(0) ?? 0) + KATAKANA_OFFSET))
+    .join('')
+}
+
+const ROMAJI_MAP: Record<string, string[]> = {
+  ...HIRAGANA_MAP,
+  ...Object.fromEntries(
+    Object.entries(HIRAGANA_MAP).map(([kana, candidates]) => [toKatakana(kana), candidates]),
+  ),
+}
+
+/**
  * Every kana the table knows. Exported so tests can sweep the real contents
  * rather than a parallel list that silently falls behind the map.
  */
 export const MAPPED_KANA: readonly string[] = Object.keys(ROMAJI_MAP)
 
 const VOWEL_INITIAL = /^[aiueo]/
+
+/** The chōonpu, in both scripts' company: it lengthens whatever came before. */
+const CHOONPU = 'ー'
+const FINAL_VOWEL = /[aiueo]$/
+const SOKUON = new Set(['っ', 'ッ'])
+const SYLLABIC_N = new Set(['ん', 'ン'])
 
 /**
  * っ only geminates (doubles the following consonant) when the following
@@ -109,8 +147,8 @@ const VOWEL_INITIAL = /^[aiueo]/
  */
 function isGeminatable(next: RomajiToken | undefined): next is RomajiToken {
   if (!next) return false
-  if (next.kana === 'ん') return false
-  const isMapped = ROMAJI_MAP[next.kana] !== undefined || next.kana.startsWith('っ')
+  if (SYLLABIC_N.has(next.kana)) return false
+  const isMapped = ROMAJI_MAP[next.kana] !== undefined || SOKUON.has(next.kana[0])
   if (!isMapped) return false
   return next.candidates.some((candidate) => !VOWEL_INITIAL.test(candidate))
 }
@@ -154,21 +192,37 @@ export function tokenizeKana(kana: string): RomajiToken[] {
   while (i < kana.length) {
     const char = kana[i]
 
-    if (char === 'っ') {
+    if (SOKUON.has(char)) {
       const rest = tokenizeKana(kana.slice(i + 1))
       const next = rest[0]
       if (isGeminatable(next)) {
-        tokens.push({ kana: 'っ' + next.kana, candidates: doubledCandidates(next) })
+        tokens.push({ kana: char + next.kana, candidates: doubledCandidates(next) })
         tokens.push(...rest.slice(1))
         return tokens
       }
-      tokens.push({ kana: 'っ', candidates: [...SOKUON_FALLBACK] })
+      tokens.push({ kana: char, candidates: [...SOKUON_FALLBACK] })
       i += 1
       continue
     }
 
-    if (char === 'ん') {
-      tokens.push({ kana: 'ん', candidates: [...N_CANDIDATES] })
+    if (SYLLABIC_N.has(char)) {
+      tokens.push({ kana: char, candidates: [...N_CANDIDATES] })
+      i += 1
+      continue
+    }
+
+    /*
+     * ー repeats the vowel the mora before it ended on, so コー is `koo` — a
+     * token of its own rather than part of that mora, because what the reader
+     * has to recognise is still コ and the mark only says to hold it. After ん
+     * or a bare っ there is no vowel to hold; the mark then spells itself,
+     * which is the same "no reading" signal any unmapped character gives, and
+     * the line is refused rather than guessed at.
+     */
+    if (char === CHOONPU) {
+      const previous = tokens[tokens.length - 1]
+      const vowel = previous?.candidates[0].match(FINAL_VOWEL)?.[0]
+      tokens.push({ kana: CHOONPU, candidates: [vowel ?? CHOONPU] })
       i += 1
       continue
     }
@@ -360,7 +414,12 @@ export function settledToken(
 }
 
 /** Hiragana and katakana, including the small forms and the long-vowel mark. */
-const MORA = /^[ぁ-ゖァ-ヺー]+$/
+/*
+ * ー is deliberately absent. It is a length mark, not a mora: on its own it
+ * names nothing the chart could show and nothing a drill could target, and the
+ * mora it lengthens is already tracked as its own token.
+ */
+const MORA = /^[ぁ-ゖァ-ヺ]+$/
 
 /**
  * Whether a token names a real mora and so belongs in mastery tracking.

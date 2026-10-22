@@ -1606,8 +1606,9 @@ function App() {
           <section class="page">
             <h1>library</h1>
             <p class="muted">
-              Paste kana, one line or sentence at a time — each character is
-              spelled as it is written. Kanji needs its reading, as{" "}
+              Paste kana, one line or sentence at a time — hiragana or
+              katakana, each character spelled as it is written and ー holding
+              the vowel before it. Kanji needs its reading, as{" "}
               <code>学校|gakkou</code>, and so do the particles は, へ and を,
               which are written one way and said another.
             </p>
@@ -1622,7 +1623,7 @@ function App() {
               value={customText()}
               onInput={(event) => setCustomText(event.currentTarget.value)}
               placeholder={
-                "おはよう\nねこ いぬ\n学校|gakkou\nきょうはいいてんきです|kyouwaiitenkidesu"
+                "おはよう\nねこ いぬ\nコーヒー\n学校|gakkou\nきょうはいいてんきです|kyouwaiitenkidesu"
               }
             />
             <div class="action-row">

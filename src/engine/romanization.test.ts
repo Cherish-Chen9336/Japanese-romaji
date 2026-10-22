@@ -3,6 +3,7 @@ import {
   MAPPED_KANA,
   expectedKana,
   initMatch,
+  isMoraToken,
   legalNext,
   projectMatch,
   stepMatch,
@@ -143,6 +144,50 @@ describe('tokenizeKana', () => {
     }
   })
 
+  /*
+   * Katakana used to be absent from the table, so every katakana token spelled
+   * itself: `カナ` derived nothing, and `カナ|kana` was saved but compiled to
+   * four Latin letters, which records no mora at all.
+   */
+  it('reads katakana with the hiragana spellings, keeping the script', () => {
+    expect(tokenizeKana('カナ')).toEqual([
+      { kana: 'カ', candidates: ['ka'] },
+      { kana: 'ナ', candidates: ['na'] },
+    ])
+    expect(tokenizeKana('シ')).toEqual([{ kana: 'シ', candidates: ['shi', 'si', 'ci'] }])
+    expect(completes('キャベツ', 'kyabetsu')).toBe(true)
+    expect(completes('カット', 'katto')).toBe(true)
+    expect(completes('ニホン', 'nihon')).toBe(true)
+  })
+
+  /* カ is a different character to read, so it stays a different mora. */
+  it('does not fold katakana onto its hiragana twin', () => {
+    expect(tokenizeKana('カ')[0].kana).toBe('カ')
+    expect(tokenizeKana('ッカ')[0].kana).toBe('ッカ')
+    expect(tokenizeKana('ン')[0].kana).toBe('ン')
+  })
+
+  /*
+   * ー holds the vowel the mora before it ended on. A token of its own: コ is
+   * still the character to recognise, and the mark is not a mora — see the
+   * `isMoraToken` case below.
+   */
+  it('lengthens the previous mora for ー', () => {
+    expect(tokenizeKana('コー')).toEqual([
+      { kana: 'コ', candidates: ['ko'] },
+      { kana: 'ー', candidates: ['o'] },
+    ])
+    expect(completes('コーヒー', 'koohii')).toBe(true)
+    expect(completes('ラーメン', 'raamen')).toBe(true)
+    expect(completes('らーめん', 'raamen')).toBe(true)
+    expect(completes('ケーキ', 'keeki')).toBe(true)
+  })
+
+  it('leaves ー spelling itself where there is no vowel to hold', () => {
+    expect(tokenizeKana('ー')).toEqual([{ kana: 'ー', candidates: ['ー'] }])
+    expect(tokenizeKana('ンー').at(-1)).toEqual({ kana: 'ー', candidates: ['ー'] })
+  })
+
   it('covers the whole gojūon plus dakuten and youon rows', () => {
     // Guards the other direction: MAPPED_KANA driving the sweep above is only
     // meaningful if the map itself hasn't lost rows.
@@ -156,6 +201,17 @@ describe('tokenizeKana', () => {
       'ぎゃ', 'じゃ', 'ぢゃ', 'びゃ', 'ぴゃ',
     ]
     expect(expected.filter((kana) => !mapped.has(kana))).toEqual([])
+  })
+})
+
+describe('isMoraToken', () => {
+  it('counts katakana, and does not count the length mark', () => {
+    expect(isMoraToken('カ')).toBe(true)
+    expect(isMoraToken('ッコ')).toBe(true)
+    // A mark, not a mora: on its own it names nothing a chart could show.
+    expect(isMoraToken('ー')).toBe(false)
+    expect(isMoraToken('k')).toBe(false)
+    expect(isMoraToken(' ')).toBe(false)
   })
 })
 

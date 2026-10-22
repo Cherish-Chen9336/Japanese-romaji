@@ -884,9 +884,13 @@ declarations** for. Every such rule is preceded by a flat `rgb()` fallback using
 `--color-error-rgb`; without one, a weak cell silently loses the only signal the
 map exists to show.
 
-Known gaps as the corpus grows: katakana and ー reach `isMoraToken` but not the
-token model, so the regex is ahead of what is really supported; ー should not
-become its own bucket, since its sound depends on the mora before it. The
+That gap is closed: katakana and ー now reach the token model too, and `MORA` no
+longer admits ー, which was the half of the mismatch the regex had wrong — its
+sound depends on the mora before it, so on its own it is not a bucket anything
+could mean. **Katakana moras are off-chart**, since 五十音 here is hiragana, so
+pasting katakana puts カ and コ in the "also tracked" strip. Whether カ should
+earn the か cell, a cell of its own, or a chart of its own is open and should be
+settled before katakana is encouraged any further. The
 "also tracked" strip is one horizontal row and is at **nine** off-chart moras
 after the bank expansion — still one row, verified, but the table needs 513px to
 draw it, and that width is what costs the 760–1024 band its height. It will not
@@ -1303,12 +1307,37 @@ grammatical particles (こんにちは shown, `konnichiwa` typed) and kanji (学
 shown, `gakkou` typed) work with no extra machinery — the same arrangement every
 Japanese typing site uses. **You only ever type kana**: kanji is display only.
 
-**Pasted library text does not need a reading if it is kana.** `derivedRomaji`
-spells each character **as written**, which is the honest description and the one
-the copy uses: it cannot tell a particle は from the は in はな without
-morphological analysis, so きょうはいいてんきです derives `kyouha…` where a
-speaker says `kyouwa…`. Particles は, へ and を therefore need the explicit form,
-the same as kanji, and the placeholder shows one rather than shipping the error.
+**Pasted library text does not need a reading if it is kana** — either script.
+`derivedRomaji` spells each character **as written**, which is the honest
+description and the one the copy uses: it cannot tell a particle は from the は
+in はな without morphological analysis, so きょうはいいてんきです derives
+`kyouha…` where a speaker says `kyouwa…`. Particles は, へ and を therefore need
+the explicit form, the same as kanji, and the placeholder shows one rather than
+shipping the error.
+
+**Katakana and ー were added on 2026-10-22** and the two bugs behind them are
+worth keeping in view, because both were invisible from the outside:
+
+- **ー was in `JAPANESE_PUNCTUATION` and came out as a space.** `らーめん` was
+  saved as the two-word entry `ら めん`, and `コーヒー` became `コ ヒ`, which no
+  longer matched its own romaji and so was refused as `word-mismatch`. A letter
+  had been filed with the marks. It is read now: ー repeats the vowel the mora
+  before it ended on, as its own token, so コー types `koo` while the character
+  to recognise stays コ.
+- **Anything needing the explicit `|` form records no moras at all.**
+  `compileStrict` fails when the kana cannot spell the romaji and `compileItem`
+  falls back to one token per *letter*, so `カナ|kana`, `学校|gakkou` and
+  `こんにちは|konnichiwa` compile to `k·a·n·a` and the like. Every such item has
+  been invisible to the mastery chart, including the ordinary kana inside it.
+  Making katakana derivable removes one cause; kanji and the particles still
+  have it, and the fix is to store a `reading` (the field exists and
+  `compileStrict` prefers it) rather than only a romaji.
+
+The katakana table is **mirrored from the hiragana one** at a 0x60 codepoint
+offset rather than written out, so the two cannot disagree and a hundred
+hand-typed rows cannot carry a typo the sweep would miss. The token keeps the
+script it was written in; folding カ to か would decide the chart question above
+by accident.
 Pasting おはよう is enough and pasting 学校 is not —
 `tokenizeKana` falls back to one self-spelling token per character for anything
 it cannot read, which is exactly the "no reading available" case. Requiring

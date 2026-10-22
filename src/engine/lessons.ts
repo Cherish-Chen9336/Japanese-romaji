@@ -256,8 +256,13 @@ function stripMarkdownChars(text: string): string {
  * tokenizes to a self-spelling token, so leaving them in made `おはよう！` fail
  * as "no reading" — the paste looked unsupported when only the mark was.
  * The ideographic space joins them: it is a space that does not read as one.
+ *
+ * ー does **not** belong here and used to. It is a letter, not a mark: dropping
+ * it turned らーめん into the saved entry `ら めん`, and コーヒー into two words
+ * that no longer matched their own romaji, so a loanword was either corrupted
+ * or refused. The tokenizer reads it now.
  */
-const JAPANESE_PUNCTUATION = /[！？!?「」『』（）()【】〔〕・…ー～〜:;'"]/g
+const JAPANESE_PUNCTUATION = /[！？!?「」『』（）()【】〔〕・…～〜:;'"]/g
 
 function stripPunctuation(text: string): string {
   return text.replace(JAPANESE_PUNCTUATION, ' ').replace(/\u3000/g, ' ')
