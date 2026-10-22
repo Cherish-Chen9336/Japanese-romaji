@@ -384,6 +384,61 @@ describe('planRun and dealLesson', () => {
     expect(second.lesson.romaji).not.toBe(first.lesson.romaji)
   })
 
+  /*
+   * A library of one entry used to be dealt as that entry eight times over,
+   * because `paragraphItems` counts items and nothing said a passage may not
+   * repeat itself. Saved text is a thing someone chose, not padding.
+   */
+  it('does not repeat an entry inside one passage', () => {
+    const paragraph = {
+      kana: '今日 はいい 天気 です',
+      reading: 'きょう わいい てんき です',
+      romaji: 'kyou waii tenki desu',
+    }
+    const plan = planRun('library', [], [paragraph], mulberry32(1))
+    const { lesson } = dealLesson(plan, settings, mulberry32(2))
+    expect(lesson.items).toEqual([paragraph])
+    expect(lesson.romaji).toBe('kyou waii tenki desu')
+  })
+
+  /* Short entries still group: the bound is on typing, not on being saved. */
+  it('still fills a passage from short saved entries', () => {
+    const words = ['ねこ', 'いぬ', 'とり', 'さかな', 'うま', 'ひつじ'].map((kana) => ({
+      kana,
+      romaji: derivedRomaji(kana) as string,
+    }))
+    const plan = planRun('library', [], words, mulberry32(1))
+    const { lesson } = dealLesson(plan, settings, mulberry32(2))
+    expect(lesson.items).toHaveLength(4)
+    expect(new Set(lesson.items.map((i) => i.kana)).size).toBe(4)
+  })
+
+  /* One paragraph is already a passage; a second would be a second text. */
+  it('stops a passage once it holds enough typing', () => {
+    const paragraphs = Array.from({ length: 5 }, (_, n) => ({
+      kana: `ね${'こ'.repeat(120)}${n}`,
+      romaji: `ne${'ko'.repeat(120)}`,
+    }))
+    const plan = planRun('library', [], paragraphs, mulberry32(1))
+    const { lesson } = dealLesson(plan, settings, mulberry32(2))
+    expect(lesson.items).toHaveLength(1)
+  })
+
+  /*
+   * The bound is the longest bundled item times the count asked for, so no
+   * bundled bank can reach it — the eight longest quotes come to 180 against a
+   * bound of 216. Guards that in both directions.
+   */
+  it('leaves every bundled bank dealing the full count', () => {
+    const eight = { ...settings, paragraphItems: 8 }
+    for (const source of ['words', 'quotes', 'difficult', 'kana'] as const) {
+      for (let seed = 1; seed <= 12; seed += 1) {
+        const plan = planRun(source, [], [], mulberry32(seed), 'all')
+        expect(dealLesson(plan, eight, mulberry32(seed)).lesson.items, source).toHaveLength(8)
+      }
+    }
+  })
+
   it('leaves the plan it was given untouched', () => {
     const plan = planRun('words', [], [], mulberry32(9))
     const before = plan.deck.remaining.length

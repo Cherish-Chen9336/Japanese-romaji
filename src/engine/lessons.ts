@@ -502,13 +502,67 @@ export function planRun(
   return { source: usableSource, deck: newDeck(items) }
 }
 
+/**
+ * The most typing a passage may be, per item asked for.
+ *
+ * Measured from the banks rather than chosen: the longest bundled item is the
+ * longest single thing the app already hands out, so a passage bounded at
+ * `paragraphItems` of those can never be more typing than a passage of the
+ * app's own longest material. Every bundled bank is therefore unaffected by
+ * this bound, by construction.
+ */
+const LONGEST_BANK_ROMAJI = allBankItems().reduce(
+  (longest, item) => Math.max(longest, item.romaji.length),
+  0,
+)
+
+/**
+ * The items one passage is made of.
+ *
+ * `paragraphItems` counts items, which holds while every item is a curated word
+ * of roughly one size. A saved library entry is not: it can be a four-hundred
+ * character paragraph, so eight of them is eight unrelated texts at once — and
+ * a library of one entry was dealt as **the same paragraph eight times in a
+ * row**, which is what this exists to stop. Two bounds, both of them "a passage
+ * should not be padding":
+ *
+ * - it never repeats itself, so it is at most as many items as the deck has;
+ * - it stops once it holds a passage's worth of typing.
+ *
+ * The deck still reshuffles *between* passages, so a short bank is still
+ * covered again and again across a timed run — just not within one passage.
+ */
+function dealPassage(
+  deck: Deck<TextItem>,
+  want: number,
+  rng: RandomSource,
+): { dealt: TextItem[]; deck: Deck<TextItem> } {
+  const limit = Math.min(want, deck.items.length)
+  const ceiling = want * LONGEST_BANK_ROMAJI
+  const dealt: TextItem[] = []
+  let current = deck
+  let length = 0
+
+  while (dealt.length < limit) {
+    const step = dealFrom(current, 1, rng)
+    const item = step.dealt[0]
+    current = step.deck
+    dealt.push(item)
+    // Counted after the item is taken, so a passage is always at least one item
+    // however long that item is.
+    length += item.romaji.length + 1
+    if (length >= ceiling) break
+  }
+  return { dealt, deck: current }
+}
+
 /** One passage from the plan, and the plan to deal the next one from. */
 export function dealLesson(
   plan: RunPlan,
   settings: Settings,
   rng: RandomSource,
 ): { lesson: Lesson; plan: RunPlan } {
-  const { dealt, deck } = dealFrom(plan.deck, settings.paragraphItems, rng)
+  const { dealt, deck } = dealPassage(plan.deck, settings.paragraphItems, rng)
   return {
     lesson: {
       kana: dealt.map((item) => item.kana).join(' '),

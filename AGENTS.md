@@ -1381,11 +1381,26 @@ and only then trims the combined list. The old code concatenated and truncated,
 so a paste of more than `LIBRARY_LIMIT` lines threw away some of the lines just
 added and then reported that the *oldest* had made way.
 
-**Still open after this step**, both measured and neither fixed: a saved
-paragraph is dealt like a bank item, so one library entry with the default eight
-items per run is **the same paragraph eight times in a row**; and a pasted
-paragraph is still saved as one entry per sentence rather than as one document
-that can be named, re-practised in order and deleted in one action.
+**A passage may not be padding.** `dealPassage` bounds a dealt passage two
+ways, both added after a library of one entry was dealt as **the same paragraph
+eight times in a row**:
+
+- it never repeats itself — at most as many items as the deck holds;
+- it stops once it holds `paragraphItems × LONGEST_BANK_ROMAJI` characters of
+  romaji.
+
+`paragraphItems` counts items, which holds while every item is a curated word of
+roughly one size; a saved entry can be four hundred characters. The bound is
+derived from the banks rather than chosen — the longest bundled item is the
+longest single thing the app already hands out — so **no bundled bank can reach
+it**: the eight longest quotes come to 180 against a bound of 216, and a test
+sweeps every bank at twelve seeds to keep it that way. The deck still reshuffles
+*between* passages, so a short bank is covered again and again across a timed
+run, just not inside one passage.
+
+**Still open after this step**: a pasted paragraph is saved as one entry per
+sentence rather than as one document that can be named, re-practised in order
+and deleted in one action.
 
 **And a refused line says why.** `parsePastedText` returns what it rejected and for
 which of four reasons. It is named for its input rather than its destination:
