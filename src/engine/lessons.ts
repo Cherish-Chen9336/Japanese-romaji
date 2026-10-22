@@ -236,20 +236,27 @@ const phraseBanks: Record<'difficult' | 'quotes' | 'words', TextItem[]> = {
 }
 
 /**
- * Banks whose items are already a passage. Kept apart from `phraseBanks` so
- * that adding one cannot move the passage bound: a sentence is three times the
- * length of the longest word here, and a budget measured over everything would
- * have quietly made *library* passages half as long again for no reason
- * connected to the library.
+ * Banks whose items are longer than a phrase.
+ *
+ * Kept apart from `phraseBanks` for one reason only: so that adding a bank of
+ * long items cannot move the passage bound. A sentence is three times the
+ * longest word here, and a budget measured over everything would have quietly
+ * made *library* passages half as long again for no reason connected to the
+ * library.
+ *
+ * It buys nothing else. `dealLesson` sends every plan through the shuffled
+ * `dealPassage`, so being in this group does **not** mean an item is dealt
+ * whole, in order, or on its own — a sentence is shuffled in with the words
+ * exactly like a word is. Ordering would be a different kind of plan.
  */
-const passageBanks: Record<'sentences', TextItem[]> = {
+const longItemBanks: Record<'sentences', TextItem[]> = {
   sentences: sentenceBank,
 }
 
 export const sourceBanks: Record<
   Exclude<SourceName, 'auto' | 'kana' | 'drills' | 'library'>,
   TextItem[]
-> = { ...phraseBanks, ...passageBanks }
+> = { ...phraseBanks, ...longItemBanks }
 
 /**
  * Every bundled item, from one place.
@@ -535,10 +542,9 @@ export function planRun(
  * at `paragraphItems` of those can never be more typing than a passage of the
  * app's own material.
  *
- * `passageBanks` is deliberately left out. Its items are passages already, and
- * including them would raise the bound for every source that uses it —
- * `library` most of all, whose whole reason for being bounded is that user text
- * has no length of its own to be trusted.
+ * `longItemBanks` is deliberately left out. Including it would raise the bound
+ * for every source that uses it — `library` most of all, whose whole reason for
+ * being bounded is that user text has no length of its own to be trusted.
  */
 const LONGEST_PHRASE_ROMAJI = [...Object.values(phraseBanks).flat(), ...gojuonBank].reduce(
   (longest, item) => Math.max(longest, item.romaji.length),

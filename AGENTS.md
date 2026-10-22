@@ -1357,12 +1357,14 @@ puts furigana over the right characters. Three rules follow, and
   written わ and direction へ is written え, following `こんにちは` in `wordBank`.
   を keeps its own spelling, because it is typed `wo` (`o` is also accepted).
 
-Banks are split by the shape of their items, and the split is load-bearing:
-`phraseBanks` hold items a passage is assembled from and set
-`LONGEST_PHRASE_ROMAJI`, the bound on how much typing one passage may be;
-`passageBanks` hold items that are a passage already. A sentence in the wrong
-group raises the bound for every source that uses it, `library` included — whose
-whole reason for being bounded is that pasted text has no trustworthy length.
+Banks are split by the length of their items, and the split buys exactly one
+thing: `phraseBanks` set `LONGEST_PHRASE_ROMAJI`, the bound on how much typing
+one passage may be, and `longItemBanks` are left out of it. A sentence in the
+wrong group raises that bound for every source using it, `library` included —
+whose whole reason for being bounded is that pasted text has no trustworthy
+length. The split does **not** change how anything is dealt: `dealLesson` sends
+every plan through the shuffled `dealPassage`, so a sentence is shuffled in with
+the words exactly like a word is.
 
 `drillBankFromWeakKana` draws from named banks rather than the catalog, on
 purpose. Most sentences contain most common moras, so a drill on き drawn from
