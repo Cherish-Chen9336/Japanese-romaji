@@ -645,8 +645,88 @@ input[type='range'] {
   color: var(--color-text);
 }
 
+/* A button that cannot be pressed has to look it, or the only signal that the
+   readings are unfinished is that nothing happens. */
+.primary:disabled,
+.secondary:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
 .file-button input {
   display: none;
+}
+
+/*
+ * Confirming a paste before it becomes practice.
+ *
+ * Each word stands in its own box with the kana to type for it underneath, so
+ * the thing being asked for is visible as a shape: a kanji with an empty box is
+ * the only question on the screen. The romaji below the row is the answer the
+ * app derives, shown rather than asked for — nobody types romaji here.
+ */
+.review {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.review-line {
+  border-bottom: var(--bw-1) solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-block-end: var(--space-4);
+}
+
+.review-line__segments {
+  align-items: flex-end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.review-seg {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.review-seg b {
+  font-family: var(--font-jp);
+  font-size: var(--fs-18);
+  font-weight: var(--fw-medium);
+}
+
+.review-seg__reading {
+  background: var(--color-surface);
+  border: var(--bw-1) solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-text);
+  font-family: var(--font-jp);
+  min-inline-size: 2em;
+  padding: 2px 6px;
+  text-align: center;
+}
+
+/* The only boxes that are a question. Everything else already has its answer. */
+.review-seg--needs .review-seg__reading {
+  border-color: var(--color-accent);
+}
+
+/*
+ * は and へ are said わ and え only where they are particles, and no rule over
+ * the characters can tell. A dotted edge asks for a second look without
+ * claiming to know.
+ */
+.review-seg--particle .review-seg__reading {
+  border-style: dashed;
+}
+
+.review-line__romaji {
+  font-size: var(--fs-12);
+  margin: 0;
 }
 
 .library-list {

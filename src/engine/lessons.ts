@@ -298,6 +298,35 @@ export const MAX_LIBRARY_ITEM_CHARS = 400
 export type LibraryParse = { items: TextItem[]; rejected: LibraryReject[] }
 
 /**
+ * Why a pair cannot become a practice item, or null when it can.
+ *
+ * One owner for the four rules, because there are now two ways in — a paste
+ * parsed unaided, and a paste whose readings a person confirmed — and a rule
+ * enforced in one of them is a rule the other can break.
+ */
+export function rejectReason(
+  kana: string,
+  romaji: string | null,
+  reading?: string,
+): LibraryReject['reason'] | null {
+  if (kana === '' || romaji === null || romaji === '') return 'no-reading'
+  if (
+    kana.length > MAX_LIBRARY_ITEM_CHARS ||
+    romaji.length > MAX_LIBRARY_ITEM_CHARS ||
+    (reading !== undefined && reading.length > MAX_LIBRARY_ITEM_CHARS)
+  )
+    return 'too-long'
+  // The display splits on the kana's spaces and the cursor counts the romaji's,
+  // so a pair that disagrees about where the words are highlights the wrong one.
+  if (kana.split(' ').length !== romaji.split(' ').length) return 'word-mismatch'
+  // Every token has to be reachable by one keypress. An astral character
+  // compiles to a token `applyTypeChar` can never accept, leaving the lesson
+  // impossible to finish.
+  if (romaji.length !== [...romaji].length) return 'unsupported'
+  return null
+}
+
+/**
  * Romaji derived from the kana itself, or null where the text is not all kana.
  *
  * `tokenizeKana` falls back to one token per character for anything it cannot
@@ -323,6 +352,20 @@ export function derivedRomaji(kana: string): string | null {
 }
 
 /**
+ * The lines a paste offers, cleaned and split, in the order they were written.
+ *
+ * Exported because the review screen has to split a paste the same way the
+ * parser does — a preview that disagreed with what is actually saved would be
+ * worse than no preview.
+ */
+export function pastedLines(text: string): string[] {
+  return collapseSpaces(stripPunctuation(stripMarkdownChars(text)))
+    .split(/\n|。|、|\.|,|;/)
+    .map((part) => part.trim())
+    .filter((part) => part !== '')
+}
+
+/**
  * Parses text a person pasted or uploaded.
  *
  * Named for its input, not its destination: `io/persistence.ts` has its own
@@ -334,9 +377,7 @@ export function parsePastedText(text: string): LibraryParse {
   const items: TextItem[] = []
   const rejected: LibraryReject[] = []
 
-  for (const raw of collapseSpaces(stripPunctuation(stripMarkdownChars(text))).split(/\n|。|、|\.|,|;/)) {
-    const part = raw.trim()
-    if (part === '') continue
+  for (const part of pastedLines(text)) {
 
     /*
      * `|` only. A double space used to separate the pair as well, so `ねこ  いぬ`
@@ -348,29 +389,12 @@ export function parsePastedText(text: string): LibraryParse {
     // No explicit reading is not an error when the kana can supply one itself.
     const romaji = (paired[1] ?? '').trim().toLowerCase() || derivedRomaji(kana)
 
-    if (kana === '' || romaji === null || romaji === '') {
-      rejected.push({ line: part, reason: 'no-reading' })
+    const reason = rejectReason(kana, romaji)
+    if (reason !== null) {
+      rejected.push({ line: part, reason })
       continue
     }
-    if (kana.length > MAX_LIBRARY_ITEM_CHARS || romaji.length > MAX_LIBRARY_ITEM_CHARS) {
-      rejected.push({ line: part, reason: 'too-long' })
-      continue
-    }
-    // The display splits on the kana's spaces and the cursor counts the
-    // romaji's, so a pair that disagrees about where the words are highlights
-    // the wrong one. Dropping it asks the author to add the missing space.
-    if (kana.split(' ').length !== romaji.split(' ').length) {
-      rejected.push({ line: part, reason: 'word-mismatch' })
-      continue
-    }
-    // Every token has to be reachable by one keypress. An astral character
-    // compiles to a token that `applyTypeChar` can never accept, leaving the
-    // lesson impossible to finish.
-    if (romaji.length !== [...romaji].length) {
-      rejected.push({ line: part, reason: 'unsupported' })
-      continue
-    }
-    items.push({ kana, romaji })
+    items.push({ kana, romaji: romaji as string })
   }
   return { items, rejected }
 }

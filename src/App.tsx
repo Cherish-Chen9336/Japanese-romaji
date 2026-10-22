@@ -1,5 +1,6 @@
 import {
   For,
+  Index,
   Show,
   createEffect,
   createMemo,
@@ -15,10 +16,18 @@ import {
   planRun,
   type RunPlan,
   kanaRows,
-  parsePastedText,
   type LibraryReject,
   sourceOptions,
 } from "./engine/lessons";
+import {
+  mayHideParticle,
+  reviewItem,
+  reviewPaste,
+  reviewReject,
+  reviewRomaji,
+  withReading,
+  type TextReview,
+} from "./engine/review";
 import { compilePrompt, wordIndexForToken } from "./engine/prompt";
 import { projectMatch } from "./engine/romanization";
 import {
@@ -166,6 +175,13 @@ function App() {
   };
   const [kanaGroup, setKanaGroup] = createSignal<KanaGroup>(readKanaGroup());
   const [customText, setCustomText] = createSignal("");
+  /*
+   * A paste held between arriving and being committed. Null means the box is
+   * showing; a list means the reader is confirming what it became. Nothing is
+   * saved while this is set — the readings are the one thing no rule can
+   * supply, and practising a guess at them teaches the guess.
+   */
+  const [reviews, setReviews] = createSignal<TextReview[] | null>(null);
   const [libraryMessage, setLibraryMessage] = createSignal<string | null>(null);
   const [lastRun, setLastRun] = createSignal<RunResult | null>(
     runs()[0] ?? null,
@@ -681,60 +697,91 @@ function App() {
     "too-long": "is longer than one practice line can hold",
   };
 
-  const addCustomText = (text: string) => {
-    const { items, rejected } = parsePastedText(text);
+  /**
+   * A paste becomes something to confirm, not something to save.
+   *
+   * Every line is shown with its kanji waiting for a reading, because that is
+   * the one thing no rule can supply — and a line this app cannot read used to
+   * be refused with a sentence about `kanji|romaji`, which is a format to learn
+   * rather than a question to answer.
+   */
+  const beginReview = (text: string) => {
+    const next = reviewPaste(text);
+    if (next.length === 0) {
+      setLibraryMessage("Nothing to add — the box is empty.");
+      return;
+    }
+    setLibraryMessage(null);
+    setReviews(next);
+  };
+
+  const editReading = (line: number, segment: number, reading: string) => {
+    setReviews(
+      (current) =>
+        current?.map((review, at) =>
+          at === line ? withReading(review, segment, reading) : review,
+        ) ?? null,
+    );
+  };
+
+  /** The lines that could be practised as they stand. */
+  const reviewedItems = createMemo(() =>
+    (reviews() ?? [])
+      .map((review) => reviewItem(review))
+      .filter((item): item is TextItem => item !== null),
+  );
+
+  /** Why a line cannot be practised yet, in a sentence rather than a code. */
+  const reviewHint = (review: TextReview): string => {
+    const reason = reviewReject(review);
+    if (reason === null) return "";
+    return reason === "no-reading"
+      ? "waiting for a reading"
+      : `This line ${REJECT_REASONS[reason]}.`;
+  };
+
+  const saveReviewed = () => {
+    const items = reviewedItems();
+    const total = (reviews() ?? []).length;
     if (items.length === 0) {
-      /*
-       * Say why. A paste that produced nothing used to return in silence, so
-       * the button looked broken — and pasting plain Japanese, which is the
-       * obvious thing to try, is exactly what produced nothing.
-       */
-      setLibraryMessage(
-        rejected.length === 0
-          ? "Nothing to add — the box is empty."
-          : `Could not read ${rejected.length === 1 ? "that line" : `any of those ${rejected.length} lines`}: ${
-              REJECT_REASONS[rejected[0].reason]
-            }.`,
-      );
+      setLibraryMessage("Nothing here can be practised yet.");
       return;
     }
     let evicted = 0;
+    let unfit = 0;
     setLibrary((current) => {
-      const combined = [...items, ...current];
-      // The cap is real; dropping entries to meet it silently is not acceptable.
+      /*
+       * The new entries are kept whole first. They used to be concatenated and
+       * the whole list truncated, so a paste of more than `LIBRARY_LIMIT` lines
+       * threw away some of the lines just added — and then reported that the
+       * oldest had made way, which is not what had happened.
+       */
+      const kept = items.slice(0, LIBRARY_LIMIT);
+      unfit = items.length - kept.length;
+      const combined = [...kept, ...current];
       evicted = Math.max(0, combined.length - LIBRARY_LIMIT);
       const next = combined.slice(0, LIBRARY_LIMIT);
       persistRecord("library", next);
       return next;
     });
-    if (evicted > 0) {
-      setLibraryMessage(
-        `Added ${items.length}. The library holds ${LIBRARY_LIMIT} entries, so the ${evicted} oldest made way.`,
-      );
-      setCustomText("");
-      changeSource("library");
-      return;
-    }
+    const skipped = total - items.length;
+    setReviews(null);
     setCustomText("");
-    if (rejected.length > 0) {
-      /*
-       * Stay put. Navigating straight to practice showed the "skipped" message
-       * for one frame on a page the reader was leaving — which is the same as
-       * not showing it. They can start practising when they have read it.
-       */
-      setLibraryMessage(
-        `Added ${items.length}, skipped ${rejected.length}: ${REJECT_REASONS[rejected[0].reason]}.`,
-      );
-      changeSource("library");
-      return;
-    }
-    setLibraryMessage(null);
+    setLibraryMessage(
+      unfit > 0
+        ? `Added ${items.length - unfit}. The library holds ${LIBRARY_LIMIT} entries, so ${unfit} of these did not fit and everything older made way.`
+        : evicted > 0
+          ? `Added ${items.length}. The library holds ${LIBRARY_LIMIT} entries, so the ${evicted} oldest made way.`
+          : skipped > 0
+            ? `Added ${items.length}, skipped ${skipped} that could not be read.`
+            : null,
+    );
     changeSource("library");
-    navigate("practice");
+    if (skipped === 0 && evicted === 0 && unfit === 0) navigate("practice");
   };
 
   const handleFile = async (file: File) => {
-    addCustomText(await file.text());
+    beginReview(await file.text());
   };
 
   const refocus = () => {
@@ -1606,11 +1653,10 @@ function App() {
           <section class="page">
             <h1>library</h1>
             <p class="muted">
-              Paste kana, one line or sentence at a time — hiragana or
-              katakana, each character spelled as it is written and ー holding
-              the vowel before it. Kanji needs its reading, as{" "}
-              <code>学校|gakkou</code>, and so do the particles は, へ and を,
-              which are written one way and said another.
+              Paste Japanese — a line, a sentence or a paragraph. Kana spells
+              itself, in either script. Kanji cannot, so the next screen asks
+              you for its reading in kana; the romaji is worked out from what
+              you give it, and you never type romaji here.
             </p>
             <Show when={libraryMessage()}>
               {(message) => (
@@ -1619,34 +1665,134 @@ function App() {
                 </p>
               )}
             </Show>
-            <textarea
-              value={customText()}
-              onInput={(event) => setCustomText(event.currentTarget.value)}
-              placeholder={
-                "おはよう\nねこ いぬ\nコーヒー\n学校|gakkou\nきょうはいいてんきです|kyouwaiitenkidesu"
+            <Show
+              when={reviews()}
+              fallback={
+                <>
+                  <textarea
+                    value={customText()}
+                    onInput={(event) =>
+                      setCustomText(event.currentTarget.value)
+                    }
+                    placeholder={
+                      "おはよう\nねこ いぬ\nコーヒー\n今日はいい天気です\n公園でコーヒーを飲みました"
+                    }
+                  />
+                  <div class="action-row">
+                    <button
+                      type="button"
+                      class="primary"
+                      onClick={() => beginReview(customText())}
+                    >
+                      check the readings
+                    </button>
+                    <label class="file-button">
+                      upload .txt/.md
+                      <input
+                        type="file"
+                        accept=".txt,.md,text/plain,text/markdown"
+                        onChange={(event) => {
+                          const file = event.currentTarget.files?.[0];
+                          if (file) void handleFile(file);
+                          event.currentTarget.value = "";
+                        }}
+                      />
+                    </label>
+                  </div>
+                </>
               }
-            />
-            <div class="action-row">
-              <button
-                type="button"
-                class="primary"
-                onClick={() => addCustomText(customText())}
-              >
-                add text
-              </button>
-              <label class="file-button">
-                upload .txt/.md
-                <input
-                  type="file"
-                  accept=".txt,.md,text/plain,text/markdown"
-                  onChange={(event) => {
-                    const file = event.currentTarget.files?.[0];
-                    if (file) void handleFile(file);
-                    event.currentTarget.value = "";
-                  }}
-                />
-              </label>
-            </div>
+            >
+              {(list) => (
+                <div class="review">
+                  <h2>check the readings</h2>
+                  <p class="muted">
+                    Each kanji needs its reading in kana. Kana is filled in
+                    already — change it where a は or へ is a particle, since
+                    those are said わ and え. The romaji underneath is what you
+                    will type.
+                  </p>
+                  {/* `Index` and not `For`: these rows are edited in place, and
+                      keying them by content would rebuild the input under the
+                      cursor on every keystroke. */}
+                  <Index each={list()}>
+                    {(review, line) => (
+                      <div class="review-line">
+                        <div class="review-line__segments">
+                          <Index each={review().segments}>
+                            {(segment, at) => (
+                              <label
+                                classList={{
+                                  "review-seg": true,
+                                  "review-seg--needs": segment().needsReading,
+                                  "review-seg--particle": mayHideParticle(
+                                    segment(),
+                                  ),
+                                }}
+                              >
+                                <b>{segment().text}</b>
+                                <input
+                                  class="review-seg__reading"
+                                  value={segment().reading}
+                                  placeholder={
+                                    segment().needsReading ? "かな" : ""
+                                  }
+                                  aria-label={`reading for ${segment().text}`}
+                                  /* `em` and not the `size` attribute, which
+                                     counts in `0` widths: a kana glyph is
+                                     about twice that, so a box sized for its
+                                     own three characters clipped them. */
+                                  style={{
+                                    "inline-size": `calc(${Math.max(
+                                      2,
+                                      segment().text.length,
+                                      segment().reading.length,
+                                    )}em + var(--space-6))`,
+                                  }}
+                                  onInput={(event) =>
+                                    editReading(
+                                      line,
+                                      at,
+                                      event.currentTarget.value,
+                                    )
+                                  }
+                                />
+                              </label>
+                            )}
+                          </Index>
+                        </div>
+                        <p class="review-line__romaji">
+                          <Show
+                            when={reviewRomaji(review())}
+                            fallback={
+                              <span class="muted">{reviewHint(review())}</span>
+                            }
+                          >
+                            {(romaji) => <code>{romaji()}</code>}
+                          </Show>
+                        </p>
+                      </div>
+                    )}
+                  </Index>
+                  <div class="action-row">
+                    <button
+                      type="button"
+                      class="primary"
+                      disabled={reviewedItems().length === 0}
+                      onClick={saveReviewed}
+                    >
+                      save {reviewedItems().length} to library
+                    </button>
+                    <button
+                      type="button"
+                      class="secondary"
+                      onClick={() => setReviews(null)}
+                    >
+                      back to the text
+                    </button>
+                  </div>
+                </div>
+              )}
+            </Show>
             <h2>saved entries</h2>
             <div class="library-list">
               <For

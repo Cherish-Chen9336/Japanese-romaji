@@ -1344,6 +1344,49 @@ it cannot read, which is exactly the "no reading available" case. Requiring
 `かな|romaji` for everything made the obvious action, pasting Japanese, produce
 nothing at all.
 
+**A paste is confirmed before it is saved.** `engine/review.ts` turns pasted
+text into `TextReview[]` — one per line, each a list of `ReviewSegment`s — and
+the library route shows them with a kana box under every piece. Kanji boxes
+start empty; kana boxes start filled with the kana itself. `reviewItem` builds
+the `TextItem` from what comes back, **deriving the romaji** — nobody types
+romaji on that screen, because the reading is the only thing no rule can
+supply.
+
+- **Segments are runs of the same kind of character**, not words. Without a
+  dictionary that is the only boundary that can be found honestly: 今日はいい天気です
+  comes back as 今日 / はいい / 天気 / です, four pieces to confirm rather than the
+  five words a speaker would name. `segmentLine` keeps 々 and 〇 with the kanji
+  run, since asking for the reading of the 人 in 人々 alone is the wrong
+  question. A dictionary can hand back the same shape with better boundaries
+  and the readings pre-filled, and nothing downstream has to know.
+- **Segments are joined by spaces, so each is its own display word.** That is
+  what keeps the three readers of a reading from fighting: `itemWords` calls
+  `rubySegments` per word and it returns early on a word with no kanji
+  (`furigana.ts:107`), so a は read as わ shows plainly while 今日 still carries
+  きょう above it. Verified end to end — `今日 はいい 天気 です` /
+  `きょう わいい てんき です` compiles strictly, records ten moras, and draws ruby
+  on the two kanji words only.
+- **`rejectReason` in `lessons.ts` owns the four rules**, and both paths use it:
+  a paste parsed unaided and a review a person confirmed. They were duplicated
+  while there was only one path in, and a rule enforced on one of them is a rule
+  the other can break.
+- **The reading boxes are sized in `em`, not with the `size` attribute.** `size`
+  counts in `0` widths and a kana glyph is about twice that, so a box sized for
+  its own three characters clipped them.
+- **`Index`, not `For`, for the review rows.** They are edited in place; keying
+  them by content rebuilds the input under the cursor on every keystroke.
+
+**Eviction no longer lies.** `saveReviewed` keeps the new entries whole first
+and only then trims the combined list. The old code concatenated and truncated,
+so a paste of more than `LIBRARY_LIMIT` lines threw away some of the lines just
+added and then reported that the *oldest* had made way.
+
+**Still open after this step**, both measured and neither fixed: a saved
+paragraph is dealt like a bank item, so one library entry with the default eight
+items per run is **the same paragraph eight times in a row**; and a pasted
+paragraph is still saved as one entry per sentence rather than as one document
+that can be named, re-practised in order and deleted in one action.
+
 **And a refused line says why.** `parsePastedText` returns what it rejected and for
 which of four reasons. It is named for its input rather than its destination:
 `io/persistence.ts` has its own `parseLibrary` that validates *stored* records,
