@@ -731,6 +731,31 @@ function App() {
       .filter((item): item is TextItem => item !== null),
   );
 
+  /** Boxes still empty, so the button can say what it is waiting for. */
+  const readingsOwed = createMemo(() =>
+    (reviews() ?? []).reduce(
+      (owed, review) =>
+        owed + review.segments.filter((segment) => segment.reading.trim() === '').length,
+      0,
+    ),
+  );
+
+  /*
+   * What the button does, said on the button. It used to read "save 0 to
+   * library" and sit greyed out, which named neither the thing a person came
+   * to do nor the thing standing in the way — a paste was pasted and the
+   * screen appeared to have no way forward.
+   */
+  const reviewAction = createMemo(() => {
+    const ready = reviewedItems().length;
+    const total = (reviews() ?? []).length;
+    if (ready === 0)
+      return readingsOwed() === 1
+        ? "fill in 1 reading"
+        : `fill in ${readingsOwed()} readings`;
+    return ready < total ? `practise ${ready} of ${total}` : "practise";
+  });
+
   /** Why a line cannot be practised yet, in a sentence rather than a code. */
   const reviewHint = (review: TextReview): string => {
     const reason = reviewReject(review);
@@ -773,11 +798,17 @@ function App() {
         : evicted > 0
           ? `Added ${items.length}. The library holds ${LIBRARY_LIMIT} entries, so the ${evicted} oldest made way.`
           : skipped > 0
-            ? `Added ${items.length}, skipped ${skipped} that could not be read.`
+            ? `Added ${items.length}, and left ${skipped} without a reading behind.`
             : null,
     );
     changeSource("library");
-    if (skipped === 0 && evicted === 0 && unfit === 0) navigate("practice");
+    /*
+     * Always, when anything was saved. Confirming readings is something a
+     * person does in order to practise, so stopping on the library page to
+     * report a line they knowingly left blank is answering a question they did
+     * not ask. The message is still there when they come back.
+     */
+    navigate("practice");
   };
 
   const handleFile = async (file: File) => {
@@ -1706,10 +1737,11 @@ function App() {
                 <div class="review">
                   <h2>check the readings</h2>
                   <p class="muted">
-                    Each kanji needs its reading in kana. Kana is filled in
-                    already — change it where a は or へ is a particle, since
-                    those are said わ and え. The romaji underneath is what you
-                    will type.
+                    Fill in the empty boxes and this becomes practice text.
+                    Each one wants the kanji above it read in kana; the kana
+                    boxes are filled in already, though you may want to change
+                    one where a は or へ is a particle, since those are said わ
+                    and え. The romaji under each line is what you will type.
                   </p>
                   {/* `Index` and not `For`: these rows are edited in place, and
                       keying them by content would rebuild the input under the
@@ -1780,7 +1812,7 @@ function App() {
                       disabled={reviewedItems().length === 0}
                       onClick={saveReviewed}
                     >
-                      save {reviewedItems().length} to library
+                      {reviewAction()}
                     </button>
                     <button
                       type="button"
