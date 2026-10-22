@@ -39,6 +39,26 @@ export type TextItem = {
   reading?: string
 }
 
+/**
+ * A text that can be chosen and practised as itself, start to finish.
+ *
+ * The opposite of a source: a source is a pool to deal from, this is one thing
+ * to type. Its items are in the order they are meant to be typed, and nothing
+ * shuffles them — that is the whole difference, and it is why choosing a text
+ * does not go through `planRun`.
+ *
+ * `items` are the authored entries themselves, not copies. A second store of
+ * the same Japanese would be a second thing to keep correct.
+ */
+export type PracticeText = {
+  /** Stable across reorderings, so a stored run can still name it. */
+  id: string
+  /** Shown when there is one. A single sentence is its own label. */
+  title?: string
+  source: SourceName
+  items: readonly TextItem[]
+}
+
 export type Lesson = {
   kana: string
   romaji: string

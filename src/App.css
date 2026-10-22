@@ -745,6 +745,76 @@ input[type='range'] {
 }
 
 /*
+ * A list of things to choose, ruled rather than boxed. Thirty-five cards would
+ * be thirty-five borders competing with the Japanese, which is the only thing
+ * on the row worth looking at.
+ */
+.text-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.text-row {
+  align-items: baseline;
+  border-bottom: var(--bw-1) solid var(--color-border);
+  display: flex;
+  gap: var(--space-4);
+  justify-content: space-between;
+  padding: var(--space-3) 0;
+}
+
+/*
+ * Always visible, never loud. Hiding it until hover was the first attempt and
+ * it was wrong: a list whose only point is that you can choose from it looked
+ * exactly like a list you cannot. Thirty-five filled buttons is the other
+ * mistake, so it sits as quiet text until the row is under the cursor.
+ */
+.text-row__go {
+  background: none;
+  border: none;
+  color: var(--color-muted);
+  flex: none;
+  padding: 0;
+  transition:
+    color 120ms ease,
+    text-decoration-color 120ms ease;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+}
+
+.text-row:hover .text-row__go,
+.text-row__go:focus-visible {
+  color: var(--color-accent);
+  text-decoration-color: currentColor;
+}
+
+.furigana {
+  font-family: var(--font-jp);
+  font-size: var(--fs-18);
+  line-height: 2.1;
+}
+
+/* Spaces mark word boundaries in the data; on screen they are too wide to read
+   as one sentence, so the gap is set here instead. */
+.furigana__word + .furigana__word {
+  margin-inline-start: 0.4em;
+}
+
+.furigana rt {
+  color: var(--color-muted);
+  font-size: 0.5em;
+}
+
+/* Beside a heading, not a badge on it. */
+.count {
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-regular);
+  margin-inline-start: var(--space-2);
+}
+
+/*
  * Four numbers on the page, divided by a rule, not four little cards. The
  * dividers are between the cells, so the strip reads as one row of facts.
  */

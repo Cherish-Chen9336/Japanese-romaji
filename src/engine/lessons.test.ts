@@ -18,6 +18,10 @@ import {
   parseLibraryText,
   quoteBank,
   wordBank,
+  bundledTexts,
+  lessonForText,
+  libraryTexts,
+  sourceBanks,
 } from './lessons'
 import { acceptsSpelling, compileStrict } from './prompt'
 import type { RomajiToken } from './romanization'
@@ -592,5 +596,77 @@ describe('library text without an explicit reading', () => {
     const { items, rejected } = parsePastedText('おはよう\n学校\nねこ')
     expect(items.map((item) => item.kana)).toEqual(['おはよう', 'ねこ'])
     expect(rejected).toHaveLength(1)
+  })
+})
+
+describe('lessonForText', () => {
+  it('keeps the items in the order they were written', () => {
+    const text = {
+      id: 'walk',
+      title: 'A morning walk',
+      source: 'sentences' as const,
+      items: [
+        { kana: '朝 です', reading: 'あさ です', romaji: 'asa desu' },
+        { kana: '犬 と 歩きます', reading: 'いぬ と あるきます', romaji: 'inu to arukimasu' },
+      ],
+    }
+    expect(lessonForText(text)).toEqual({
+      kana: '朝 です 犬 と 歩きます',
+      romaji: 'asa desu inu to arukimasu',
+      source: 'sentences',
+      items: text.items,
+    })
+  })
+
+  /* One sentence is a text too — that is what the library list practises. */
+  it('builds a lesson from a single item', () => {
+    const text = {
+      id: 'one',
+      source: 'sentences' as const,
+      items: [{ kana: 'ねこ', romaji: 'neko' }],
+    }
+    expect(lessonForText(text)).toEqual({
+      kana: 'ねこ',
+      romaji: 'neko',
+      source: 'sentences',
+      items: text.items,
+    })
+  })
+})
+
+describe('bundledTexts', () => {
+  it('offers every sentence under an id of its own', () => {
+    const texts = bundledTexts()
+    expect(texts.length).toBeGreaterThan(0)
+    expect(new Set(texts.map((t) => t.id)).size).toBe(texts.length)
+    // The pool and the choosable texts are the same Japanese, not two copies.
+    expect(texts.flatMap((t) => t.items)).toEqual(sourceBanks.sentences)
+  })
+
+  /*
+   * The display and the romaji have to break into the same words, or the cursor
+   * highlights one word while the typist is on another. Each *item* is checked
+   * against the four content rules in `prompt.test.ts`; this is about what
+   * joining them produces.
+   */
+  it('builds a lesson whose kana and romaji agree about the words', () => {
+    for (const text of bundledTexts()) {
+      const lesson = lessonForText(text)
+      expect(lesson.kana.split(' ')).toHaveLength(lesson.romaji.split(' ').length)
+    }
+  })
+})
+
+describe('libraryTexts', () => {
+  it('offers each saved entry on its own, and nothing for an empty library', () => {
+    const saved = [
+      { kana: 'ねこ', romaji: 'neko' },
+      { kana: '学校', reading: 'がっこう', romaji: 'gakkou' },
+    ]
+    expect(libraryTexts(saved)).toEqual([
+      { id: 'library-0', source: 'library', items: [saved[0]] },
+      { id: 'library-1', source: 'library', items: [saved[1]] },
+    ])
+    expect(libraryTexts([])).toEqual([])
   })
 })

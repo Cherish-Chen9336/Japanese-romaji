@@ -1,7 +1,15 @@
 import { isMoraToken, tokenizeKana } from './romanization'
-import { sentenceBank } from './sentences'
+import { sentenceBank, sentenceTexts } from './sentences'
 import { dealFrom, newDeck, pickRandom, type Deck, type RandomSource } from './rng'
-import type { KanaGroup, KanaRow, Lesson, Settings, SourceName, TextItem } from './types'
+import type {
+  KanaGroup,
+  KanaRow,
+  Lesson,
+  PracticeText,
+  Settings,
+  SourceName,
+  TextItem,
+} from './types'
 
 /*
  * Every source, available from the first run.
@@ -589,6 +597,43 @@ function dealPassage(
     if (length >= ceiling) break
   }
   return { dealt, deck: current }
+}
+
+/**
+ * The lesson for one chosen text: its items, in the order they were written.
+ *
+ * Deliberately not a plan and not a deck. Everything else here deals at random
+ * from a pool and keeps dealing as long as a run lasts; this is the one thing
+ * that is finite and ordered, so routing it through `planRun` would mean
+ * building a one-text library and then hoping the shuffler left it alone.
+ */
+export function lessonForText(text: PracticeText): Lesson {
+  return {
+    kana: text.items.map((item) => item.kana).join(' '),
+    romaji: text.items.map((item) => item.romaji).join(' '),
+    source: text.source,
+    items: text.items,
+  }
+}
+
+/** Every text that ships with the app, for the library to list. */
+export function bundledTexts(): PracticeText[] {
+  return sentenceTexts
+}
+
+/**
+ * Saved entries as choosable texts, one apiece.
+ *
+ * A paste is still stored as one entry per sentence, so this is a view of what
+ * is there rather than a claim that a document was preserved. Grouping a paste
+ * into one named text is a storage change, not a display one.
+ */
+export function libraryTexts(library: readonly TextItem[]): PracticeText[] {
+  return library.map((item, index) => ({
+    id: `library-${index}`,
+    source: 'library' as const,
+    items: [item],
+  }))
 }
 
 /** One passage from the plan, and the plan to deal the next one from. */

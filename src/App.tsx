@@ -18,6 +18,9 @@ import {
   kanaRows,
   type LibraryReject,
   sourceOptions,
+  bundledTexts,
+  lessonForText,
+  libraryTexts,
 } from "./engine/lessons";
 import {
   mayHideParticle,
@@ -66,11 +69,13 @@ import {
   weakestKana,
 } from "./engine/stats";
 import { KANA_GROUPS, STANDARD_TIMED_MS, THEME_NAMES } from "./engine/types";
+import { Furigana } from "./ui/Furigana";
 import type {
   KanaGroup,
   ThemeName,
   Lesson,
   LifetimeStats,
+  PracticeText,
   RunResult,
   Settings,
   SourceName,
@@ -400,7 +405,23 @@ function App() {
     }
   };
 
-  const timedRun = () => settings().timedMode;
+  /*
+   * The text being practised as itself, or null while practice is dealing from
+   * a pool. Two targets, not two modes: everything that follows asks which one
+   * is active rather than carrying a flag.
+   */
+  const [chosenText, setChosenText] = createSignal<PracticeText | null>(null);
+
+  /*
+   * Derived from the target, not read from settings.
+   *
+   * A chosen text is finite — it is the thing you asked to type. Under a clock
+   * the run would reach the end of it and keep going, dealing more passages
+   * from the same source to fill the remaining seconds, so a request to type
+   * one sentence would silently become a minute of whatever else was in the
+   * bank. The stored preference is left alone; only this run ignores it.
+   */
+  const timedRun = () => settings().timedMode && chosenText() === null;
   const timeLeft = createMemo(() =>
     timedRun() ? remainingMs(session(), tick(), STANDARD_TIMED_MS) : null,
   );
@@ -458,10 +479,17 @@ function App() {
    */
   let plan: RunPlan | null = null;
 
+  /*
+   * The pool path. Anything that deals at random is also leaving a chosen text
+   * behind, so the target is cleared here rather than at each of the five call
+   * sites — one of which would eventually be forgotten, leaving a run that
+   * deals from a bank while the screen still names a sentence.
+   */
   const nextLesson = (
     nextSource: SourceName,
     nextSettings: Settings = settings(),
   ) => {
+    setChosenText(null);
     plan = planRun(nextSource, weakKana(), library(), Math.random, kanaGroup());
     const dealt = dealLesson(plan, nextSettings, Math.random);
     plan = dealt.plan;
@@ -477,13 +505,40 @@ function App() {
    * before repeating.
    */
   const retrySameText = () => {
+    const chosen = chosenText();
+    if (chosen !== null) {
+      // Rebuilt from the text, so a retry starts at its beginning. Rebuilding a
+      // pool plan here would quietly swap the sentence for a random passage.
+      plan = null;
+      setLesson(lessonForText(chosen));
+      resetRunState();
+      navigate("practice");
+      return;
+    }
     plan = planRun(source(), weakKana(), library(), Math.random, kanaGroup());
+    resetRunState();
+    navigate("practice");
+  };
+
+  /**
+   * Practise one text, start to finish, instead of dealing from a pool.
+   *
+   * No plan: there is nothing to deal next. A run that reaches the end of a
+   * chosen text is over, which is also why `timedRun` returns false while one
+   * is set.
+   */
+  const practiseText = (text: PracticeText) => {
+    plan = null;
+    setChosenText(text);
+    setLesson(lessonForText(text));
     resetRunState();
     navigate("practice");
   };
 
   /** The next passage of the *same* run — same source, same deck. */
   const refill = () => {
+    // A chosen text has no next passage: `plan` is null for exactly that
+    // reason, and the run ends where the text does.
     if (plan === null) return;
     const dealt = dealLesson(plan, settings(), Math.random);
     plan = dealt.plan;
@@ -558,7 +613,10 @@ function App() {
       currentLesson,
       currentMetrics,
       undefined,
-      settings().timedMode
+      // `timedRun()`, not the setting: a chosen text is always a passage run,
+      // and recording it as timed would file a one-sentence result alongside
+      // sixty-second ones.
+      timedRun()
         ? { kind: "timed", durationMs: STANDARD_TIMED_MS }
         : { kind: "passage" },
     );
@@ -724,6 +782,14 @@ function App() {
     );
   };
 
+  /*
+   * Whether the paste box is open. Closed by default now that the library
+   * leads with what is already there: arriving at a list and a form at once
+   * asked a question — write something, or pick something — that the page can
+   * answer for itself.
+   */
+  const [addingText, setAddingText] = createSignal(false);
+
   /** The lines that could be practised as they stand. */
   const reviewedItems = createMemo(() =>
     (reviews() ?? [])
@@ -809,6 +875,7 @@ function App() {
     const skipped = total - items.length;
     setReviews(null);
     setCustomText("");
+    setAddingText(false);
     setLibraryMessage(
       unfit > 0
         ? `Added ${items.length - unfit}. The library holds ${LIBRARY_LIMIT} entries, so ${unfit} of these did not fit and everything older made way.`
@@ -818,14 +885,14 @@ function App() {
             ? `Added ${items.length}, and left ${skipped} without a reading behind.`
             : null,
     );
-    changeSource("library");
     /*
-     * Always, when anything was saved. Confirming readings is something a
-     * person does in order to practise, so stopping on the library page to
-     * report a line they knowingly left blank is answering a question they did
-     * not ask. The message is still there when they come back.
+     * The text just confirmed, in the order it was reviewed — not the library.
+     * `changeSource("library")` used to stand here, which deals at random from
+     * every saved entry: someone who had just read through seven boxes to
+     * confirm one paragraph was handed a shuffle of everything they had ever
+     * saved, including the paragraph, somewhere.
      */
-    navigate("practice");
+    practiseText({ id: "just-reviewed", source: "library", items });
   };
 
   const handleFile = async (file: File) => {
@@ -1298,16 +1365,42 @@ function App() {
                   </Show>
 
                   <div class="action-row">
-                    <button type="button" class="primary" onClick={freshText}>
-                      next practice
-                    </button>
-                    <button
-                      type="button"
-                      class="secondary"
-                      onClick={retrySameText}
+                    {/* After a chosen text the obvious next move is that text
+                        again, not a random passage from whatever bank it came
+                        from — so the two swap places rather than the primary
+                        quietly meaning something else. */}
+                    <Show
+                      when={chosenText() === null}
+                      fallback={
+                        <>
+                          <button
+                            type="button"
+                            class="primary"
+                            onClick={retrySameText}
+                          >
+                            practise again
+                          </button>
+                          <button
+                            type="button"
+                            class="secondary"
+                            onClick={() => navigate("library")}
+                          >
+                            choose another text
+                          </button>
+                        </>
+                      }
                     >
-                      retry same text
-                    </button>
+                      <button type="button" class="primary" onClick={freshText}>
+                        next practice
+                      </button>
+                      <button
+                        type="button"
+                        class="secondary"
+                        onClick={retrySameText}
+                      >
+                        retry same text
+                      </button>
+                    </Show>
                     <button
                       type="button"
                       class="secondary"
@@ -1701,10 +1794,10 @@ function App() {
           <section class="page">
             <h1>library</h1>
             <p class="muted">
-              Paste Japanese — a line, a sentence or a paragraph. Kana spells
-              itself, in either script. Kanji cannot, so the next screen asks
-              you for its reading in kana; the romaji is worked out from what
-              you give it, and you never type romaji here.
+              Everything you can type, one text at a time. Picking one practises
+              that text and stops at the end of it, with no clock — the timer is
+              for dealing from a pool, which is what the source buttons on the
+              practice page do.
             </p>
             <Show when={libraryMessage()}>
               {(message) => (
@@ -1713,10 +1806,78 @@ function App() {
                 </p>
               )}
             </Show>
+            <Show when={reviews() === null}>
+              <h2>
+                sentences <span class="count">{bundledTexts().length}</span>
+              </h2>
+              <div class="text-list">
+                <For each={bundledTexts()}>
+                  {(text) => (
+                    <div class="text-row">
+                      <Furigana items={text.items} />
+                      <button
+                        type="button"
+                        class="secondary text-row__go"
+                        onClick={() => practiseText(text)}
+                      >
+                        practise
+                      </button>
+                    </div>
+                  )}
+                </For>
+              </div>
+
+              <h2>
+                your texts <span class="count">{library().length}</span>
+              </h2>
+              <div class="text-list">
+                <For
+                  each={libraryTexts(library())}
+                  fallback={
+                    <p class="muted">
+                      Nothing yet. Paste Japanese below and it joins this list.
+                    </p>
+                  }
+                >
+                  {(text) => (
+                    <div class="text-row">
+                      <Furigana items={text.items} />
+                      <button
+                        type="button"
+                        class="secondary text-row__go"
+                        onClick={() => practiseText(text)}
+                      >
+                        practise
+                      </button>
+                    </div>
+                  )}
+                </For>
+              </div>
+            </Show>
+
+            <Show when={reviews() === null && !addingText()}>
+              <div class="action-row">
+                <button
+                  type="button"
+                  class="secondary"
+                  onClick={() => setAddingText(true)}
+                >
+                  add your own text
+                </button>
+              </div>
+            </Show>
+
             <Show
               when={reviews()}
               fallback={
-                <>
+                <Show when={addingText()}>
+                  <p class="muted">
+                    Paste Japanese — a line, a sentence or a paragraph. Kana
+                    spells itself, in either script. Kanji cannot, so the next
+                    screen asks you for its reading in kana; the romaji is
+                    worked out from what you give it, and you never type romaji
+                    here.
+                  </p>
                   <textarea
                     value={customText()}
                     onInput={(event) =>
@@ -1746,8 +1907,18 @@ function App() {
                         }}
                       />
                     </label>
+                    <button
+                      type="button"
+                      class="secondary"
+                      onClick={() => {
+                        setAddingText(false);
+                        setCustomText("");
+                      }}
+                    >
+                      cancel
+                    </button>
                   </div>
-                </>
+                </Show>
               }
             >
               {(list) => (
