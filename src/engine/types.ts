@@ -1,4 +1,12 @@
-export type SourceName = 'auto' | 'kana' | 'drills' | 'difficult' | 'quotes' | 'words' | 'library'
+export type SourceName =
+  | 'auto'
+  | 'kana'
+  | 'drills'
+  | 'difficult'
+  | 'quotes'
+  | 'words'
+  | 'sentences'
+  | 'library'
 
 /** Which part of the 五十音図 to drill. */
 export type KanaGroup = 'all' | 'seion' | 'dakuten' | 'yoon'

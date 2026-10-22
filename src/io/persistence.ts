@@ -43,6 +43,7 @@ const VALID_SOURCES = new Set<string>([
   'difficult',
   'quotes',
   'words',
+  'sentences',
   'library',
 ])
 

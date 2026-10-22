@@ -1,4 +1,5 @@
 import { isMoraToken, tokenizeKana } from './romanization'
+import { sentenceBank } from './sentences'
 import { dealFrom, newDeck, pickRandom, type Deck, type RandomSource } from './rng'
 import type { KanaGroup, KanaRow, Lesson, Settings, SourceName, TextItem } from './types'
 
@@ -21,6 +22,7 @@ export const sourceOptions: { value: SourceName; label: string }[] = [
   { value: 'words', label: 'words' },
   { value: 'difficult', label: 'difficult' },
   { value: 'quotes', label: 'quotes' },
+  { value: 'sentences', label: 'sentences' },
   { value: 'library', label: 'library' },
 ]
 
@@ -223,14 +225,31 @@ export const quoteBank: TextItem[] = [
   { kana: '住めば 都', reading: 'すめば みやこ', romaji: 'sumeba miyako' },
 ]
 
-export const sourceBanks: Record<
-  Exclude<SourceName, 'auto' | 'kana' | 'drills' | 'library'>,
-  TextItem[]
-> = {
+/**
+ * Banks whose items are one word or phrase. Several of them make a passage,
+ * which is why the longest of them sets how much typing a passage may be.
+ */
+const phraseBanks: Record<'difficult' | 'quotes' | 'words', TextItem[]> = {
   difficult: difficultBank,
   quotes: quoteBank,
   words: wordBank,
 }
+
+/**
+ * Banks whose items are already a passage. Kept apart from `phraseBanks` so
+ * that adding one cannot move the passage bound: a sentence is three times the
+ * length of the longest word here, and a budget measured over everything would
+ * have quietly made *library* passages half as long again for no reason
+ * connected to the library.
+ */
+const passageBanks: Record<'sentences', TextItem[]> = {
+  sentences: sentenceBank,
+}
+
+export const sourceBanks: Record<
+  Exclude<SourceName, 'auto' | 'kana' | 'drills' | 'library'>,
+  TextItem[]
+> = { ...phraseBanks, ...passageBanks }
 
 /**
  * Every bundled item, from one place.
@@ -434,6 +453,12 @@ export function drillBankFromWeakKana(weak: readonly string[]): TextItem[] {
   if (weak.length === 0) return drillFallbackBank
 
   const wanted = new Set(weak)
+  /*
+   * Named banks, not `sourceBanks`. A drill is meant to be short and repetitive
+   * — the weak mora again and again — and most sentences contain most common
+   * moras, so drawing from the catalog would turn a drill on `き` into general
+   * sentence practice that happens to contain some.
+   */
   const candidates = [...gojuonBank, ...wordBank, ...difficultBank].filter((item) =>
     itemMoras(item).some((mora) => wanted.has(mora)),
   )
@@ -505,13 +530,17 @@ export function planRun(
 /**
  * The most typing a passage may be, per item asked for.
  *
- * Measured from the banks rather than chosen: the longest bundled item is the
- * longest single thing the app already hands out, so a passage bounded at
- * `paragraphItems` of those can never be more typing than a passage of the
- * app's own longest material. Every bundled bank is therefore unaffected by
- * this bound, by construction.
+ * Measured from the phrase banks rather than chosen: the longest curated word
+ * is the longest single thing a passage is built out of, so a passage bounded
+ * at `paragraphItems` of those can never be more typing than a passage of the
+ * app's own material.
+ *
+ * `passageBanks` is deliberately left out. Its items are passages already, and
+ * including them would raise the bound for every source that uses it —
+ * `library` most of all, whose whole reason for being bounded is that user text
+ * has no length of its own to be trusted.
  */
-const LONGEST_BANK_ROMAJI = allBankItems().reduce(
+const LONGEST_PHRASE_ROMAJI = [...Object.values(phraseBanks).flat(), ...gojuonBank].reduce(
   (longest, item) => Math.max(longest, item.romaji.length),
   0,
 )
@@ -538,7 +567,7 @@ function dealPassage(
   rng: RandomSource,
 ): { dealt: TextItem[]; deck: Deck<TextItem> } {
   const limit = Math.min(want, deck.items.length)
-  const ceiling = want * LONGEST_BANK_ROMAJI
+  const ceiling = want * LONGEST_PHRASE_ROMAJI
   const dealt: TextItem[] = []
   let current = deck
   let length = 0

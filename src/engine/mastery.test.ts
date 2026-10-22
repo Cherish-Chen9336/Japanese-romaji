@@ -76,11 +76,18 @@ describe('gojuonGrids', () => {
   })
 
   /*
-   * What the chart cannot show. Sokuon are a real part of the corpus and have no
-   * cell, so a weakness in っこ can never appear on the map — worth knowing when
-   * reading it, and worth failing here if the gap ever widens.
+   * What the chart cannot show. Two categories, both deliberate:
+   *
+   * - **Sokuon.** 五十音 has no square for っこ, so a weakness there can never
+   *   appear on the map.
+   * - **Katakana.** The chart is the hiragana syllabary, and コ is tracked as
+   *   itself rather than folded into こ, so コーヒー contributes moras with no
+   *   cell to land in.
+   *
+   * Worth knowing when reading the map, and worth failing here if a third
+   * category ever joins them unnoticed.
    */
-  it('covers all but the sokuon of what the corpus actually tracks', () => {
+  it('covers all but the sokuon and katakana of what the corpus tracks', () => {
     const corpus = new Set(
       allBankItems()
         .flatMap((item) => tokenizeKana(item.reading ?? item.kana))
@@ -89,7 +96,10 @@ describe('gojuonGrids', () => {
     )
     const chart = new Set(chartMoras())
     const missing = [...corpus].filter((kana) => !chart.has(kana))
-    expect(missing.every((kana) => kana.startsWith('っ'))).toBe(true)
+    const unexplained = missing.filter(
+      (kana) => !kana.startsWith('っ') && !/^[ァ-ヺー]+$/.test(kana),
+    )
+    expect(unexplained).toEqual([])
   })
 })
 
