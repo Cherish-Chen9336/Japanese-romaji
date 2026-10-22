@@ -37,8 +37,52 @@ import type { PracticeText, TextItem } from './types'
  * into a passage. The ids are slugs of the romaji rather than positions: a
  * stored run that names `kyou` still names the same sentence after the list is
  * reordered, which `sentence-1` would not.
+ *
+ * The first three texts are **short passages** — four sentences that belong
+ * together, with a title. They exist because a request for "articles" is a
+ * request for something to read, and a list of unrelated one-liners is not
+ * that however many of them there are. They are deliberately short: long
+ * documents need a position to return to, a way to deal consecutive chunks and
+ * a run that spans them, none of which exists yet.
+ *
+ * Their sentences are in `sentenceBank` like any other, so random practice
+ * still draws on them. Order is only honoured when a passage is chosen, since
+ * `dealPassage` shuffles everything it is given.
  */
 export const sentenceTexts: PracticeText[] = [
+  {
+    id: 'asa-no-sanpo',
+    title: 'A morning walk',
+    source: 'sentences',
+    items: [
+      { kana: '毎朝 六時 に 起きます', reading: 'まいあさ ろくじ に おきます', romaji: 'maiasa rokuji ni okimasu' },
+      { kana: '犬 と 近く の 公園 を 歩きます', reading: 'いぬ と ちかく の こうえん を あるきます', romaji: 'inu to chikaku no kouen wo arukimasu' },
+      { kana: '空気 が 冷たくて 気持ち が いい です', reading: 'くうき が つめたくて きもち が いい です', romaji: 'kuuki ga tsumetakute kimochi ga ii desu' },
+      { kana: '家 に 帰って から 朝ごはん を 作ります', reading: 'いえ に かえって から あさごはん を つくります', romaji: 'ie ni kaette kara asagohan wo tsukurimasu' },
+    ],
+  },
+  {
+    id: 'hajimete-no-kyouto',
+    title: 'First time in Kyoto',
+    source: 'sentences',
+    items: [
+      { kana: '先月 はじめて 京都 へ 行きました', reading: 'せんげつ はじめて きょうと え いきました', romaji: 'sengetsu hajimete kyouto e ikimashita' },
+      { kana: '古い お寺 が たくさん あって 驚きました', reading: 'ふるい おてら が たくさん あって おどろきました', romaji: 'furui otera ga takusan atte odorokimashita' },
+      { kana: '店 で 抹茶 の アイス を 食べました', reading: 'みせ で まっちゃ の アイス を たべました', romaji: 'mise de matcha no aisu wo tabemashita' },
+      { kana: 'また 秋 に 行きたい です', reading: 'また あき に いきたい です', romaji: 'mata aki ni ikitai desu' },
+    ],
+  },
+  {
+    id: 'ame-no-nichiyoubi',
+    title: 'A rainy Sunday',
+    source: 'sentences',
+    items: [
+      { kana: '日曜日 は 朝 から 雨 でした', reading: 'にちようび わ あさ から あめ でした', romaji: 'nichiyoubi wa asa kara ame deshita' },
+      { kana: 'どこ に も 行かないで 家 に いました', reading: 'どこ に も いかないで いえ に いました', romaji: 'doko ni mo ikanaide ie ni imashita' },
+      { kana: '音楽 を 聞きながら 本 を 読みました', reading: 'おんがく を ききながら ほん を よみました', romaji: 'ongaku wo kikinagara hon wo yomimashita' },
+      { kana: 'とても 静かな 日 でした', reading: 'とても しずかな ひ でした', romaji: 'totemo shizukana hi deshita' },
+    ],
+  },
   {
     id: 'kyou',
     source: 'sentences',

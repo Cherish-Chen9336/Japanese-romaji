@@ -790,6 +790,15 @@ function App() {
    */
   const [addingText, setAddingText] = createSignal(false);
 
+  /* Split by shape, not by a flag: a text of several sentences is read
+     differently from a single line, so the two are listed differently. */
+  const passages = createMemo(() =>
+    bundledTexts().filter((text) => text.items.length > 1),
+  );
+  const singles = createMemo(() =>
+    bundledTexts().filter((text) => text.items.length === 1),
+  );
+
   /** The lines that could be practised as they stand. */
   const reviewedItems = createMemo(() =>
     (reviews() ?? [])
@@ -1808,16 +1817,45 @@ function App() {
             </Show>
             <Show when={reviews() === null}>
               <h2>
-                sentences <span class="count">{bundledTexts().length}</span>
+                short texts <span class="count">{passages().length}</span>
               </h2>
               <div class="text-list">
-                <For each={bundledTexts()}>
+                <For each={passages()}>
+                  {(text) => (
+                    <div class="text-row">
+                      <div class="text-row__body">
+                        <b class="text-row__title">{text.title}</b>
+                        {/* The opening line only. Enough to recognise it by;
+                            the rest is on the practice screen, which is where
+                            it is meant to be read. */}
+                        <Furigana items={text.items.slice(0, 1)} />
+                        <span class="muted text-row__meta">
+                          {text.items.length} sentences
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        class="text-row__go"
+                        onClick={() => practiseText(text)}
+                      >
+                        practise
+                      </button>
+                    </div>
+                  )}
+                </For>
+              </div>
+
+              <h2>
+                sentences <span class="count">{singles().length}</span>
+              </h2>
+              <div class="text-list">
+                <For each={singles()}>
                   {(text) => (
                     <div class="text-row">
                       <Furigana items={text.items} />
                       <button
                         type="button"
-                        class="secondary text-row__go"
+                        class="text-row__go"
                         onClick={() => practiseText(text)}
                       >
                         practise
@@ -1844,7 +1882,7 @@ function App() {
                       <Furigana items={text.items} />
                       <button
                         type="button"
-                        class="secondary text-row__go"
+                        class="text-row__go"
                         onClick={() => practiseText(text)}
                       >
                         practise
@@ -2013,20 +2051,6 @@ function App() {
                 </div>
               )}
             </Show>
-            <h2>saved entries</h2>
-            <div class="library-list">
-              <For
-                each={library()}
-                fallback={<p class="muted">No custom text yet.</p>}
-              >
-                {(item) => (
-                  <div class="library-item">
-                    <span>{item.kana}</span>
-                    <code>{item.romaji}</code>
-                  </div>
-                )}
-              </For>
-            </div>
           </section>
         </Show>
 

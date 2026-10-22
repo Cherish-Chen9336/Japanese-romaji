@@ -729,21 +729,6 @@ input[type='range'] {
   margin: 0;
 }
 
-.library-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.library-item {
-  align-items: baseline;
-  border-bottom: var(--bw-1) solid var(--color-border);
-  display: flex;
-  gap: var(--space-3);
-  justify-content: space-between;
-  padding: var(--space-2) 0;
-}
-
 /*
  * A list of things to choose, ruled rather than boxed. Thirty-five cards would
  * be thirty-five borders competing with the Japanese, which is the only thing
@@ -786,6 +771,22 @@ input[type='range'] {
 .text-row__go:focus-visible {
   color: var(--color-accent);
   text-decoration-color: currentColor;
+}
+
+.text-row__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-inline-size: 0;
+}
+
+.text-row__title {
+  font-weight: var(--fw-medium);
+}
+
+.text-row__meta {
+  font-family: var(--font-mono);
+  font-size: var(--fs-12);
 }
 
 .furigana {
@@ -1512,9 +1513,13 @@ meter::-webkit-meter-optimum-value {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .library-item {
+  /* The action goes under the Japanese rather than beside it: a sentence and a
+     button side by side on a phone leaves the sentence about forty characters
+     of room, which is not enough to read one. */
+  .text-row {
     align-items: flex-start;
     flex-direction: column;
+    gap: var(--space-1);
   }
 }
 
