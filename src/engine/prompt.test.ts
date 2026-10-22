@@ -1,11 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  difficultBank,
-  drillFallbackBank,
-  gojuonBank,
-  quoteBank,
-  wordBank,
-} from './lessons'
+import { allBankItems, drillFallbackBank, gojuonBank, sourceBanks } from './lessons'
 import {
   acceptsSpelling,
   compileItem,
@@ -17,15 +11,20 @@ import {
 import { tokenizeKana } from './romanization'
 import type { TextItem } from './types'
 
+/*
+ * Taken from the catalog, not hand-listed. The list used to name five banks,
+ * so a bank added later sat outside every invariant below until someone
+ * remembered to add it here — which is the one moment nobody is thinking about
+ * this file. `allBankItems` is what `sourceBanks` and `gojuonBank` produce, so
+ * a new bank joins these checks by existing.
+ */
 const BANKS: [string, TextItem[]][] = [
-  ['wordBank', wordBank],
-  ['difficultBank', difficultBank],
+  ...Object.entries(sourceBanks),
   ['drillFallbackBank', drillFallbackBank],
-  ['quoteBank', quoteBank],
   ['gojuonBank', gojuonBank],
 ]
 
-const ALL_ITEMS: TextItem[] = BANKS.flatMap(([, bank]) => bank)
+const ALL_ITEMS: TextItem[] = allBankItems()
 
 describe('acceptsSpelling', () => {
   it('accepts a spelling that tiles the tokens exactly', () => {
@@ -136,7 +135,7 @@ describe('every bundled item is derivable from its own kana', () => {
   }
 
   it('こんにちは is typeable as konnichiwa', () => {
-    const item = wordBank.find((entry) => entry.kana === 'こんにちは')
+    const item = sourceBanks.words.find((entry) => entry.kana === 'こんにちは')
     expect(item).toBeDefined()
     expect(acceptsSpelling(compileItem(item as TextItem), 'konnichiwa')).toBe(true)
   })
@@ -168,6 +167,45 @@ describe('every bundled item is derivable from its own kana', () => {
       (item) => item.romaji.split(' ').length !== item.kana.split(' ').length,
     ).map((item) => `${item.kana} / ${item.romaji}`)
     expect(mismatched).toEqual([])
+  })
+
+  /*
+   * A space in a reading may separate typing units. It may not change them.
+   *
+   * The word boundaries in a reading exist to line the display up with the
+   * romaji, so they are free to fall anywhere — but a boundary inside a unit
+   * silently teaches the wrong keys. 行って written as `いっ て` passes every
+   * other check here: it compiles, its word counts agree, and nothing is
+   * unsupported. It just spells itself `ixtsu te` instead of `itte`, and
+   * records moras い/っ/て instead of い/って, so the stats are wrong too.
+   *
+   * Tokenising with and without the spaces is what tells them apart: a space
+   * that only separates leaves the tokens alone, and one that cuts into a
+   * sokuon, a yōon or a long vowel does not.
+   */
+  it('no reading is spaced in a way that changes how it is typed', () => {
+    const cuts = ALL_ITEMS.filter((item) => {
+      const reading = item.reading ?? item.kana
+      const separated = tokenizeKana(reading).filter((token) => token.kana !== ' ')
+      const continuous = tokenizeKana(reading.replaceAll(' ', ''))
+      return JSON.stringify(separated) !== JSON.stringify(continuous)
+    }).map((item) => `${item.kana} / ${item.reading ?? item.kana}`)
+    expect(cuts).toEqual([])
+  })
+
+  /* The check above is worth nothing if it cannot fail. */
+  it('catches a reading that splits a sokuon from what doubles it', () => {
+    const split = (reading: string) => {
+      const separated = tokenizeKana(reading).filter((token) => token.kana !== ' ')
+      const continuous = tokenizeKana(reading.replaceAll(' ', ''))
+      return JSON.stringify(separated) !== JSON.stringify(continuous)
+    }
+    expect(split('いっ て')).toBe(true)
+    expect(split('がっ こう')).toBe(true)
+    // The same words spaced somewhere harmless, and left alone.
+    expect(split('いって')).toBe(false)
+    expect(split('きょう わいい てんき です')).toBe(false)
+    expect(split('コー ヒー')).toBe(false)
   })
 })
 
