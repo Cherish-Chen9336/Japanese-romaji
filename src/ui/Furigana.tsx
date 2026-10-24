@@ -14,7 +14,7 @@ import type { TextItem } from "../engine/types";
  * cannot read yet is choosing blind, which is the whole reason the readings
  * are authored in the first place.
  */
-export function Furigana(props: { items: readonly TextItem[] }) {
+export function Furigana(props: { items: readonly TextItem[]; id?: string }) {
   const words = () => compilePrompt([...props.items]).words;
   /*
    * `lang="ja"` because the document is `lang="en"`. It picks the right font
@@ -24,7 +24,7 @@ export function Furigana(props: { items: readonly TextItem[] }) {
    * wrong language.
    */
   return (
-    <span class="furigana" lang="ja">
+    <span class="furigana" lang="ja" id={props.id}>
       <For each={words()}>
         {(word) => (
           <span class="furigana__word">

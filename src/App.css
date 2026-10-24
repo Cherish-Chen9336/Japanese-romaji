@@ -1146,6 +1146,28 @@ input[type='range'] {
   font-family: var(--font-jp);
   font-size: var(--fs-18);
   line-height: 2.1;
+  /*
+   * The escape hatch for text nobody checked. Bundled content is authored with
+   * spaces, but a saved text is whatever was pasted, and `MAX_LIBRARY_ITEM_CHARS`
+   * allows 400 characters in one entry with no spaces in them. One such entry
+   * used to measure 1686px inside a 421px column and **scrolled the whole page
+   * sideways by 1233px** — not hypothetical, reproduced from a seeded
+   * library.
+   *
+   * `word-break: keep-all` is what now forbids the mid-word CJK break that
+   * `white-space: nowrap` on each word used to forbid; `overflow-wrap: anywhere`
+   * lets a run with no break opportunity at all break rather than overflow, and
+   * it is `anywhere` rather than `break-word` because only `anywhere` lets the
+   * break count toward min-content, which is what keeps the flex item from
+   * demanding the full 1686px in the first place. `min-inline-size: 0` releases
+   * the flex item's automatic minimum for the same reason.
+   *
+   * Checked against the bundled sentences at 320px: line counts and
+   * word-to-line assignment are identical before and after.
+   */
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+  word-break: keep-all;
 }
 
 /* Spaces mark word boundaries in the data; on screen they are too wide to read
@@ -1155,11 +1177,10 @@ input[type='range'] {
 }
 
 /* Japanese breaks between any two characters, so a line that ran out of room
-   split かかります into かかりま / す. The words are already marked, so the
-   break goes between them instead. */
-.furigana__word {
-  white-space: nowrap;
-}
+   split かかります into かかりま / す. There was a
+   `.furigana__word { white-space: nowrap }` here that stopped it; `word-break:
+   keep-all` on the container stops the same break and, unlike `nowrap`, still
+   lets `overflow-wrap` break a run that has no other opportunity. */
 
 .furigana rt {
   color: var(--color-muted);

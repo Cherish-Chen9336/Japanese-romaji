@@ -1879,18 +1879,43 @@ function App() {
                   <div class="text-list text-list--passages">
                     <For each={passages()}>
                       {(text) => (
+                        /*
+                         * Named by its title, described by the rest. Without
+                         * this the button's accessible name is everything
+                         * inside it — "Moving house 先週 せんしゅう 新しい …
+                         * 7 sentences" — because a name is computed from
+                         * content, and a ruby base and its reading both count.
+                         * A passage has a title, so there is a right answer
+                         * here and no need to guess at one.
+                         *
+                         * The sentence rows below have no title, so their
+                         * content IS their name and they are left alone.
+                         */
                         <button
                           type="button"
                           class="text-row"
+                          aria-labelledby={`text-${text.id}-title`}
+                          aria-describedby={`text-${text.id}-line text-${text.id}-count`}
                           onClick={() => practiseText(text)}
                         >
                           <span class="text-row__body">
-                            <b class="text-row__title">{text.title}</b>
+                            <b
+                              class="text-row__title"
+                              id={`text-${text.id}-title`}
+                            >
+                              {text.title}
+                            </b>
                             {/* The opening line only. Enough to recognise it
                                 by; the rest is on the practice screen, which
                                 is where it is meant to be read. */}
-                            <Furigana items={text.items.slice(0, 1)} />
-                            <span class="muted text-row__meta">
+                            <Furigana
+                              items={text.items.slice(0, 1)}
+                              id={`text-${text.id}-line`}
+                            />
+                            <span
+                              class="muted text-row__meta"
+                              id={`text-${text.id}-count`}
+                            >
                               {text.items.length} sentences
                             </span>
                           </span>
@@ -1908,7 +1933,11 @@ function App() {
                   <h2>
                     your texts <span class="count">{library().length}</span>
                   </h2>
-                  <div class="text-list">
+                  {/* Bounded like the sentences, for the same reason: this one
+                      holds up to `LIBRARY_LIMIT` entries, and unbounded it was
+                      the one column that could push the page down again. Short
+                      lists are unaffected — the cap only caps. */}
+                  <div class="text-list text-list--scroll">
                     <For
                       each={libraryTexts(library())}
                       fallback={

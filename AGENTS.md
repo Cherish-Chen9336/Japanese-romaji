@@ -1619,6 +1619,44 @@ happens to lay out as a column. The row carries `padding: var(--space-3)` so the
 hover band has somewhere to sit, and `.text-list` is pulled out by the same
 amount so the text still starts on its heading's left edge.
 
+**Three risks the bundled fixture hides**, all three closed on 2026-10-24.
+
+**A saved text is not authored content.** `MAX_LIBRARY_ITEM_CHARS` allows 400
+characters in one entry and nothing requires spaces in them. `.furigana__word`
+carried `white-space: nowrap`, so an unspaced entry was one unbreakable word: a
+seeded 100-character entry measured **1686px inside a 421px column and scrolled
+the whole page sideways by 1233px**. `word-break: keep-all` on `.furigana` now
+forbids the mid-word CJK break that `nowrap` forbade, `overflow-wrap: anywhere`
+lets a run with no other opportunity break rather than overflow, and
+`min-inline-size: 0` releases the flex item's automatic minimum. `anywhere`
+rather than `break-word` on purpose: only `anywhere` lets the break count
+toward min-content, which is what stops the item demanding 1686px to begin
+with. The 400-character worst case now wraps to 18 lines inside the column with
+no page overflow, and the bundled sentences at 320px are byte-identical before
+and after — same line counts, same words on the same lines.
+
+**Your own texts is bounded too**, with the same `text-list--scroll`. It was the
+one column that could grow without limit — 200 entries is the storage cap — and
+unbounded it put the page back where it started. Verified at 200 entries: the
+list caps at 520px and scrolls, the page stays one screen, the add button stays
+below the scroll region where it belongs.
+
+**A passage row is named by its title**, via `aria-labelledby`, with the opening
+line and the count as `aria-describedby`. A button's accessible name is computed
+from its content, so without this the name was the whole row — "Moving house 先週
+…部屋に引っ越しました 7 sentences". A passage has a title, so there is a right
+answer and no need to invent one.
+
+**The sentence rows are deliberately left alone**: they have no title, so their
+content is their name, and that is correct. Measured in Chromium, the name comes
+back as `今日はとてもいい天気です` — the `<rt>` readings are **not** folded into
+it, so the duplication that was feared there does not happen. That is one engine.
+[HTML-AAM](https://www.w3.org/TR/html-aam-1.0/#el-rt) does not guarantee it
+elsewhere, and nothing here should start hiding `<rt>` globally on the strength
+of one measurement: the readings are authored, they disambiguate kanji, and
+losing them costs more than a repeated syllable. Test with a real screen reader
+before changing it.
+
 **Accent on a control is not accent on data.** Teal means "known" on the chart
 and in the stats, and that rule holds for anything reporting a measurement. A
 chevron that turns teal while the row is under the cursor is reporting the
