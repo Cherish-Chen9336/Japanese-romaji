@@ -791,6 +791,23 @@ function App() {
    */
   const [addingText, setAddingText] = createSignal(false);
 
+  /*
+   * The button that opens the paste box unmounts when it opens, so focus has
+   * to be handed over deliberately in both directions: the textarea takes it
+   * on the way in (its own `ref`), and this hands it back on the way out.
+   * Without the return trip, cancelling drops focus on `<body>` and a keyboard
+   * tab starts again from the top of the page.
+   */
+  let addButton: HTMLButtonElement | undefined;
+
+  const openCompose = () => setAddingText(true);
+
+  const closeCompose = () => {
+    setAddingText(false);
+    setCustomText("");
+    queueMicrotask(() => addButton?.focus());
+  };
+
   /* Split by shape, not by a flag: a text of several sentences is read
      differently from a single line, so the two are listed differently. */
   const passages = createMemo(() =>
@@ -1859,7 +1876,7 @@ function App() {
                   <h2>
                     texts <span class="count">{passages().length}</span>
                   </h2>
-                  <div class="text-list text-list--open">
+                  <div class="text-list text-list--passages">
                     <For each={passages()}>
                       {(text) => (
                         <button
@@ -1887,7 +1904,7 @@ function App() {
                 {/* Your own texts are the third column, not a strip under the
                     other two, and the way to add one closes it: the button is
                     the last thing in the list it extends. */}
-                <section class="library-col library-mine">
+                <section class="library-col">
                   <h2>
                     your texts <span class="count">{library().length}</span>
                   </h2>
@@ -1916,7 +1933,8 @@ function App() {
                     <button
                       type="button"
                       class="library-add"
-                      onClick={() => setAddingText(true)}
+                      ref={(element) => (addButton = element)}
+                      onClick={() => openCompose()}
                     >
                       <span class="library-add__plus" aria-hidden="true">
                         +
@@ -1943,6 +1961,22 @@ function App() {
                     here.
                   </p>
                   <textarea
+                    ref={(element) => {
+                      /*
+                       * The button that opened this unmounts as it opens, and
+                       * the form lands below three columns of lists — so
+                       * without this the keyboard loses its place entirely and
+                       * the pointer loses the button without being shown what
+                       * replaced it. Focusing the box moves the caret where the
+                       * typing goes and scrolls the form into view on the way.
+                       *
+                       * In a microtask, not inline: Solid runs `ref` before the
+                       * element is in the document, and `focus()` on a detached
+                       * node is a no-op that fails silently — it left the
+                       * focus on `<body>`, which is what this is for.
+                       */
+                      queueMicrotask(() => element.focus());
+                    }}
                     value={customText()}
                     onInput={(event) =>
                       setCustomText(event.currentTarget.value)
@@ -1974,10 +2008,7 @@ function App() {
                     <button
                       type="button"
                       class="secondary"
-                      onClick={() => {
-                        setAddingText(false);
-                        setCustomText("");
-                      }}
+                      onClick={() => closeCompose()}
                     >
                       cancel
                     </button>

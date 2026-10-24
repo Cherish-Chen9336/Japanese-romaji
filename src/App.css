@@ -830,9 +830,16 @@ input[type='range'] {
   min-inline-size: 0;
 }
 
-/* The collection headings carry the page, so they are a size that says so
-   rather than the same weight as the running text under them. */
-.library h2 {
+/*
+ * The collection headings carry the page, so they are a size that says so
+ * rather than the same weight as the running text under them.
+ *
+ * Scoped `.page.library h2`, not `.library h2`. The latter is one class plus
+ * one element and ties exactly with `.page h2`, so it was winning on source
+ * order alone — the same shape that put the stats rankings in the wrong font
+ * three times. A modifier that shares a base's specificity is not a modifier.
+ */
+.page.library h2 {
   font-size: var(--fs-22);
 }
 
@@ -852,9 +859,18 @@ input[type='range'] {
   margin-inline: calc(-1 * var(--space-3));
 }
 
+/* The empty-state line is the one child of this list that is not a row, so it
+   never got the padding the rows use to pay the list's bleed back. It started
+   12px to the left of its own heading. */
+.text-list > .muted {
+  padding-inline: var(--space-3);
+}
+
 /*
  * The five titled passages, which are not shaped like the thirty-five
- * sentences: a title, an opening line and a count, against one line.
+ * sentences: a title, an opening line and a count, against one line. The
+ * modifier was `--open` while this list had no rules; it has rules again, so
+ * the name says what the list holds rather than how it was once drawn.
  *
  * They were briefly unruled, separated by 24px of space alone, so the two
  * collections would not read as one grid of identical objects. Seen next to
@@ -868,11 +884,11 @@ input[type='range'] {
  * back it has one, and three columns placing the same mark in three different
  * spots is worse than any one of the placements.
  */
-.text-list--open .text-row {
+.text-list--passages .text-row {
   padding-block: var(--space-4);
 }
 
-.text-list--open .text-row__title {
+.text-list--passages .text-row__title {
   font-weight: var(--fw-semibold);
 }
 
@@ -885,70 +901,97 @@ input[type='range'] {
  * The border is gone. It was defended as a functional edge — it marks
  * where scrolling starts and stops — and that was true, but four drawn
  * edges next to an undrawn list made this column read as a widget bolted
- * beside the other one, which was most of what made the page feel rigid. Three
- * things still say "this scrolls": the heading, the thumb on the right, and
- * the row clipped mid-glyph at the bottom edge, which is the plainest signal
- * of the three. If it turns out not to read, a top-and-bottom hairline is the
- * next thing to try, not the full box.
+ * beside the other one, which was most of what made the page feel rigid. What
+ * says "this scrolls" now is the heading, the thumb, and the fade below. The
+ * clipped row was offered here as the plainest of the three signals and it was
+ * not a signal at all — it read as a rendering fault; see the mask. If the
+ * fade turns out not to read either, a top-and-bottom hairline is the next
+ * thing to try, not the full box.
  */
 .text-list--scroll {
   max-block-size: clamp(320px, 52vh, 620px);
   overflow-y: auto;
-  /* The row at the cut used to be sliced through the middle of its glyphs,
-     which read as a rendering fault rather than as "there is more below".
-     Fading the last 32px says the same thing and says it on purpose. The mask
-     is on the scroller, so it stays at the bottom edge while the rows move
-     under it. The inset focus ring fades with the row it is on, which is the
-     one place this costs anything — the row is still reachable and still
-     outlined everywhere above the cut. */
+  /*
+   * The row at the cut used to be sliced through the middle of its glyphs,
+   * which read as a rendering fault rather than as "there is more below".
+   * Fading the last 32px says the same thing and says it on purpose.
+   *
+   * The padding is not decoration and must match the fade. The mask sits on
+   * the scroller's border box, so it does not move when the rows do: without
+   * the padding the last sentence ends flush with the bottom edge and is
+   * **permanently** half-faded, unreadable at any scroll position. With it,
+   * scrolling to the end puts the last row above the fade and the fade covers
+   * empty padding, which is what a fade is supposed to end up doing.
+   */
   mask-image: linear-gradient(to bottom, #000 calc(100% - 32px), transparent);
+  padding-block-end: 32px;
+}
+
+/* A fade is a soft edge, and both of these modes exist to remove soft edges.
+   Forced colours in particular repaints the text to the system palette, and a
+   mask would go on dimming it afterwards. */
+@media (prefers-contrast: more), (forced-colors: active) {
+  .text-list--scroll {
+    mask-image: none;
+  }
 }
 
 /*
  * The platform scrollbar is a chunky grey track with stepper arrows on Linux
  * Chromium, and it read as a widget bolted to the side of the page. Drawn here
- * as a thumb alone: no track, no buttons, and held in the border colour so it
- * is the same weight as the rules it sits beside.
+ * as a thumb alone: no track, no buttons.
  *
- * `scrollbar-width`/`scrollbar-color` are the standard properties and are what
- * Firefox honours; the `::-webkit-scrollbar` block below is what Chromium and
- * Safari honour. Both are needed — neither browser reads the other's.
+ * **The standard properties are the whole story wherever they exist.** An
+ * earlier version of this comment claimed `scrollbar-width`/`scrollbar-color`
+ * were Firefox's and `::-webkit-scrollbar` was Chromium's and that both were
+ * needed. That is false. css-scrollbars §2.1 and §3.1 say a UA **must
+ * ignore** non-standard means of styling a scrollbar on any element where
+ * either standard property is set to something other than `auto`, and Chromium
+ * has supported both since 121 — so on a current Chromium the
+ * `::-webkit-` block below was dead code the moment these two lines were
+ * written. `scrollbar-width: thin` is also what removes the stepper arrows;
+ * `::-webkit-scrollbar-button { display: none }` was never what did it.
+ *
+ * The thumb is `--color-dim`, not `--color-border`. Border weight is right for
+ * a rule you read past and wrong for the one control in the column: against
+ * the page it computes to about 1.25:1, which is a thumb you have to look for.
  */
 .text-list--scroll {
-  scrollbar-color: var(--color-border) transparent;
+  scrollbar-color: var(--color-dim) transparent;
   scrollbar-width: thin;
 }
 
-.text-list--scroll::-webkit-scrollbar {
-  inline-size: 10px;
+/*
+ * The fallback, and only the fallback: older Chromium and the Safari versions
+ * that never shipped the standard properties. Guarded, because unguarded it is
+ * either ignored (modern) or fighting the rule above (nothing). The transparent
+ * border plus `background-clip: content-box` is what insets the thumb —
+ * padding does nothing on a scrollbar part.
+ */
+@supports not (scrollbar-width: thin) {
+  .text-list--scroll::-webkit-scrollbar {
+    inline-size: 10px;
+  }
+
+  .text-list--scroll::-webkit-scrollbar-track,
+  .text-list--scroll::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  .text-list--scroll::-webkit-scrollbar-thumb {
+    background-clip: content-box;
+    background-color: var(--color-dim);
+    border: 3px solid transparent;
+    border-radius: 999px;
+  }
+
+  .text-list--scroll::-webkit-scrollbar-button {
+    display: none;
+  }
 }
 
-.text-list--scroll::-webkit-scrollbar-track,
-.text-list--scroll::-webkit-scrollbar-corner {
-  background: transparent;
-}
-
-/* The transparent border plus `background-clip: content-box` is what insets
-   the thumb from the box edge — padding does nothing on a scrollbar part. */
-.text-list--scroll::-webkit-scrollbar-thumb {
-  background-clip: content-box;
-  background-color: var(--color-border);
-  border: 3px solid transparent;
-  border-radius: 999px;
-}
-
-.text-list--scroll:hover::-webkit-scrollbar-thumb {
-  background-color: var(--color-dim);
-}
-
-/* The stepper arrows. Nobody has clicked one on purpose this century, and they
-   are the loudest part of the default bar. */
-.text-list--scroll::-webkit-scrollbar-button {
-  display: none;
-}
-
-/* The last rule inside the box would otherwise draw a second line just above
-   the border. */
+/* There is no border under this list any more, but the rule still goes: it
+   would otherwise be a line hanging in the fade with nothing beneath it. */
 .text-list--scroll .text-row:last-child {
   border-bottom: none;
 }
@@ -1024,6 +1067,18 @@ input[type='range'] {
 .text-row:focus-visible .text-row__go {
   color: var(--color-accent);
   translate: 2px 0;
+}
+
+/* The colour change is the signal; the step is the flourish. Drop the step. */
+@media (prefers-reduced-motion: reduce) {
+  .text-row__go {
+    transition: color var(--dur-fast) var(--ease-out);
+  }
+
+  .text-row:hover .text-row__go,
+  .text-row:focus-visible .text-row__go {
+    translate: none;
+  }
 }
 
 .text-row__body {
@@ -1111,12 +1166,18 @@ input[type='range'] {
   font-size: 0.5em;
 }
 
-/* Beside a heading, not a badge on it. */
+/* Beside a heading, not a badge on it.
+   `var(--fw-regular)` stood here and there is no such token — only
+   `--fw-medium` and `--fw-semibold` are defined. An undefined custom property
+   makes the declaration invalid at computed-value time, which falls back to
+   *inherited*, so the count was taking the heading's 500 rather than the 400 it
+   was asking for. A missing token fails silently and plausibly; this is the
+   second kind of cascade bug in this file that looked fine on screen. */
 .count {
   color: var(--color-muted);
   font-family: var(--font-mono);
   font-size: var(--fs-12);
-  font-weight: var(--fw-regular);
+  font-weight: normal;
   margin-inline-start: var(--space-2);
 }
 

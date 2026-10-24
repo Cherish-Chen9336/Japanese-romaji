@@ -1531,10 +1531,12 @@ there.
 The first attempt capped `.library` at a flat 1000px, which stopped growing at
 1100px: from there up the page was a fixed slab with margins that grew to 300px
 a side at 1680, and the complaint it drew — "all the content is confined within
-a rectangle in the center" — was exactly right. The cap is now the shell's.
-**Columns went 484px to 648px at 1440 and above.** The heading, the explanation
-and your own texts stay at the 760px reading measure inside it: lists want the
-window, paragraphs do not.
+a rectangle in the center" — was exactly right. The cap is now the shell's. At
+two columns that took them from 484px to 648px at 1440; at the three columns
+the page settled on they are **368px at 1200 and 421px from 1440 up**, and the
+widening is what keeps the third column from costing the other two. The heading,
+the explanation and the paste form stay at the 760px reading measure inside it:
+lists want the window, paragraphs do not.
 
 **Three collections, three columns, one row**: bundled sentences, bundled texts,
 and your own, in that order. Sentences lead because they are where a learner
@@ -1557,13 +1559,20 @@ as two different pieces of software. It is sized in `em` because `--fs-24` is a
 `clamp()` — a pixel size would be right at exactly one window width — and
 aligned on the baseline, because centred it drifts upward as the heading grows.
 
-The breakpoints are set by the content, not by taste. The widest thing in any of
-these lists is **294px** of Japanese (切符 を 買って から 電車 に 乗ります), and
-a row adds 24px of padding, so a column under about 320px starts wrapping
-sentences. Two columns clear that from 900px (418px each) and three from 1200px
-(368px each); below 900 they stack. Measured at every step from 320 to 1920:
-nothing wraps to a second line above 320px, where the single column is 288px and
-a few sentences do.
+The breakpoints are set by the content, not by taste. The widest thing in the
+**bundled** lists is **294px** of Japanese (切符 を 買って から 電車 に 乗ります)
+— your own texts are arbitrary and this number does not bound them — and a row
+adds 24px of padding, so a column under about 320px starts wrapping sentences.
+Two columns clear that from 900px (418px each) and three from 1200px (368px
+each); below 900 they stack.
+
+Sampled at 320/390/760/900/1100/1200/1440/1920, then swept in 4px steps from 320
+to 420. **Sentences wrap at 320–344 and stop at 348.** An earlier version of
+this paragraph said "nothing wraps above 320px, measured at every step", and
+both halves were wrong: eight samples are not every step, and the preview has to
+give up the 12px row gap and the 9px chevron on top of its 294px, so it needs
+about 347px of column before it fits. The wrapping itself is fine — a phone
+sentence on two lines is a sentence on two lines — but the guarantee was not.
 
 **The two bundled collections are drawn differently**, because they are shaped
 differently — a passage has a title, an opening line and a count; a sentence has
@@ -1589,15 +1598,35 @@ true, but four drawn edges beside an undrawn list made the column read as a
 widget bolted on next to the other one. What says "this scrolls" now is the
 thumb and a `mask-image` fading the last 32px. The row used to be sliced through
 the middle of its glyphs at the cut, which read as a rendering fault rather than
-as more below. The mask is on the scroller, so it stays at the bottom edge while
-the rows move under it; the cost is that the inset focus ring fades with the row
-it is on, and only on the row at the cut.
+as more below.
+
+**The mask must be paired with `padding-block-end: 32px`, and it shipped for one
+commit without it.** The mask is on the scroller's border box and does not move
+when the rows do, so with no padding the last sentence ends flush against the
+bottom edge and is permanently half-faded — not briefly, at any scroll position,
+including the end. Scrolling could not reveal it. The padding gives the last row
+somewhere to go above the fade. The remaining cost is the inset focus ring on
+the row at the cut, which is real but is the small one; the first version of
+this note called it the only one.
+
+The fade is off under `prefers-contrast: more` and `forced-colors: active`.
+Both modes exist to remove soft edges, and under forced colours the text is
+repainted to the system palette with the mask still dimming it.
 
 **The whole row is a `<button>`.** Its children are phrasing content because a
 `<div>` inside a button is invalid, so `.text-row__body` is a `<span>` that
 happens to lay out as a column. The row carries `padding: var(--space-3)` so the
 hover band has somewhere to sit, and `.text-list` is pulled out by the same
 amount so the text still starts on its heading's left edge.
+
+**Accent on a control is not accent on data.** Teal means "known" on the chart
+and in the stats, and that rule holds for anything reporting a measurement. A
+chevron that turns teal while the row is under the cursor is reporting the
+pointer, not the learner: it is a transient control state, it disappears when
+the cursor leaves, and it is the same thing the nav and the focus rings already
+do. The row's own fill stays neutral, which is where the rule bites. The step
+the chevron takes is off under `prefers-reduced-motion`; the colour is not,
+because the colour is the signal and the step is the flourish.
 
 The hover fill is `color-mix(in srgb, var(--color-text) 4%, transparent)`.
 `--color-surface` was the first try and it is pure white in the light theme,
@@ -1614,19 +1643,32 @@ row does not change weight.
 "practise" spelled out down both right edges was most of the grid feeling, and
 the obvious replacement — a `›` glyph — is whatever size the fallback font
 decides, which on this stack is a hairline about 6px tall. A rotated corner is
-exactly the size it is told to be. In the ruled sentence list it sits at the
-row's right edge, where the rule carries it; in the open passage list it follows
-the **title**, because with no rule and a 648px column it floated half a column
-away from the thing it opens.
+exactly the size it is told to be. It sits at the row's right edge in all three
+columns, as recorded above.
 
-The scrollbar is styled twice over and needs to be: `scrollbar-width` /
-`scrollbar-color` are what Firefox honours, `::-webkit-scrollbar` is what
-Chromium and Safari honour, and neither reads the other's. The thumb is inset
-with a transparent border plus `background-clip: content-box` — padding does
-nothing on a scrollbar part. **Headless Chromium draws overlay scrollbars and
-ignores `--disable-features=OverlayScrollbar`**, so none of this can be checked
-in a screenshot; verify the rules parsed via `document.styleSheets` and look at
-the real browser.
+**The scrollbar is the standard properties, and that is all it is.** This file
+previously said `scrollbar-width`/`scrollbar-color` were Firefox's,
+`::-webkit-scrollbar` was Chromium's and Safari's, and that both were needed
+because neither engine reads the other's. That is false in both directions.
+css-scrollbars §2.1 and §3.1 say a UA **must ignore** any non-standard means of
+influencing a scrollbar on an element where either standard property is set to
+anything but `auto`, and Chromium has supported both since **121** — so on a
+current Chromium the `::-webkit-` rules were dead from the moment the standard
+ones were written beside them. `scrollbar-width: thin` is also what drops the
+stepper arrows; `::-webkit-scrollbar-button { display: none }` never did it. The
+`::-webkit-` block is kept, inside `@supports not (scrollbar-width: thin)`, as
+the fallback it actually is.
+
+The thumb is `--color-dim`, not `--color-border`: border weight is right for a
+rule you read past and wrong for the one control in the column, where it
+computes to roughly 1.25:1 against the page.
+
+**Headless Chromium draws overlay scrollbars and ignores
+`--disable-features=OverlayScrollbar`**, so none of this can be checked in a
+screenshot. Read the computed `scrollbar-width`/`scrollbar-color` off the
+element and look at the real browser — and note that finding a rule in
+`document.styleSheets` proves it parsed, not that it renders. That is the
+mistake that let the false explanation above stand for two commits.
 
 ## Deliberately not built
 

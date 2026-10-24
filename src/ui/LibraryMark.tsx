@@ -3,10 +3,14 @@ import type { JSX } from 'solid-js'
 /**
  * Four book spines on a shelf, set beside the library page's heading.
  *
- * It is Lucide's `library` (ISC), taken from the icon source rather than
- * redrawn, and it is deliberately the same family and the same stroke weight as
- * the keyboard in `Topbar` — one outline family across the app, or the two
- * marks read as two different pieces of software.
+ * It is Lucide's `library`, taken from the icon source rather than redrawn, and
+ * it is deliberately the same family and the same stroke weight as the keyboard
+ * in `Topbar` — one outline family across the app, or the two marks read as
+ * two different pieces of software.
+ *
+ * Lucide is ISC, which requires its copyright and permission notice to appear
+ * in copies. Both icons are listed in `THIRD-PARTY-NOTICES.md` at the repo
+ * root; naming the licence in a comment is not the notice the licence asks for.
  *
  * Sized in `em` so it tracks the heading it sits next to: `--fs-24` is a
  * `clamp()`, so a pixel size would be right at exactly one window width.

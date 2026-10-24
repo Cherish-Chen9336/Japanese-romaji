@@ -16,8 +16,15 @@ import type { TextItem } from "../engine/types";
  */
 export function Furigana(props: { items: readonly TextItem[] }) {
   const words = () => compilePrompt([...props.items]).words;
+  /*
+   * `lang="ja"` because the document is `lang="en"`. It picks the right font
+   * fallback and the right line-breaking rules, and it matters more here than
+   * on a decorative string: these rows are `<button>`s whose accessible name
+   * IS this Japanese, so without it a screen reader announces the name in the
+   * wrong language.
+   */
   return (
-    <span class="furigana">
+    <span class="furigana" lang="ja">
       <For each={words()}>
         {(word) => (
           <span class="furigana__word">
