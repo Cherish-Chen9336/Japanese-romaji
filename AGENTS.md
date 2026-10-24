@@ -1574,9 +1574,14 @@ The first attempt dropped the passage rules entirely and separated the entries
 by 24px of space. **Do not do that again.** Beside two ruled columns the missing
 rule read as something failing to render rather than as a decision, and it was
 the first thing asked about. The rule is back; the difference is carried by the
-row instead — `--space-4` block padding against the sentences' `--space-3`, a
-`--fw-semibold` title, and the chevron on the title line rather than out at the
-row's edge.
+row instead — `--space-4` block padding against the sentences' `--space-3` and a
+`--fw-semibold` title.
+
+**The chevron sits at the row's right edge in all three columns**, vertically
+centred. It briefly followed the passage title instead, because in a column with
+no rules it had nothing to sit against and floated half a column from the words
+it opens. With the rule back it has something, and three columns putting the
+same mark in three places is worse than any one of the placements.
 
 **The scroll box lost its border.** It was defended here as the one functional
 edge on the page — it marks where scrolling starts and stops — and that was

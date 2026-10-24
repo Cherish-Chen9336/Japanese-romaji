@@ -1868,14 +1868,7 @@ function App() {
                           onClick={() => practiseText(text)}
                         >
                           <span class="text-row__body">
-                            {/* The chevron follows the title rather than
-                                sitting at the row's far edge. These rows have
-                                no rule to carry it, so out there it floated
-                                hundreds of pixels from the thing it opens. */}
-                            <span class="text-row__head">
-                              <b class="text-row__title">{text.title}</b>
-                              <span class="text-row__go" aria-hidden="true" />
-                            </span>
+                            <b class="text-row__title">{text.title}</b>
                             {/* The opening line only. Enough to recognise it
                                 by; the rest is on the practice screen, which
                                 is where it is meant to be read. */}
@@ -1884,6 +1877,7 @@ function App() {
                               {text.items.length} sentences
                             </span>
                           </span>
+                          <span class="text-row__go" aria-hidden="true" />
                         </button>
                       )}
                     </For>

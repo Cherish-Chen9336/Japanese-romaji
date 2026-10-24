@@ -860,8 +860,13 @@ input[type='range'] {
  * collections would not read as one grid of identical objects. Seen next to
  * the other two columns the missing rule read as something failing to render
  * rather than as a decision, so the rule is back and the difference is carried
- * by the row instead: more padding, a semibold title, and the chevron on the
- * title line rather than out at the row's edge.
+ * by the row instead: more padding and a semibold title.
+ *
+ * The chevron sits at the row's right edge, vertically centred, as it does in
+ * the other two columns. It briefly followed the title — in a column with
+ * no rules it had nothing to sit against and floated — but with the rule
+ * back it has one, and three columns placing the same mark in three different
+ * spots is worse than any one of the placements.
  */
 .text-list--open .text-row {
   padding-block: var(--space-4);
@@ -869,14 +874,6 @@ input[type='range'] {
 
 .text-list--open .text-row__title {
   font-weight: var(--fw-semibold);
-}
-
-/* Title and chevron on one line, sized to the title. A chevron pinned to the
-   right of a 648px column sat half a column away from the words it opens. */
-.text-row__head {
-  align-items: center;
-  display: flex;
-  gap: var(--space-3);
 }
 
 /*
