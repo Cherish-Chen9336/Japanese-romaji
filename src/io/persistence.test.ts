@@ -400,6 +400,21 @@ describe('corrupt stored data cannot crash the app', () => {
     expect(readLibrary()).toEqual([])
   })
 
+  it('drops a library entry that is only whitespace', () => {
+    localStorage.setItem(LIBRARY_KEY, JSON.stringify([{ kana: ' ', romaji: ' ' }]))
+    expect(readLibrary()).toEqual([])
+  })
+
+  it('drops a library entry whose romaji holds a control character', () => {
+    localStorage.setItem(LIBRARY_KEY, JSON.stringify([{ kana: 'ねこ', romaji: 'ne\tko' }]))
+    expect(readLibrary()).toEqual([])
+  })
+
+  it('treats a blank reading as no reading at all', () => {
+    localStorage.setItem(LIBRARY_KEY, JSON.stringify([{ kana: 'ねこ', romaji: 'neko', reading: '' }]))
+    expect(readLibrary()).toEqual([{ kana: 'ねこ', romaji: 'neko' }])
+  })
+
   it('drops an absurdly long library entry', () => {
     localStorage.setItem(
       LIBRARY_KEY,

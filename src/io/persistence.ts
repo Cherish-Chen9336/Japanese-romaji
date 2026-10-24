@@ -218,6 +218,9 @@ const MAX_ITEM_CHARS = MAX_LIBRARY_ITEM_CHARS
  * was on the object, so a stored `reading: 7` reached `reading.split(' ')` and
  * threw before the first lesson could render.
  */
+/** C0 and C1 controls, and the line separators. */
+const CONTROL_CHARS = /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/
+
 export function parseLibrary(raw: unknown): TextItem[] {
   if (!Array.isArray(raw)) return []
 
@@ -226,7 +229,12 @@ export function parseLibrary(raw: unknown): TextItem[] {
     if (!isRecord(entry)) continue
     const r = entry as Record<string, unknown>
     if (!isStr(r.kana) || !isStr(r.romaji)) continue
-    if (r.kana.length === 0 || r.romaji.length === 0) continue
+    // `.trim()`, not `.length`: ' ' is one character, so a whitespace-only entry
+    // cleared the non-empty check, and ' '.split(' ') is two "words" on both
+    // sides so it cleared the word-break check too. It reached the library page
+    // as a 60px row with nothing in it — a button with no accessible name,
+    // which is worse than the blank it looks like.
+    if (r.kana.trim().length === 0 || r.romaji.trim().length === 0) continue
     if (r.kana.length > MAX_ITEM_CHARS || r.romaji.length > MAX_ITEM_CHARS) continue
     // Same rules the upload parser applies, since stored data can predate them
     // or be hand-edited: word breaks must agree, and every romaji character must
@@ -234,11 +242,20 @@ export function parseLibrary(raw: unknown): TextItem[] {
     // `applyTypeChar` can never accept, stranding the lesson).
     if (r.kana.split(' ').length !== r.romaji.split(' ').length) continue
     if (r.romaji.length !== [...r.romaji].length) continue
+    // A control character in the target is not a character you can type toward
+    // it. `ne\tko` cleared every check above, and Tab in the practice screen
+    // restarts the run rather than matching anything.
+    if (CONTROL_CHARS.test(r.romaji)) continue
     if (isStr(r.reading) && r.reading.split(' ').length !== r.kana.split(' ').length) continue
     items.push({
       kana: r.kana,
       romaji: r.romaji,
-      ...(isStr(r.reading) && r.reading.length <= MAX_ITEM_CHARS ? { reading: r.reading } : {}),
+      // A blank `reading` is absent, not a reading. Kept as an empty string it
+      // beat `reading ?? kana` in `compileStrict`, which then tokenised '' and
+      // produced an item with no moras in it at all.
+      ...(isStr(r.reading) && r.reading.trim().length > 0 && r.reading.length <= MAX_ITEM_CHARS
+        ? { reading: r.reading }
+        : {}),
     })
   }
   return items

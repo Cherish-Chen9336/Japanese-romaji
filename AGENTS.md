@@ -1657,6 +1657,59 @@ of one measurement: the readings are authored, they disambiguate kanji, and
 losing them costs more than a repeated syllable. Test with a real screen reader
 before changing it.
 
+**Edge cases closed on 2026-10-24**, after a Playwright sweep and a second
+Codex pass. Each of these was reachable, not theoretical.
+
+- **`.review` had no cap.** The page gave up its 760px measure when it took the
+  window, and `.review` is a *sibling* of `.library__compose`, not a child — so
+  capping the paste box fixed one screen and left the next at **1328px**, with
+  the explanation and every reading row stretched across the monitor. Scoped
+  `.library .review`, since the class itself is not the library's.
+- **`clamp(320px, 52vh, 620px)` was wrong below a 615px-tall window**, where the
+  floor exceeded 52vh: at 1440×380 the sentence list was 320px of a 380px
+  viewport, **84% of the screen**. The floor is 180px and it holds 52% at every
+  height from 346px up. It is **not** "three rows" — 32px of it is the fade
+  padding, leaving about 148px, and row height is not a constant once text wraps
+  or the reader enlarges it. A floor counted in rows is not available here.
+- **Three inputs cleared `parseLibrary` and rendered badly.** A whitespace-only
+  entry (`' '.length` is 1, and `' '.split(' ')` is two "words" on both sides)
+  became a 60px button with no accessible name; `ne\tko` passed every check
+  while Tab restarts a run rather than typing anything; and a `reading: ''` was
+  kept as a meaningful reading, beating `reading ?? kana` so `compileStrict`
+  tokenised nothing. All three are rejected at the data boundary, not at render
+  — a render guard would hide the row and leave the entry in the practice pool.
+- **Forced colours left hover with no indication.** The mode replaces background
+  colours and keeps their alpha, so the 4% tint resolved to
+  `rgba(255, 255, 255, 0.04)` — measured — and the chevron's accent went the
+  same way. Hovered rows get `outline: 2px solid Highlight`, the system's own
+  colour for this, excluded on `:focus-visible` so it does not fight the focus
+  ring.
+- **Crossing the page by keyboard was up to 235 tab stops** — 35 sentences plus
+  200 saved. Two `.skip-list` buttons, hidden until focused, move focus to the
+  texts heading and to the add control. The rows keep their ordinary tab stops;
+  roving focus was considered and rejected, because a list of buttons behaving
+  like a list of buttons is not the problem. **They are `<button>`s, not
+  `href="#texts"` anchors** — this app routes on the hash and an in-page anchor
+  would change the route. The destinations carry `tabindex="-1"` and a visible
+  `:focus-visible` ring, because focus moving somewhere invisible is worse than
+  not moving.
+
+**Swept and left alone**, with the measurement rather than the assumption:
+breakpoint boundaries 899/900/1199/1200 and widths to 3440 (no overflow, columns
+settle at 421px); duplicate saved entries (no duplicate DOM ids);
+`prefers-reduced-motion` and `prefers-contrast: more` both firing; the review
+screen still cleared on leaving the route; and the browser's own base font at
+150% and 200%.
+
+**That last one needs a note, because the obvious test is wrong.** Injecting
+`html { font-size: 32px }` does nothing: `:root { font-size: var(--fs-14) }` in
+index.css is one class-equivalent higher and wins, so the page looks reassuringly
+stable while nothing has changed. Emulate the browser setting instead — CDP
+`Page.setFontSizes` — which is what `rem` resolves against. Done properly the
+root goes 15px → 22.5px → 30px and there is no horizontal overflow at 1440, 390
+or 320. The layout widths are px, so columns do not grow with the reader's font;
+content wraps instead, which is the right failure.
+
 **Accent on a control is not accent on data.** Teal means "known" on the chart
 and in the stats, and that rule holds for anything reporting a measurement. A
 chevron that turns teal while the row is under the cursor is reporting the

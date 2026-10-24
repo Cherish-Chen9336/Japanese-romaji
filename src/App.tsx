@@ -800,6 +800,18 @@ function App() {
    */
   let addButton: HTMLButtonElement | undefined;
 
+  /*
+   * Where the two skip controls land. The sentences list is 35 rows and your
+   * own can hold 200, so crossing this page on a keyboard was up to 235 tab
+   * stops. The rows keep their ordinary tab stops — they are a list of
+   * buttons and that is what a list of buttons does — and these are the
+   * way past, revealed on focus and silent otherwise.
+   *
+   * Buttons, not `href="#texts"` links: this app routes on the hash, so an
+   * in-page anchor would change the route out from under the reader.
+   */
+  let textsHeading: HTMLHeadingElement | undefined;
+
   const openCompose = () => setAddingText(true);
 
   const closeCompose = () => {
@@ -1854,6 +1866,13 @@ function App() {
                   <h2>
                     sentences <span class="count">{singles().length}</span>
                   </h2>
+                  <button
+                    type="button"
+                    class="skip-list"
+                    onClick={() => textsHeading?.focus()}
+                  >
+                    skip the sentences
+                  </button>
                   {/* Scrolls rather than running down the page. The list is
                       long by design and getting longer. */}
                   <div class="text-list text-list--scroll">
@@ -1873,7 +1892,7 @@ function App() {
                 </section>
 
                 <section class="library-col">
-                  <h2>
+                  <h2 ref={(element) => (textsHeading = element)} tabindex="-1">
                     texts <span class="count">{passages().length}</span>
                   </h2>
                   <div class="text-list text-list--passages">
@@ -1933,6 +1952,15 @@ function App() {
                   <h2>
                     your texts <span class="count">{library().length}</span>
                   </h2>
+                  <Show when={library().length > 0}>
+                    <button
+                      type="button"
+                      class="skip-list"
+                      onClick={() => addButton?.focus()}
+                    >
+                      skip your saved texts
+                    </button>
+                  </Show>
                   {/* Bounded like the sentences, for the same reason: this one
                       holds up to `LIBRARY_LIMIT` entries, and unbounded it was
                       the one column that could push the page down again. Short

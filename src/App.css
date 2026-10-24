@@ -727,10 +727,23 @@ input[type='range'] {
  * the only question on the screen. The romaji below the row is the answer the
  * app derives, shown rather than asked for — nobody types romaji here.
  */
+/*
+ * Held to the reading measure, like the paste box before it. The library page
+ * gave up its own 760px cap when it took the window, and `.review` is a sibling
+ * of `.library__compose` rather than a child of it — so capping the paste
+ * box fixed one screen and left the next one at 1328px, with a paragraph of
+ * explanation and every reading row stretched the width of the monitor. This is
+ * a form, and a form does not want the window just because the index behind it
+ * does.
+ */
 .review {
   display: flex;
   flex-direction: column;
   gap: var(--space-6);
+}
+
+.library .review {
+  max-width: 760px;
 }
 
 .review-line {
@@ -909,7 +922,18 @@ input[type='range'] {
  * thing to try, not the full box.
  */
 .text-list--scroll {
-  max-block-size: clamp(320px, 52vh, 620px);
+  /*
+   * 180px, not 320px. The old floor was above 52vh on any window shorter than
+   * about 615px, so at 1440x380 the list was 320px of a 380px viewport —
+   * 84% of the screen handed to one scroller. 180px holds 52% at every height
+   * from 346px up and changes nothing at 700px and above.
+   *
+   * It is not three rows. 32px of that is the fade padding, leaving about 148px
+   * — two ordinary rows and part of a third, and fewer again once the text
+   * wraps or the reader has enlarged it. A floor counted in rows was the other
+   * option and it is not available: row height is not a constant here.
+   */
+  max-block-size: clamp(180px, 52vh, 620px);
   overflow-y: auto;
   /*
    * The row at the cut used to be sliced through the middle of its glyphs,
@@ -1039,6 +1063,22 @@ input[type='range'] {
 .text-row:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: -2px;
+}
+
+/*
+ * Forced colours replaces background colours while keeping their alpha, so the
+ * 4% tint above resolves to a 4% system colour — measured as
+ * `rgba(255, 255, 255, 0.04)`, which is nothing. The chevron's accent is
+ * replaced for the same reason, so in that mode a row under the cursor had no
+ * indication at all. `Highlight` is the system's own colour for this, which is
+ * the point of the mode. Excluded on a focused row so it does not fight the
+ * focus ring, which is the louder of the two states.
+ */
+@media (forced-colors: active) {
+  .text-row:hover:not(:focus-visible) {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
 }
 
 /*
@@ -1849,6 +1889,52 @@ meter::-webkit-meter-optimum-value {
 }
 
 
+
+/*
+ * A way past a long list, for the keyboard only. Hidden the way `.sr-only`
+ * hides things until it takes focus, then it occupies real space and says what
+ * it does — a control that moves focus and cannot be seen is worse than no
+ * control, because the reader cannot tell where they have landed.
+ *
+ * `position: static` on focus rather than a fixed overlay: these sit inside a
+ * column, above the list they skip, and that is where the reader expects the
+ * thing they just tabbed to.
+ */
+.skip-list {
+  background: none;
+  border: none;
+  color: var(--color-accent);
+  cursor: pointer;
+  font-size: var(--fs-13);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  text-align: start;
+  width: 1px;
+  clip: rect(0, 0, 0, 0);
+}
+
+.skip-list:focus-visible {
+  border-radius: 6px;
+  clip: auto;
+  height: auto;
+  margin: 0;
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  overflow: visible;
+  padding: var(--space-2) var(--space-3);
+  position: static;
+  width: auto;
+}
+
+/* The skip destinations take focus programmatically and must show it. Without
+   this the reader presses "skip the sentences" and nothing visibly happens. */
+.library h2:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 4px;
+}
 
 .sr-only {
   height: 1px;
