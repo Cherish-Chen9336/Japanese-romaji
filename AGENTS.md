@@ -1536,11 +1536,26 @@ a rectangle in the center" — was exactly right. The cap is now the shell's.
 and your own texts stay at the 760px reading measure inside it: lists want the
 window, paragraphs do not.
 
-**Three collections, three columns, one row**: bundled texts, bundled sentences,
-and your own. Your own used to be a 760px strip under the other two with the add
-button below it; as a column it stops being an afterthought, and the add button
-rides in its heading rather than at the foot of the page, where it read as the
-page's action rather than this collection's.
+**Three collections, three columns, one row**: bundled sentences, bundled texts,
+and your own, in that order. Sentences lead because they are where a learner
+starts and they are the longest list; your own used to be a 760px strip under
+the other two and is now a column like the rest.
+
+**The way to add a text closes its own column**, as the last row of the list it
+extends rather than a pill beside the heading or a button at the foot of the
+page. It is `.library-add`: full column width, dashed, `--color-dim`. The dashes
+read as an outline waiting to be filled, and the quiet keeps it from looking
+like the page's primary action, which an accent pill in a column of plain rows
+does whatever its size. The paste form it opens is wrapped in
+`.library__compose` at 760px — the page gave up its cap when it took the window,
+and a 1300px paste box is not a paste box.
+
+**The heading carries Lucide's `library` mark** (ISC, four book spines), taken
+from the icon source rather than redrawn, at the same stroke weight as the
+keyboard in `Topbar`. One outline family across the app, or the two marks read
+as two different pieces of software. It is sized in `em` because `--fs-24` is a
+`clamp()` — a pixel size would be right at exactly one window width — and
+aligned on the baseline, because centred it drifts upward as the heading grows.
 
 The breakpoints are set by the content, not by taste. The widest thing in any of
 these lists is **294px** of Japanese (切符 を 買って から 電車 に 乗ります), and
@@ -1550,20 +1565,28 @@ sentences. Two columns clear that from 900px (418px each) and three from 1200px
 nothing wraps to a second line above 320px, where the single column is 288px and
 a few sentences do.
 
-**The two bundled collections are deliberately drawn differently**, because they
-are shaped differently — a passage has a title, an opening line and a count; a
-sentence has one line. Both as identical ruled rows is what made the page read
-as a grid of forty-two identical objects. Passages now sit in `text-list--open`:
-no rules, `--space-6` between entries, titles at `--fw-semibold`. Sentences keep
-the compact ruled rows.
+**The two bundled collections are drawn differently**, because they are shaped
+differently — a passage has a title, an opening line and a count; a sentence has
+one line. Both as identical ruled rows is what made the page read as a grid of
+forty-two identical objects.
+
+The first attempt dropped the passage rules entirely and separated the entries
+by 24px of space. **Do not do that again.** Beside two ruled columns the missing
+rule read as something failing to render rather than as a decision, and it was
+the first thing asked about. The rule is back; the difference is carried by the
+row instead — `--space-4` block padding against the sentences' `--space-3`, a
+`--fw-semibold` title, and the chevron on the title line rather than out at the
+row's edge.
 
 **The scroll box lost its border.** It was defended here as the one functional
 edge on the page — it marks where scrolling starts and stops — and that was
 true, but four drawn edges beside an undrawn list made the column read as a
-widget bolted on next to the other one. Three things still say "this scrolls":
-the heading, the thumb, and the row clipped mid-glyph at the bottom, which is
-the plainest of the three. If it turns out not to read, try a top-and-bottom
-hairline, not the full box.
+widget bolted on next to the other one. What says "this scrolls" now is the
+thumb and a `mask-image` fading the last 32px. The row used to be sliced through
+the middle of its glyphs at the cut, which read as a rendering fault rather than
+as more below. The mask is on the scroller, so it stays at the bottom edge while
+the rows move under it; the cost is that the inset focus ring fades with the row
+it is on, and only on the row at the cut.
 
 **The whole row is a `<button>`.** Its children are phrasing content because a
 `<div>` inside a button is invalid, so `.text-row__body` is a `<span>` that
@@ -1571,13 +1594,16 @@ happens to lay out as a column. The row carries `padding: var(--space-3)` so the
 hover band has somewhere to sit, and `.text-list` is pulled out by the same
 amount so the text still starts on its heading's left edge.
 
-The hover fill is `color-mix(in srgb, var(--color-text) 6%, transparent)`.
+The hover fill is `color-mix(in srgb, var(--color-text) 4%, transparent)`.
 `--color-surface` was the first try and it is pure white in the light theme,
 which on this warm grey-green page read as a highlighter stripe rather than a
 row under the cursor. Mixing the **text** colour in darkens in the two light
 themes and lightens in the dark one — the right direction in all three from one
 declaration, where a palette fill needs a per-theme value. Not accent: colour
-means state here, and a row under the cursor has none.
+means state here, and a row under the cursor has none. **4%, not 6%**: a shade
+off the page, not a block laid over it. In the light theme that is #f5f7f3 to
+#ecefeb — enough to follow with the eye, little enough that the Japanese on the
+row does not change weight.
 
 **The chevron is drawn from two borders, not set as a character.** The word
 "practise" spelled out down both right edges was most of the grid feeling, and

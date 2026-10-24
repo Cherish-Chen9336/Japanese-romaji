@@ -612,6 +612,32 @@ rt {
   max-width: 760px;
 }
 
+/* The mark sits on the heading's baseline, not centred on its box — centred,
+   a 0.9em icon beside a clamped 24px heading drifts up as the window widens. */
+.library__title {
+  align-items: baseline;
+  display: flex;
+  gap: var(--space-3);
+}
+
+/* Dimmer than the words. It is a label for the page, not a second heading. */
+.library__mark {
+  color: var(--color-dim);
+  flex: none;
+  /* `baseline` on an inline SVG is its bottom edge, which hangs the spines
+     below the text they sit beside. */
+  transform: translateY(0.08em);
+}
+
+/* The page gave up its 760px cap when it took the window; a paste box 1300px
+   wide is not a paste box, and neither is a paragraph explaining one. */
+.library__compose {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  max-width: 760px;
+}
+
 .page h1,
 .page h2 {
   color: var(--color-text);
@@ -828,17 +854,17 @@ input[type='range'] {
 
 /*
  * The five titled passages, which are not shaped like the thirty-five
- * sentences: a title, an opening line and a count, against one line. Giving
- * both the same ruled row was what made the page read as a grid of identical
- * objects — so the passages are separated by space and the sentences stay
- * ruled and compact. Space is the hierarchy here, which is the house rule.
+ * sentences: a title, an opening line and a count, against one line.
+ *
+ * They were briefly unruled, separated by 24px of space alone, so the two
+ * collections would not read as one grid of identical objects. Seen next to
+ * the other two columns the missing rule read as something failing to render
+ * rather than as a decision, so the rule is back and the difference is carried
+ * by the row instead: more padding, a semibold title, and the chevron on the
+ * title line rather than out at the row's edge.
  */
-.text-list--open {
-  gap: var(--space-6);
-}
-
 .text-list--open .text-row {
-  border-bottom: none;
+  padding-block: var(--space-4);
 }
 
 .text-list--open .text-row__title {
@@ -871,6 +897,14 @@ input[type='range'] {
 .text-list--scroll {
   max-block-size: clamp(320px, 52vh, 620px);
   overflow-y: auto;
+  /* The row at the cut used to be sliced through the middle of its glyphs,
+     which read as a rendering fault rather than as "there is more below".
+     Fading the last 32px says the same thing and says it on purpose. The mask
+     is on the scroller, so it stays at the bottom edge while the rows move
+     under it. The inset focus ring fades with the row it is on, which is the
+     one place this costs anything — the row is still reachable and still
+     outlined everywhere above the cut. */
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 32px), transparent);
 }
 
 /*
@@ -953,9 +987,13 @@ input[type='range'] {
  * the dark one, which is the right direction in all three without a per-theme
  * value. Not accent: teal means "known" here, and a row under the cursor knows
  * nothing.
+ *
+ * 4%, not 6%: a shade off the page, not a block laid over it. In the light
+ * theme that moves the row from #f5f7f3 to #ecefeb — enough to follow with the
+ * eye, little enough that the Japanese on it does not change weight.
  */
 .text-row:hover {
-  background-color: color-mix(in srgb, var(--color-text) 6%, transparent);
+  background-color: color-mix(in srgb, var(--color-text) 4%, transparent);
 }
 
 .text-row:focus-visible {
@@ -999,16 +1037,48 @@ input[type='range'] {
 }
 
 /*
- * The add button sits with the heading it belongs to — on its own below the
- * list it read as the page's action rather than this collection's. It wraps
- * under the heading when the column has no room for both.
+ * The way to add a text closes the list it extends, as its last row rather
+ * than as a pill parked beside the heading. Full column width because that is
+ * what it is: the next entry, not yet written. The dashes say the same thing
+ * — an outline waiting to be filled — and keep it from reading as the
+ * page's primary action, which an accent-filled pill in a column of quiet rows
+ * unavoidably does.
  */
-.library-mine__head {
-  align-items: baseline;
+.library-add {
+  align-items: center;
+  background: none;
+  border: var(--bw-1) dashed var(--color-border);
+  border-radius: 8px;
+  color: var(--color-dim);
+  cursor: pointer;
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3) var(--space-4);
-  justify-content: space-between;
+  font-size: var(--fs-13);
+  gap: var(--space-2);
+  inline-size: 100%;
+  justify-content: center;
+  margin-block-start: var(--space-3);
+  padding: var(--space-4) var(--space-3);
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+.library-add:hover {
+  background-color: color-mix(in srgb, var(--color-text) 4%, transparent);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.library-add:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* Set a size up and solid, so the row has one thing in it that is not text. */
+.library-add__plus {
+  font-size: var(--fs-16);
+  line-height: 1;
 }
 
 .text-row__title {

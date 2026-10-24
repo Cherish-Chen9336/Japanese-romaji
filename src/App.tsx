@@ -69,6 +69,7 @@ import {
   weakestKana,
 } from "./engine/stats";
 import { KANA_GROUPS, STANDARD_TIMED_MS, THEME_NAMES } from "./engine/types";
+import { LibraryMark } from "./ui/LibraryMark";
 import { Furigana } from "./ui/Furigana";
 import type {
   KanaGroup,
@@ -1808,7 +1809,10 @@ function App() {
             {/* Held to the reading measure inside a wider page. The lists want
                 the window; a paragraph does not. */}
             <div class="library__intro">
-              <h1>library</h1>
+              <h1 class="library__title">
+                <LibraryMark />
+                library
+              </h1>
               <p class="muted">
                 Everything you can type, one text at a time. Picking one
                 practises that text and stops at the end of it, with no clock —
@@ -1829,6 +1833,28 @@ function App() {
                   else — including the way to add your own — below the fold.
                   Three collections, three columns, one row. */}
               <div class="library-columns">
+                <section class="library-col">
+                  <h2>
+                    sentences <span class="count">{singles().length}</span>
+                  </h2>
+                  {/* Scrolls rather than running down the page. The list is
+                      long by design and getting longer. */}
+                  <div class="text-list text-list--scroll">
+                    <For each={singles()}>
+                      {(text) => (
+                        <button
+                          type="button"
+                          class="text-row"
+                          onClick={() => practiseText(text)}
+                        >
+                          <Furigana items={text.items} />
+                          <span class="text-row__go" aria-hidden="true" />
+                        </button>
+                      )}
+                    </For>
+                  </div>
+                </section>
+
                 <section class="library-col">
                   <h2>
                     texts <span class="count">{passages().length}</span>
@@ -1864,14 +1890,22 @@ function App() {
                   </div>
                 </section>
 
-                <section class="library-col">
+                {/* Your own texts are the third column, not a strip under the
+                    other two, and the way to add one closes it: the button is
+                    the last thing in the list it extends. */}
+                <section class="library-col library-mine">
                   <h2>
-                    sentences <span class="count">{singles().length}</span>
+                    your texts <span class="count">{library().length}</span>
                   </h2>
-                  {/* Scrolls rather than running down the page. The list is
-                      long by design and getting longer. */}
-                  <div class="text-list text-list--scroll">
-                    <For each={singles()}>
+                  <div class="text-list">
+                    <For
+                      each={libraryTexts(library())}
+                      fallback={
+                        <p class="muted">
+                          Nothing yet. Add one below and it joins this list.
+                        </p>
+                      }
+                    >
                       {(text) => (
                         <button
                           type="button"
@@ -1884,49 +1918,18 @@ function App() {
                       )}
                     </For>
                   </div>
-                </section>
-
-                {/* Your own texts are the third column, not a strip under the
-                    other two. The add button stays in this heading: on its
-                    own below the page it read as the page's action rather
-                    than this collection's. */}
-                <section class="library-col library-mine">
-                <div class="library-mine__head">
-                  <h2>
-                    your texts <span class="count">{library().length}</span>
-                  </h2>
                   <Show when={!addingText()}>
                     <button
                       type="button"
-                      class="secondary"
+                      class="library-add"
                       onClick={() => setAddingText(true)}
                     >
+                      <span class="library-add__plus" aria-hidden="true">
+                        +
+                      </span>
                       add your own text
                     </button>
                   </Show>
-                </div>
-                <div class="text-list">
-                  <For
-                    each={libraryTexts(library())}
-                    fallback={
-                      <p class="muted">
-                        Nothing yet. Paste Japanese below and it joins this
-                        list.
-                      </p>
-                    }
-                  >
-                    {(text) => (
-                      <button
-                        type="button"
-                        class="text-row"
-                        onClick={() => practiseText(text)}
-                      >
-                        <Furigana items={text.items} />
-                        <span class="text-row__go" aria-hidden="true" />
-                      </button>
-                    )}
-                  </For>
-                </div>
                 </section>
               </div>
             </Show>
@@ -1935,6 +1938,9 @@ function App() {
               when={reviews()}
               fallback={
                 <Show when={addingText()}>
+                  {/* The page lost its 760px cap when it took the window, and
+                      a paste box 1300px wide is not a paste box. */}
+                  <div class="library__compose">
                   <p class="muted">
                     Paste Japanese — a line, a sentence or a paragraph. Kana
                     spells itself, in either script. Kanji cannot, so the next
@@ -1981,6 +1987,7 @@ function App() {
                     >
                       cancel
                     </button>
+                  </div>
                   </div>
                 </Show>
               }
