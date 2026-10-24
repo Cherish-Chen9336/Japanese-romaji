@@ -1518,6 +1518,65 @@ an already-known kana target rather than decoding romaji into kana, so it accept
 `n` before a vowel (んあ as `na`) where a real IME would require `nn`. Fine for
 transliteration practice; wrong if this ever becomes input-method training.
 
+### The library page
+
+It is an index, not a reading surface, so it takes the **wide shell**:
+`.app--library` borrows `--stats-max` the way the dashboard does. It does not
+reuse `app--wide`, whose top padding is the dashboard's and would change this
+page's vertical rhythm for nothing. `.app--library .topbar` zeroes `--bleed` for
+the same reason `app--wide` does — the bleed is computed against
+`--container-max`, so on any wider shell it is measuring a column that is not
+there.
+
+The first attempt capped `.library` at a flat 1000px, which stopped growing at
+1100px: from there up the page was a fixed slab with margins that grew to 300px
+a side at 1680, and the complaint it drew — "all the content is confined within
+a rectangle in the center" — was exactly right. The cap is now the shell's.
+**Columns went 484px to 648px at 1440 and above.** The heading, the explanation
+and your own texts stay at the 760px reading measure inside it: lists want the
+window, paragraphs do not.
+
+**The two collections are deliberately drawn differently**, because they are
+shaped differently — a passage has a title, an opening line and a count; a
+sentence has one line. Both as identical ruled rows is what made the page read
+as a grid of forty-two identical objects. Passages now sit in `text-list--open`:
+no rules, `--space-6` between entries, titles at `--fw-semibold`. Sentences keep
+the compact ruled rows.
+
+**The scroll box lost its border.** It was defended here as the one functional
+edge on the page — it marks where scrolling starts and stops — and that was
+true, but four drawn edges beside an undrawn list made the column read as a
+widget bolted on next to the other one. Three things still say "this scrolls":
+the heading, the thumb, and the row clipped mid-glyph at the bottom, which is
+the plainest of the three. If it turns out not to read, try a top-and-bottom
+hairline, not the full box.
+
+**The whole row is a `<button>`.** Its children are phrasing content because a
+`<div>` inside a button is invalid, so `.text-row__body` is a `<span>` that
+happens to lay out as a column. The row carries `padding: var(--space-3)` so the
+hover band has somewhere to sit, and `.text-list` is pulled out by the same
+amount so the text still starts on its heading's left edge. The hover fill is
+`--color-surface`, not accent: colour means state here, and a row under the
+cursor has no state.
+
+**The chevron is drawn from two borders, not set as a character.** The word
+"practise" spelled out down both right edges was most of the grid feeling, and
+the obvious replacement — a `›` glyph — is whatever size the fallback font
+decides, which on this stack is a hairline about 6px tall. A rotated corner is
+exactly the size it is told to be. In the ruled sentence list it sits at the
+row's right edge, where the rule carries it; in the open passage list it follows
+the **title**, because with no rule and a 648px column it floated half a column
+away from the thing it opens.
+
+The scrollbar is styled twice over and needs to be: `scrollbar-width` /
+`scrollbar-color` are what Firefox honours, `::-webkit-scrollbar` is what
+Chromium and Safari honour, and neither reads the other's. The thumb is inset
+with a transparent border plus `background-clip: content-box` — padding does
+nothing on a scrollbar part. **Headless Chromium draws overlay scrollbars and
+ignores `--disable-features=OverlayScrollbar`**, so none of this can be checked
+in a screenshot; verify the rules parsed via `document.styleSheets` and look at
+the real browser.
+
 ## Deliberately not built
 
 Decisions to *not* do something leave no commit and no code, so they live here or

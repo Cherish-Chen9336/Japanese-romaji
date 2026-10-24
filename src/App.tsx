@@ -1038,7 +1038,11 @@ function App() {
       {/* The statistics page is a dashboard and wants the window; every other
           page is reading content and is better off in a narrow column. */}
       <main
-        classList={{ app: true, "app--wide": route() === "stats" }}
+        classList={{
+          app: true,
+          "app--wide": route() === "stats",
+          "app--library": route() === "library",
+        }}
         onClick={refocus}
       >
         <Topbar
@@ -1801,13 +1805,17 @@ function App() {
 
         <Show when={route() === "library"}>
           <section class="page library">
-            <h1>library</h1>
-            <p class="muted">
-              Everything you can type, one text at a time. Picking one practises
-              that text and stops at the end of it, with no clock — the timer is
-              for dealing from a pool, which is what the source buttons on the
-              practice page do.
-            </p>
+            {/* Held to the reading measure inside a wider page. The lists want
+                the window; a paragraph does not. */}
+            <div class="library__intro">
+              <h1>library</h1>
+              <p class="muted">
+                Everything you can type, one text at a time. Picking one
+                practises that text and stops at the end of it, with no clock —
+                the timer is for dealing from a pool, which is what the source
+                buttons on the practice page do.
+              </p>
+            </div>
             <Show when={libraryMessage()}>
               {(message) => (
                 <p class="notice" role="status" aria-live="polite">
@@ -1824,29 +1832,33 @@ function App() {
                   <h2>
                     texts <span class="count">{passages().length}</span>
                   </h2>
-                  <div class="text-list">
-                <For each={passages()}>
-                  {(text) => (
-                    <div class="text-row">
-                      <div class="text-row__body">
-                        <b class="text-row__title">{text.title}</b>
-                        {/* The opening line only. Enough to recognise it by;
-                            the rest is on the practice screen, which is where
-                            it is meant to be read. */}
-                        <Furigana items={text.items.slice(0, 1)} />
-                        <span class="muted text-row__meta">
-                          {text.items.length} sentences
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        class="text-row__go"
-                        onClick={() => practiseText(text)}
-                      >
-                        practise
-                      </button>
-                    </div>
-                  )}
+                  <div class="text-list text-list--open">
+                    <For each={passages()}>
+                      {(text) => (
+                        <button
+                          type="button"
+                          class="text-row"
+                          onClick={() => practiseText(text)}
+                        >
+                          <span class="text-row__body">
+                            {/* The chevron follows the title rather than
+                                sitting at the row's far edge. These rows have
+                                no rule to carry it, so out there it floated
+                                hundreds of pixels from the thing it opens. */}
+                            <span class="text-row__head">
+                              <b class="text-row__title">{text.title}</b>
+                              <span class="text-row__go" aria-hidden="true" />
+                            </span>
+                            {/* The opening line only. Enough to recognise it
+                                by; the rest is on the practice screen, which
+                                is where it is meant to be read. */}
+                            <Furigana items={text.items.slice(0, 1)} />
+                            <span class="muted text-row__meta">
+                              {text.items.length} sentences
+                            </span>
+                          </span>
+                        </button>
+                      )}
                     </For>
                   </div>
                 </section>
@@ -1859,61 +1871,64 @@ function App() {
                       long by design and getting longer. */}
                   <div class="text-list text-list--scroll">
                     <For each={singles()}>
-                  {(text) => (
-                    <div class="text-row">
-                      <Furigana items={text.items} />
-                      <button
-                        type="button"
-                        class="text-row__go"
-                        onClick={() => practiseText(text)}
-                      >
-                        practise
-                      </button>
-                    </div>
-                  )}
+                      {(text) => (
+                        <button
+                          type="button"
+                          class="text-row"
+                          onClick={() => practiseText(text)}
+                        >
+                          <Furigana items={text.items} />
+                          <span class="text-row__go" aria-hidden="true" />
+                        </button>
+                      )}
                     </For>
                   </div>
                 </section>
               </div>
 
-              <h2>
-                your texts <span class="count">{library().length}</span>
-              </h2>
-              <div class="text-list">
-                <For
-                  each={libraryTexts(library())}
-                  fallback={
-                    <p class="muted">
-                      Nothing yet. Paste Japanese below and it joins this list.
-                    </p>
-                  }
-                >
-                  {(text) => (
-                    <div class="text-row">
-                      <Furigana items={text.items} />
+              {/* Your own texts and the way to add one are one section, held
+                  to the reading measure. Apart, the add button read as the
+                  page's action rather than this collection's, and the rules
+                  under two saved lines ran the full width of the browsing
+                  area above. */}
+              <section class="library-mine">
+                <div class="library-mine__head">
+                  <h2>
+                    your texts <span class="count">{library().length}</span>
+                  </h2>
+                  <Show when={!addingText()}>
+                    <button
+                      type="button"
+                      class="secondary"
+                      onClick={() => setAddingText(true)}
+                    >
+                      add your own text
+                    </button>
+                  </Show>
+                </div>
+                <div class="text-list">
+                  <For
+                    each={libraryTexts(library())}
+                    fallback={
+                      <p class="muted">
+                        Nothing yet. Paste Japanese below and it joins this
+                        list.
+                      </p>
+                    }
+                  >
+                    {(text) => (
                       <button
                         type="button"
-                        class="text-row__go"
+                        class="text-row"
                         onClick={() => practiseText(text)}
                       >
-                        practise
+                        <Furigana items={text.items} />
+                        <span class="text-row__go" aria-hidden="true" />
                       </button>
-                    </div>
-                  )}
-                </For>
-              </div>
-            </Show>
-
-            <Show when={reviews() === null && !addingText()}>
-              <div class="action-row">
-                <button
-                  type="button"
-                  class="secondary"
-                  onClick={() => setAddingText(true)}
-                >
-                  add your own text
-                </button>
-              </div>
+                    )}
+                  </For>
+                </div>
+              </section>
             </Show>
 
             <Show

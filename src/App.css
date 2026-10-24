@@ -28,6 +28,18 @@
 }
 
 /*
+ * The library takes the window too, for a different reason than the dashboard:
+ * it is two lists side by side, and at the 1080px shell each column was a fixed
+ * 484px from 1100px up — the sentences in them wrapped while 300px of nothing
+ * sat outside the page on each side at 1680. It borrows `--stats-max` without
+ * borrowing `app--wide`, whose top padding belongs to the dashboard and would
+ * change this page's vertical rhythm for no reason.
+ */
+.app--library {
+  max-width: var(--stats-max);
+}
+
+/*
  * The bar reaches past the content column toward the window edges.
  *
  * Constrained to `--container-max` like everything else, the brand and the
@@ -52,8 +64,11 @@
 }
 
 /* The wide shell is already the full window, so there is nothing left to bleed
-   into — the negative margin would simply push the bar off the page. */
-.app--wide .topbar {
+   into — the negative margin would simply push the bar off the page. The bleed
+   is computed against `--container-max`, so on any shell wider than that it is
+   measuring against a column this page does not have. */
+.app--wide .topbar,
+.app--library .topbar {
   --bleed: 0px;
 }
 
@@ -579,11 +594,22 @@ rt {
 /*
  * Wider than the 760px reading column, because this page is an index rather
  * than something to read: two lists side by side in 760px leave 364px each,
- * which is narrower than most of the sentences in them. Opted into by this one
- * route, the same way the stats page takes `--stats-max`.
+ * which is narrower than most of the sentences in them. The cap is the shell's
+ * (`.app--library`), not a number of its own — a fixed 1000px stopped growing
+ * at 1100px and the page became a slab with margins.
  */
 .library {
-  max-width: 1000px;
+  max-width: none;
+}
+
+/* The lists want the window; a heading and a paragraph do not. Left-aligned
+   with the collections rather than centred over them, so the page keeps one
+   left edge instead of growing a second. */
+.library__intro {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  max-width: 760px;
 }
 
 .page h1,
@@ -775,10 +801,43 @@ input[type='range'] {
  * A list of things to choose, ruled rather than boxed. Thirty-five cards would
  * be thirty-five borders competing with the Japanese, which is the only thing
  * on the row worth looking at.
+ *
+ * Pulled out by the row padding so the text still starts on the heading's left
+ * edge while the hover band reaches past it on both sides. A band that stopped
+ * exactly where the text does would read as a highlighted word rather than a
+ * row you can press.
  */
 .text-list {
   display: flex;
   flex-direction: column;
+  margin-inline: calc(-1 * var(--space-3));
+}
+
+/*
+ * The five titled passages, which are not shaped like the thirty-five
+ * sentences: a title, an opening line and a count, against one line. Giving
+ * both the same ruled row was what made the page read as a grid of identical
+ * objects — so the passages are separated by space and the sentences stay
+ * ruled and compact. Space is the hierarchy here, which is the house rule.
+ */
+.text-list--open {
+  gap: var(--space-6);
+}
+
+.text-list--open .text-row {
+  border-bottom: none;
+}
+
+.text-list--open .text-row__title {
+  font-weight: var(--fw-semibold);
+}
+
+/* Title and chevron on one line, sized to the title. A chevron pinned to the
+   right of a 648px column sat half a column away from the words it opens. */
+.text-row__head {
+  align-items: center;
+  display: flex;
+  gap: var(--space-3);
 }
 
 /*
@@ -786,17 +845,62 @@ input[type='range'] {
  * viewport so a short window does not hand the box more than the screen has,
  * and capped so a tall one does not stretch it to a column of its own.
  */
+/*
+ * The border is gone. It was defended as a functional edge — it marks
+ * where scrolling starts and stops — and that was true, but four drawn
+ * edges next to an undrawn list made this column read as a widget bolted
+ * beside the other one, which was most of what made the page feel rigid. Three
+ * things still say "this scrolls": the heading, the thumb on the right, and
+ * the row clipped mid-glyph at the bottom edge, which is the plainest signal
+ * of the three. If it turns out not to read, a top-and-bottom hairline is the
+ * next thing to try, not the full box.
+ */
 .text-list--scroll {
-  /* Drawn as a box, which is the one place on this page that earns a border:
-     it marks where the scrolling region starts and stops. The rule elsewhere
-     still holds — hierarchy comes from type and space, and this is not
-     hierarchy. */
-  border: var(--bw-1) solid var(--color-border);
-  border-radius: 8px;
   max-block-size: clamp(320px, 52vh, 620px);
   overflow-y: auto;
-  padding: 0 var(--space-3);
+}
+
+/*
+ * The platform scrollbar is a chunky grey track with stepper arrows on Linux
+ * Chromium, and it read as a widget bolted to the side of the page. Drawn here
+ * as a thumb alone: no track, no buttons, and held in the border colour so it
+ * is the same weight as the rules it sits beside.
+ *
+ * `scrollbar-width`/`scrollbar-color` are the standard properties and are what
+ * Firefox honours; the `::-webkit-scrollbar` block below is what Chromium and
+ * Safari honour. Both are needed — neither browser reads the other's.
+ */
+.text-list--scroll {
+  scrollbar-color: var(--color-border) transparent;
   scrollbar-width: thin;
+}
+
+.text-list--scroll::-webkit-scrollbar {
+  inline-size: 10px;
+}
+
+.text-list--scroll::-webkit-scrollbar-track,
+.text-list--scroll::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* The transparent border plus `background-clip: content-box` is what insets
+   the thumb from the box edge — padding does nothing on a scrollbar part. */
+.text-list--scroll::-webkit-scrollbar-thumb {
+  background-clip: content-box;
+  background-color: var(--color-border);
+  border: 3px solid transparent;
+  border-radius: 999px;
+}
+
+.text-list--scroll:hover::-webkit-scrollbar-thumb {
+  background-color: var(--color-dim);
+}
+
+/* The stepper arrows. Nobody has clicked one on purpose this century, and they
+   are the loudest part of the default bar. */
+.text-list--scroll::-webkit-scrollbar-button {
+  display: none;
 }
 
 /* The last rule inside the box would otherwise draw a second line just above
@@ -805,38 +909,67 @@ input[type='range'] {
   border-bottom: none;
 }
 
+/*
+ * The whole row is the button. A small target on the right of a wide row asks
+ * the hand to travel to a word, when the row itself is the thing being chosen
+ * — and a `<button>` rather than a click handler on a `<div>` keeps the
+ * keyboard and the focus ring for free. Its children are phrasing content for
+ * the same reason: a `<div>` inside a button is invalid, so the body is a
+ * `<span>` that happens to lay out as a column.
+ */
 .text-row {
-  align-items: baseline;
+  align-items: center;
+  background: none;
+  border: none;
   border-bottom: var(--bw-1) solid var(--color-border);
+  cursor: pointer;
   display: flex;
   gap: var(--space-4);
+  inline-size: 100%;
   justify-content: space-between;
-  padding: var(--space-3) 0;
+  padding: var(--space-3);
+  text-align: start;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+/* Surface, not accent. Teal means "known" on this app's other pages, and a row
+   under the cursor knows nothing — it is the neutral lift that says
+   pressable. */
+.text-row:hover {
+  background-color: var(--color-surface);
+}
+
+.text-row:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
 }
 
 /*
- * Always visible, never loud. Hiding it until hover was the first attempt and
- * it was wrong: a list whose only point is that you can choose from it looked
- * exactly like a list you cannot. Thirty-five filled buttons is the other
- * mistake, so it sits as quiet text until the row is under the cursor.
+ * Drawn from two borders rather than set as a character. "practise" spelled out
+ * forty-two times down the right edge was most of what made the page read as a
+ * grid, and the obvious replacement — a › glyph — is whatever
+ * size and weight the fallback font decides, which on this stack is a hairline
+ * barely 6px tall. A rotated corner is exactly the size it is told to be.
  */
 .text-row__go {
-  background: none;
-  border: none;
-  color: var(--color-muted);
+  block-size: 7px;
+  border-block-start: 1.5px solid currentColor;
+  border-inline-end: 1.5px solid currentColor;
+  color: var(--color-dim);
   flex: none;
-  padding: 0;
+  inline-size: 7px;
+  margin-inline-end: 2px;
+  rotate: 45deg;
   transition:
-    color 120ms ease,
-    text-decoration-color 120ms ease;
-  text-decoration: underline;
-  text-decoration-color: transparent;
+    color var(--dur-fast) var(--ease-out),
+    translate var(--dur-fast) var(--ease-out);
 }
 
+/* It moves the way the row is about to: a step toward the text it opens. */
 .text-row:hover .text-row__go,
-.text-row__go:focus-visible {
+.text-row:focus-visible .text-row__go {
   color: var(--color-accent);
-  text-decoration-color: currentColor;
+  translate: 2px 0;
 }
 
 .text-row__body {
@@ -844,6 +977,31 @@ input[type='range'] {
   flex-direction: column;
   gap: var(--space-1);
   min-inline-size: 0;
+}
+
+/*
+ * Your own texts are a narrower section under a wide browsing area. Held to
+ * the reading measure so two saved lines do not draw rules across the full
+ * window, and set apart from the collections above by more than the page's
+ * standard gap, because this is a different kind of thing rather than a third
+ * collection.
+ */
+.library-mine {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-block-start: var(--space-3);
+  max-width: 760px;
+}
+
+/* The add button sits with the heading it belongs to. On its own below the
+   list it read as the page's action rather than this collection's. */
+.library-mine__head {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  justify-content: space-between;
 }
 
 .text-row__title {
@@ -1586,13 +1744,13 @@ meter::-webkit-meter-optimum-value {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  /* The action goes under the Japanese rather than beside it: a sentence and a
-     button side by side on a phone leaves the sentence about forty characters
-     of room, which is not enough to read one. */
+  /* The action used to go under the Japanese here: a sentence and a button
+     reading "practise" side by side left the sentence about forty characters
+     of room on a phone, which is not enough to read one. The chevron that
+     replaced the button costs 7px, so the row stays on one line and the gap
+     shrinks instead. */
   .text-row {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: var(--space-1);
+    gap: var(--space-3);
   }
 }
 
