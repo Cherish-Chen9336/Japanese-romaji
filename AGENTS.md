@@ -1536,8 +1536,22 @@ a rectangle in the center" — was exactly right. The cap is now the shell's.
 and your own texts stay at the 760px reading measure inside it: lists want the
 window, paragraphs do not.
 
-**The two collections are deliberately drawn differently**, because they are
-shaped differently — a passage has a title, an opening line and a count; a
+**Three collections, three columns, one row**: bundled texts, bundled sentences,
+and your own. Your own used to be a 760px strip under the other two with the add
+button below it; as a column it stops being an afterthought, and the add button
+rides in its heading rather than at the foot of the page, where it read as the
+page's action rather than this collection's.
+
+The breakpoints are set by the content, not by taste. The widest thing in any of
+these lists is **294px** of Japanese (切符 を 買って から 電車 に 乗ります), and
+a row adds 24px of padding, so a column under about 320px starts wrapping
+sentences. Two columns clear that from 900px (418px each) and three from 1200px
+(368px each); below 900 they stack. Measured at every step from 320 to 1920:
+nothing wraps to a second line above 320px, where the single column is 288px and
+a few sentences do.
+
+**The two bundled collections are deliberately drawn differently**, because they
+are shaped differently — a passage has a title, an opening line and a count; a
 sentence has one line. Both as identical ruled rows is what made the page read
 as a grid of forty-two identical objects. Passages now sit in `text-list--open`:
 no rules, `--space-6` between entries, titles at `--fw-semibold`. Sentences keep
@@ -1555,9 +1569,15 @@ hairline, not the full box.
 `<div>` inside a button is invalid, so `.text-row__body` is a `<span>` that
 happens to lay out as a column. The row carries `padding: var(--space-3)` so the
 hover band has somewhere to sit, and `.text-list` is pulled out by the same
-amount so the text still starts on its heading's left edge. The hover fill is
-`--color-surface`, not accent: colour means state here, and a row under the
-cursor has no state.
+amount so the text still starts on its heading's left edge.
+
+The hover fill is `color-mix(in srgb, var(--color-text) 6%, transparent)`.
+`--color-surface` was the first try and it is pure white in the light theme,
+which on this warm grey-green page read as a highlighter stripe rather than a
+row under the cursor. Mixing the **text** colour in darkens in the two light
+themes and lightens in the dark one — the right direction in all three from one
+declaration, where a palette fill needs a per-theme value. Not accent: colour
+means state here, and a row under the cursor has none.
 
 **The chevron is drawn from two borders, not set as a character.** The word
 "practise" spelled out down both right edges was most of the grid feeling, and

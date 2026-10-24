@@ -778,9 +778,22 @@ input[type='range'] {
   grid-template-columns: minmax(0, 1fr);
 }
 
+/*
+ * Two columns, then three. The widest thing in any of these lists is 294px of
+ * Japanese — 切符 を 買って から 電車 に 乗ります — and a row adds 24px of padding
+ * to that, so a column under about 320px starts wrapping sentences. Two
+ * columns clear it from 900px (418px each) and three from 1200px (368px
+ * each); below 900 they stack.
+ */
 @media (min-width: 900px) {
   .library-columns {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1200px) {
+  .library-columns {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
@@ -932,11 +945,17 @@ input[type='range'] {
   transition: background-color var(--dur-fast) var(--ease-out);
 }
 
-/* Surface, not accent. Teal means "known" on this app's other pages, and a row
-   under the cursor knows nothing — it is the neutral lift that says
-   pressable. */
+/*
+ * A tint of the text colour, not a fill from the palette. `--color-surface` was
+ * the first try and it is pure white in the light theme, which on this warm
+ * grey-green page read as a highlighter stripe rather than a row under the
+ * cursor. Mixing the text colour in darkens in the light themes and lightens in
+ * the dark one, which is the right direction in all three without a per-theme
+ * value. Not accent: teal means "known" here, and a row under the cursor knows
+ * nothing.
+ */
 .text-row:hover {
-  background-color: var(--color-surface);
+  background-color: color-mix(in srgb, var(--color-text) 6%, transparent);
 }
 
 .text-row:focus-visible {
@@ -980,27 +999,15 @@ input[type='range'] {
 }
 
 /*
- * Your own texts are a narrower section under a wide browsing area. Held to
- * the reading measure so two saved lines do not draw rules across the full
- * window, and set apart from the collections above by more than the page's
- * standard gap, because this is a different kind of thing rather than a third
- * collection.
+ * The add button sits with the heading it belongs to — on its own below the
+ * list it read as the page's action rather than this collection's. It wraps
+ * under the heading when the column has no room for both.
  */
-.library-mine {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  margin-block-start: var(--space-3);
-  max-width: 760px;
-}
-
-/* The add button sits with the heading it belongs to. On its own below the
-   list it read as the page's action rather than this collection's. */
 .library-mine__head {
   align-items: baseline;
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-4);
+  gap: var(--space-3) var(--space-4);
   justify-content: space-between;
 }
 

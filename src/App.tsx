@@ -1826,7 +1826,8 @@ function App() {
             <Show when={reviews() === null}>
               {/* Side by side, because stacked they made one very long page:
                   thirty-five sentences in a single column pushed everything
-                  else — including the way to add your own — below the fold. */}
+                  else — including the way to add your own — below the fold.
+                  Three collections, three columns, one row. */}
               <div class="library-columns">
                 <section class="library-col">
                   <h2>
@@ -1884,14 +1885,12 @@ function App() {
                     </For>
                   </div>
                 </section>
-              </div>
 
-              {/* Your own texts and the way to add one are one section, held
-                  to the reading measure. Apart, the add button read as the
-                  page's action rather than this collection's, and the rules
-                  under two saved lines ran the full width of the browsing
-                  area above. */}
-              <section class="library-mine">
+                {/* Your own texts are the third column, not a strip under the
+                    other two. The add button stays in this heading: on its
+                    own below the page it read as the page's action rather
+                    than this collection's. */}
+                <section class="library-col library-mine">
                 <div class="library-mine__head">
                   <h2>
                     your texts <span class="count">{library().length}</span>
@@ -1928,7 +1927,8 @@ function App() {
                     )}
                   </For>
                 </div>
-              </section>
+                </section>
+              </div>
             </Show>
 
             <Show
