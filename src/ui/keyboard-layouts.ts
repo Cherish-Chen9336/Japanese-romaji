@@ -50,11 +50,6 @@ export interface KeyDef {
    * the row-edge modifiers hug the edge the key runs to, like real keycaps.
    */
   align?: 'start' | 'end'
-  /**
-   * The raised bar moulded into `f` and `j` so touch typists can find home row
-   * without looking. Decorative, but it is the detail that reads as "laptop".
-   */
-  nib?: boolean
 }
 
 const letters = (ids: string, width = 1): KeyDef[] =>
@@ -63,7 +58,6 @@ const letters = (ids: string, width = 1): KeyDef[] =>
     label: id,
     width,
     codes: [`Key${id.toUpperCase()}`],
-    ...(id === 'f' || id === 'j' ? { nib: true } : {}),
   }))
 
 /* ---- row 1: function row, drawn half height ---------------------------- */

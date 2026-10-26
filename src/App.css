@@ -640,23 +640,6 @@ rt {
   justify-content: center;
 }
 
-/* Home-row nibs: the moulded bar under `f` and `j` that a touch typist finds
- * without looking. Decorative here, but it is the single detail that reads as
- * "laptop" more than any other, and it marks the hand position the app is
- * trying to teach. */
-.kb__key--nib::after {
-  background: currentColor;
-  border-radius: 2px;
-  bottom: calc(var(--u) * 0.13);
-  content: '';
-  height: 1.5px;
-  left: 50%;
-  opacity: 0.45;
-  position: absolute;
-  transform: translateX(-50%);
-  width: calc(var(--u) * 0.26);
-}
-
 .practice-hints {
   align-items: center;
   color: var(--color-muted);

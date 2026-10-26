@@ -952,12 +952,21 @@ flex-basis arithmetic depends on it. Measured in Chromium after the rebuild: all
 six rows 556.17px, spread 0.00px. Changing the deck padding changes
 `NATURAL_WIDTH`; they are two halves of one number and must move together.
 
-Three details carry the laptop silhouette, and all three are cheap: the
-**function row at 0.56 height**, the **home-row nibs** moulded into `f` and `j`
-(decorative, but they mark the hand position the app is teaching), and a
-**wider bezel with a larger corner radius** than a desktop board, which with the
-tight gap makes the caps read as one continuous field rather than separate
-tiles. The cap bevel is a `box-shadow`, never a border: a border on four sides
+Two details carry the laptop silhouette, and both are cheap: the **function row
+at 0.56 height** and a **wider bezel with a larger corner radius** than a
+desktop board, which with the tight gap makes the caps read as one continuous
+field rather than separate tiles.
+
+**There were three.** The **home-row nibs** moulded into `f` and `j` were the
+third, and Ella asked for them gone on 2026-10-26: at this size they read as two
+stray grey marks under two keys rather than as moulding, and the argument for
+them — that they mark the hand position the app teaches — was the designer's
+argument, not a reader's. Removed in full rather than hidden: the `nib` flag on
+`KeyDef`, the `f`/`j` assignment, the `kb__key--nib` class and its `::after` are
+all gone, and so is the test that held nibs to those two caps. A flag nothing
+renders is worse than no flag, and a test guarding a removed feature passes
+forever while meaning nothing. The suite is 600 tests from 601 for that reason.
+If they ever come back they come back whole. The cap bevel is a `box-shadow`, never a border: a border on four sides
 reads as an outlined tile, where a single lower edge reads as a cap standing
 proud of the deck.
 

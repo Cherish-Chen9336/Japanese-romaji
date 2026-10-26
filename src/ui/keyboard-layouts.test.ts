@@ -55,15 +55,6 @@ describe('KEYBOARD_ROWS', () => {
     expect(byId.get('.')?.codes).toEqual(['Period'])
   })
 
-  // Home row is found by touch, so the nibs have to be on f and j and nowhere
-  // else — a nib on the wrong cap teaches the wrong hand position.
-  it('moulds a nib into f and j only', () => {
-    const nibbed = KEYBOARD_ROWS.flatMap((row) => row)
-      .filter((key) => key.nib)
-      .map((key) => key.id)
-    expect(nibbed).toEqual(['f', 'j'])
-  })
-
   /*
    * Mac wording is the whole point of combining the two boards: a glyph where
    * the platforms disagree on the word, so no cap says "Backspace" or "Enter".

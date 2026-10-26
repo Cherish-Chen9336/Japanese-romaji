@@ -92,7 +92,6 @@ export function OnScreenKeyboard(props: OnScreenKeyboardProps): JSX.Element {
                         'kb__key--align-start': key.align === 'start',
                         'kb__key--align-end': key.align === 'end',
                         'kb__key--dual': key.shifted !== undefined,
-                        'kb__key--nib': key.nib === true,
                       }}
                       data-key={key.id}
                       style={{ '--w': String(key.width) }}
