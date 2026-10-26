@@ -69,7 +69,6 @@ import {
   weakestKana,
 } from "./engine/stats";
 import { KANA_GROUPS, STANDARD_TIMED_MS, THEME_NAMES } from "./engine/types";
-import { LibraryMark } from "./ui/LibraryMark";
 import { Furigana } from "./ui/Furigana";
 import type {
   KanaGroup,
@@ -109,7 +108,6 @@ import {
 } from "./io/persistence";
 import { createRecordStore, type RecordName } from "./io/records";
 import { writeJson } from "./io/storage";
-import { BottomNav } from "./ui/BottomNav";
 import { chartCoverage } from "./engine/mastery";
 import { MasteryMap } from "./ui/MasteryMap";
 import { ProgressChart } from "./ui/ProgressChart";
@@ -801,6 +799,17 @@ function App() {
   let addButton: HTMLButtonElement | undefined;
 
   /*
+   * Where "skip your saved texts" sends focus while the compose box is open.
+   * The add button unmounts as the box opens, and Solid does not clear a `ref`
+   * on unmount — so `addButton?.focus()` passed the optional check, called
+   * `focus()` on a detached node, and did nothing at all. Optional chaining
+   * tests whether the reference exists, not whether it is still in the
+   * document. Predates the move into the column: the button unmounted there
+   * too.
+   */
+  let composeInput: HTMLTextAreaElement | undefined;
+
+  /*
    * Where the two skip controls land. The sentences list is 35 rows and your
    * own can hold 200, so crossing this page on a keyboard was up to 235 tab
    * stops. The rows keep their ordinary tab stops — they are a list of
@@ -1083,6 +1092,8 @@ function App() {
           accuracy={accuracy()}
           mistakes={session().mistakes}
           showLive={route() === "practice"}
+          route={route()}
+          onNavigate={navigate}
           onHomeClick={() => navigate("practice")}
         />
 
@@ -1225,7 +1236,6 @@ function App() {
                     </button>
                   )}
                 </For>
-                <span class="source-current">picked: {lesson().source}</span>
               </div>
 
               {/* Which part of the chart to drill. Only meaningful while the kana
@@ -1838,10 +1848,7 @@ function App() {
             {/* Held to the reading measure inside a wider page. The lists want
                 the window; a paragraph does not. */}
             <div class="library__intro">
-              <h1 class="library__title">
-                <LibraryMark />
-                library
-              </h1>
+              <h1 class="library__title">library</h1>
               <p class="muted">
                 Everything you can type, one text at a time. Picking one
                 practises that text and stops at the end of it, with no clock —
@@ -1956,7 +1963,9 @@ function App() {
                     <button
                       type="button"
                       class="skip-list"
-                      onClick={() => addButton?.focus()}
+                      onClick={() =>
+                        (addingText() ? composeInput : addButton)?.focus()
+                      }
                     >
                       skip your saved texts
                     </button>
@@ -1986,94 +1995,98 @@ function App() {
                       )}
                     </For>
                   </div>
-                  <Show when={!addingText()}>
-                    <button
-                      type="button"
-                      class="library-add"
-                      ref={(element) => (addButton = element)}
-                      onClick={() => openCompose()}
-                    >
-                      <span class="library-add__plus" aria-hidden="true">
-                        +
-                      </span>
-                      add your own text
-                    </button>
+                  {/* The paste box replaces the button that opens it, inside the
+                      column the saved texts are in. It used to open below all
+                      three columns: on a wide window that put the box most of a
+                      screen away from the list it was going to add to, and left
+                      this column visibly unchanged, so the only sign the button
+                      had done anything was the page getting taller. List,
+                      button and box are one stack now. */}
+                  <Show
+                    when={addingText()}
+                    fallback={
+                      <button
+                        type="button"
+                        class="library-add"
+                        ref={(element) => (addButton = element)}
+                        onClick={() => openCompose()}
+                      >
+                        <span class="library-add__plus" aria-hidden="true">
+                          +
+                        </span>
+                        add your own text
+                      </button>
+                    }
+                  >
+                    <div class="library__compose">
+                      <p class="muted">
+                        Paste Japanese — a line, a sentence or a paragraph. Kana
+                        spells itself, in either script. Kanji cannot, so the next
+                        screen asks you for its reading in kana; the romaji is
+                        worked out from what you give it, and you never type romaji
+                        here.
+                      </p>
+                      <textarea
+                        ref={(element) => {
+                          composeInput = element;
+                          /*
+                           * The button that opened this unmounts as it opens, so
+                           * without this the keyboard loses its place entirely —
+                           * focus falls back to `<body>` and the next Tab starts
+                           * from the top of the page. Focusing the box puts the
+                           * caret where the typing goes, and scrolls it into view
+                           * if the column ran past the fold.
+                           *
+                           * In a microtask, not inline: Solid runs `ref` before the
+                           * element is in the document, and `focus()` on a detached
+                           * node is a no-op that fails silently — it left the
+                           * focus on `<body>`, which is what this is for.
+                           */
+                          queueMicrotask(() => element.focus());
+                        }}
+                        value={customText()}
+                        onInput={(event) =>
+                          setCustomText(event.currentTarget.value)
+                        }
+                        placeholder={
+                          "おはよう\nねこ いぬ\nコーヒー\n今日はいい天気です\n公園でコーヒーを飲みました"
+                        }
+                      />
+                      <div class="action-row">
+                        <button
+                          type="button"
+                          class="primary"
+                          onClick={() => beginReview(customText())}
+                        >
+                          check the readings
+                        </button>
+                        <label class="file-button">
+                          upload .txt/.md
+                          <input
+                            type="file"
+                            accept=".txt,.md,text/plain,text/markdown"
+                            onChange={(event) => {
+                              const file = event.currentTarget.files?.[0];
+                              if (file) void handleFile(file);
+                              event.currentTarget.value = "";
+                            }}
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          class="secondary"
+                          onClick={() => closeCompose()}
+                        >
+                          cancel
+                        </button>
+                      </div>
+                    </div>
                   </Show>
                 </section>
               </div>
             </Show>
 
-            <Show
-              when={reviews()}
-              fallback={
-                <Show when={addingText()}>
-                  {/* The page lost its 760px cap when it took the window, and
-                      a paste box 1300px wide is not a paste box. */}
-                  <div class="library__compose">
-                  <p class="muted">
-                    Paste Japanese — a line, a sentence or a paragraph. Kana
-                    spells itself, in either script. Kanji cannot, so the next
-                    screen asks you for its reading in kana; the romaji is
-                    worked out from what you give it, and you never type romaji
-                    here.
-                  </p>
-                  <textarea
-                    ref={(element) => {
-                      /*
-                       * The button that opened this unmounts as it opens, and
-                       * the form lands below three columns of lists — so
-                       * without this the keyboard loses its place entirely and
-                       * the pointer loses the button without being shown what
-                       * replaced it. Focusing the box moves the caret where the
-                       * typing goes and scrolls the form into view on the way.
-                       *
-                       * In a microtask, not inline: Solid runs `ref` before the
-                       * element is in the document, and `focus()` on a detached
-                       * node is a no-op that fails silently — it left the
-                       * focus on `<body>`, which is what this is for.
-                       */
-                      queueMicrotask(() => element.focus());
-                    }}
-                    value={customText()}
-                    onInput={(event) =>
-                      setCustomText(event.currentTarget.value)
-                    }
-                    placeholder={
-                      "おはよう\nねこ いぬ\nコーヒー\n今日はいい天気です\n公園でコーヒーを飲みました"
-                    }
-                  />
-                  <div class="action-row">
-                    <button
-                      type="button"
-                      class="primary"
-                      onClick={() => beginReview(customText())}
-                    >
-                      check the readings
-                    </button>
-                    <label class="file-button">
-                      upload .txt/.md
-                      <input
-                        type="file"
-                        accept=".txt,.md,text/plain,text/markdown"
-                        onChange={(event) => {
-                          const file = event.currentTarget.files?.[0];
-                          if (file) void handleFile(file);
-                          event.currentTarget.value = "";
-                        }}
-                      />
-                    </label>
-                    <button
-                      type="button"
-                      class="secondary"
-                      onClick={() => closeCompose()}
-                    >
-                      cancel
-                    </button>
-                  </div>
-                  </div>
-                </Show>
-              }
-            >
+            <Show when={reviews()}>
               {(list) => (
                 <div class="review">
                   <h2>check the readings</h2>
@@ -2105,6 +2118,12 @@ function App() {
                                 <b>{segment().text}</b>
                                 <input
                                   class="review-seg__reading"
+                                  /* Written out, though "text" is the default:
+                                     `input[type='text']` matches the attribute
+                                     and not the default, so without this the
+                                     themed focus edge skipped every box on this
+                                     screen. */
+                                  type="text"
                                   value={segment().reading}
                                   placeholder={
                                     segment().needsReading ? "かな" : ""
@@ -2304,7 +2323,6 @@ function App() {
           </section>
         </Show>
 
-        <BottomNav active={route()} onNavigate={navigate} />
         <TooltipLayer />
       </main>
     </Show>

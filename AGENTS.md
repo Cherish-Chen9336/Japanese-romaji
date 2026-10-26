@@ -1552,12 +1552,25 @@ does whatever its size. The paste form it opens is wrapped in
 `.library__compose` at 760px — the page gave up its cap when it took the window,
 and a 1300px paste box is not a paste box.
 
-**The heading carries Lucide's `library` mark** (ISC, four book spines), taken
-from the icon source rather than redrawn, at the same stroke weight as the
-keyboard in `Topbar`. One outline family across the app, or the two marks read
-as two different pieces of software. It is sized in `em` because `--fs-24` is a
-`clamp()` — a pixel size would be right at exactly one window width — and
-aligned on the baseline, because centred it drifts upward as the heading grows.
+**The form opens where the button was, inside the column** — changed 2026-10-26
+on request. It had been a sibling of `.library-columns`, so it opened below all
+three: on a 1400px window that put the paste box most of a screen away from the
+list it was adding to, and left its own column looking untouched, so the only
+sign the button had done anything was the page growing taller. It is now the
+inverted branch of `<Show when={addingText()} fallback={…the button…}>` inside
+the third `.library-col`. **The 760px cap survives the move and is not
+redundant**: a comment written during that change claimed a library column is at
+most about 420px and dropped it, which holds only above the 900px breakpoint —
+below it the grid is one column at page width and the box measured **867px at
+899px**, wider than it had ever been before the move.
+
+**The heading has no mark.** It carried Lucide's `library` (ISC, four book
+spines) until 2026-10-26, when Ella asked for it gone; the brand mark in
+`Topbar` went the same day, so no Lucide drawing is left in `src/` and
+`THIRD-PARTY-NOTICES.md` no longer has an ISC notice to carry. The `em` sizing
+and baseline alignment that paragraph recorded went with the icon — one word
+needs no layout. Anything inlined from another project's source in future needs
+its notice back in that file.
 
 The breakpoints are set by the content, not by taste. The widest thing in the
 **bundled** lists is **294px** of Japanese (切符 を 買って から 電車 に 乗ります)
@@ -1710,6 +1723,16 @@ root goes 15px → 22.5px → 30px and there is no horizontal overflow at 1440, 
 or 320. The layout widths are px, so columns do not grow with the reader's font;
 content wraps instead, which is the right failure.
 
+**The 390px half of that is not reliably true, and the flake is older than this
+note.** Re-measured 2026-10-26 at a 32px browser default, five fresh loads per
+build: the practice screen overflows by **4px on three to four loads in five**,
+and by 0 on the rest — identically at `db0ef17` and on the restyle, so it is
+neither introduced nor fixed by the top-bar work. No element's box exceeds the
+client width when it happens, which points at the on-screen keyboard measuring
+itself before the fonts settle rather than at a layout rule. A single clean
+sample is what put the unqualified claim here; it wants five before it is
+believed again, and the keyboard's measurement timing is where to look.
+
 **Accent on a control is not accent on data.** Teal means "known" on the chart
 and in the stats, and that rule holds for anything reporting a measurement. A
 chevron that turns teal while the row is under the cursor is reporting the
@@ -1718,6 +1741,74 @@ the cursor leaves, and it is the same thing the nav and the focus rings already
 do. The row's own fill stays neutral, which is where the rule bites. The step
 the chevron takes is off under `prefers-reduced-motion`; the colour is not,
 because the colour is the signal and the step is the flourish.
+
+**Restyled on 2026-10-26**, on request, then reviewed by Codex and corrected.
+The requests were: the reference brand, the nav at the top centre, the theme
+colour on native controls and on focus, the library mark gone, the `picked:`
+readout gone, and bigger navigation type.
+
+- **The brand is a tile, a wordmark and a tagline**: `.logo__tile` holding か
+  filled with `--color-accent`, `kana.` at `--color-text`, and
+  `JAPANESE TYPING PRACTICE` under it. か and not あ, which is where the gojūon
+  actually starts — あ is a vowel and draws as one, so at tile size it reads as
+  a mark rather than as writing. The tile is plain text in a styled box, not an
+  SVG path, so the glyph comes from `--font-jp` and follows that stack. The tile
+  takes the accent **and the wordmark does not**, where the old wordmark was the
+  accent itself: two accent objects side by side competed. The tagline is
+  `0.5625rem`, written in `rem` after it was first shipped as `9px` — a px
+  tagline is the one line of the brand that does not grow when the reader raises
+  their browser default.
+- **The nav is the top bar's middle track**, not a row under the stage. `.topbar`
+  is a grid for it: `space-between` centres the middle item only when the two
+  beside it are the same width, and the counters are hidden off the practice
+  view, so the links slid right on every other screen. `BottomNav.tsx` was
+  renamed `PrimaryNav.tsx` to stop the file naming a position it no longer has.
+- **`1fr auto 1fr` is not a promise of equal tracks**, which a first version of
+  the comment there claimed. An `fr` track has an automatic minimum, so the
+  wider outer item opens its own track past the half: measured **-4.2px of drift
+  at 700px**, and **-29.5px at 700px with the root font at 24px**. The fix is
+  two `em` breakpoints — nav to its own row at 56em, everything stacked at
+  42.5em — because `em` in a media query is the reader's own default size and a
+  px breakpoint would have held three columns at 700px however large the text.
+  The list breakpoints stay px: they are set by a fixed 294px of Japanese.
+- **`accent-color: var(--color-accent)` sits on the shared `button, input` base
+  rule** in index.css, not on a component. The checkbox tick and the range
+  slider's filled track are drawn by the browser in the platform blue, and
+  `accent-color` is the only hook they expose — it is the one piece of colour on
+  the page no theme could otherwise reach. Inert on `button`; grouped anyway so
+  form controls keep one base rule. Note that the UA may adjust the companion
+  colours for contrast, so the computed value does not settle what the tick
+  itself looks like.
+- **Focus on a text field is the accent, carried by the border** plus a 1px
+  outline flush outside it. Not a thicker border: `border-width` would reflow
+  the text inside the box on focus and shift the kana in the reading inputs.
+  `input[type='text']` matched the *attribute*, so the reading boxes — written
+  without a `type` — were missed entirely; they carry `type="text"` now and the
+  selector also takes `input:not([type])` so the next one cannot fall through.
+- **Navigation type went up a step**: `.subnav__item` 13 → 16, `.source-button`
+  and `.hint-button` 12 → 14, and `.practice-hints` itself 12 → 14, since the
+  row labels and the `N rows` readout inherit from the block and would otherwise
+  have been left behind. The `picked: <source>` readout is gone — the active
+  button is already accent-coloured, so it only restated it. `N rows` stays; it
+  is a count, not a restatement.
+- **`addButton?.focus()` was focusing a detached node.** "Skip your saved texts"
+  points at the add button, which unmounts while the compose box is open, and
+  Solid does not clear a `ref` on unmount — optional chaining tests whether the
+  reference exists, not whether it is still in the document, so the call passed
+  and did nothing. It now picks `composeInput` while composing. This predates
+  the move into the column; the button unmounted there too.
+- **`aria-label="home"` overrode the visible wordmark**, so "kana" matched no
+  accessible name — WCAG Label in Name. The label is built from the brand
+  strings now. The tagline stays out of it: it is a description, and nobody
+  would say it.
+
+**Still open after that review, and deliberately not changed:** the practice
+screen's window-level Tab handler prevents the default on every Tab, including
+when a nav button has focus, so the top bar is unreachable by keyboard *from the
+practice view* — `defaultPrevented === true`, confirmed. Moving the nav did not
+cause it and does not fix it. Scoping the shortcut to the typing capture and
+giving the capture a keyboard way out is a real change to the app's core
+interaction and wants its own decision, not a drive-by.
 
 The hover fill is `color-mix(in srgb, var(--color-text) 4%, transparent)`.
 `--color-surface` was the first try and it is pure white in the light theme,

@@ -302,6 +302,13 @@ p {
 
 button,
 input {
+  /* The checkbox tick and the range slider's filled track are drawn by the
+   * browser, not by us, and their default is the platform blue — the one piece
+   * of colour on the page no theme could reach. `accent-color` is the only hook
+   * the native controls expose, so the themed accent goes on here rather than
+   * in a component rule. It is inert on `button`; grouped anyway so form
+   * controls keep one base rule. */
+  accent-color: var(--color-accent);
   color: inherit;
   font: inherit;
 }

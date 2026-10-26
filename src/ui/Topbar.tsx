@@ -1,14 +1,18 @@
 import type { JSX } from 'solid-js'
 import { Show } from 'solid-js'
+import { PrimaryNav } from './PrimaryNav'
+import type { RouteName } from './router'
 
 /**
  * Provisional site name — Ella wants to settle on this later. It is deliberately
- * split into two spans so the wordmark and the suffix can be styled apart, the
- * way `TYPE` / `.review` is in type-review. Change these two strings (and the
- * `<title>` in index.html) and the whole brand moves.
+ * split into separate strings so the tile, the wordmark, the full stop and the
+ * line beneath them can be styled apart. Change these four (and the `<title>` in
+ * index.html) and the whole brand moves.
  */
-export const BRAND_NAME = 'KANA'
-export const BRAND_SUFFIX = '.type'
+export const BRAND_GLYPH = 'か'
+export const BRAND_NAME = 'kana'
+export const BRAND_SUFFIX = '.'
+export const BRAND_TAGLINE = 'Japanese typing practice'
 
 export interface TopbarProps {
   wpm: number
@@ -21,18 +25,40 @@ export interface TopbarProps {
    * the first keystroke, because the clock starts when the typist does.
    */
   secondsLeft: number | null
+  /** Current route, so the nav in the middle column can mark its own entry. */
+  route: RouteName
+  onNavigate: (route: RouteName) => void
   onHomeClick: () => void
 }
 
-/** Application top bar: brand button on the left, live metrics on the right. */
+/**
+ * Application top bar: brand on the left, primary navigation on the page's
+ * centre line, live metrics on the right.
+ */
 export function Topbar(props: TopbarProps): JSX.Element {
   return (
     <header class="topbar">
-      <button type="button" class="logo" onClick={() => props.onHomeClick()} aria-label="home">
+      {/* The label carries the visible wordmark, not just "home". `aria-label`
+          overrides the text inside the button, so a reader who says "click
+          kana" was asking for a name the button did not have — WCAG's Label in
+          Name. The tagline stays out of it: it is a description, and repeating
+          it would make the name longer than anything anyone would say. */}
+      <button
+        type="button"
+        class="logo"
+        onClick={() => props.onHomeClick()}
+        aria-label={`${BRAND_NAME}${BRAND_SUFFIX} home`}
+      >
         <BrandMark />
-        <b>{BRAND_NAME}</b>
-        <small>{BRAND_SUFFIX}</small>
+        <span class="logo__name">
+          <span class="logo__word">
+            <b>{BRAND_NAME}</b>
+            <small>{BRAND_SUFFIX}</small>
+          </span>
+          <span class="logo__tagline">{BRAND_TAGLINE}</span>
+        </span>
       </button>
+      <PrimaryNav active={props.route} onNavigate={props.onNavigate} />
       <Show when={props.showLive}>
         <div class="live" aria-label="live stats">
           <span>
@@ -58,32 +84,25 @@ export function Topbar(props: TopbarProps): JSX.Element {
 }
 
 /**
- * Keyboard outline, sized in `em` so it scales with the logo's font size and
- * inheriting `currentColor` from the accent-coloured wordmark next to it.
+ * Brand mark — a filled tile carrying か. It replaced a stroked keyboard
+ * outline: the outline said "typing" but could have belonged to any typing app,
+ * and at logo size its eight dots closed up into mush. A single kana says which
+ * language before the wordmark is read.
+ *
+ * か and not あ, which is where the gojūon actually starts. あ is a vowel and
+ * draws as one, so at tile size it reads as a mark rather than as writing; か
+ * has the consonant stroke and the two that cross it, and it heads the first
+ * row anyone drills after the vowels. An earlier version of this comment called
+ * it "the first kana of the syllabary", which it is not.
+ *
+ * Plain text in a styled box rather than an SVG path, so the glyph comes from
+ * `--font-jp` and is picked by the same font stack that draws the practice line
+ * — nothing to redraw if that stack changes.
  */
 function BrandMark(): JSX.Element {
   return (
-    <svg
-      class="logo__mark"
-      viewBox="0 0 24 24"
-      width="1.15em"
-      height="1.15em"
-      aria-hidden="true"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="2"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-    >
-      <rect x="2" y="4" width="20" height="16" rx="2" />
-      <path d="M6 8h.01" />
-      <path d="M10 8h.01" />
-      <path d="M14 8h.01" />
-      <path d="M18 8h.01" />
-      <path d="M8 12h.01" />
-      <path d="M12 12h.01" />
-      <path d="M16 12h.01" />
-      <path d="M7 16h10" />
-    </svg>
+    <span class="logo__tile" aria-hidden="true">
+      {BRAND_GLYPH}
+    </span>
   )
 }

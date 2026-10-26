@@ -5,33 +5,14 @@ rather than installed as a dependency. Dependencies carry their own licences in
 `node_modules`; this file is for the things that would otherwise travel with no
 notice at all.
 
-## Lucide
+Nothing is inlined at present.
 
-Two icons are inlined as Solid components, copied from the Lucide icon source
-rather than redrawn:
+The two Lucide icons that used to be listed here — `keyboard` in `Topbar.tsx`
+and `library` in `LibraryMark.tsx` — were both removed on 2026-10-26, the first
+when the brand mark became a kana tile and the second when the library heading
+lost its shelf. Neither drawing survives anywhere in `src/`, so the ISC notice
+they required no longer has anything to attach to.
 
-- `keyboard` — `src/ui/Topbar.tsx`, `BrandMark`
-- `library` — `src/ui/LibraryMark.tsx`, `LibraryMark`
-
-Lucide is released under the ISC licence, which requires the notice below to
-appear in all copies. <https://lucide.dev/license>
-
-```
-ISC License
-
-Copyright (c) for portions of Lucide are held by Cole Bemis 2013-2022 as part of
-Feather (MIT). All other copyright (c) for Lucide are held by Lucide Contributors
-2022.
-
-Permission to use, copy, modify, and/or distribute this software for any
-purpose with or without fee is hereby granted, provided that the above
-copyright notice and this permission notice appear in all copies.
-
-THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
-WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
-ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
-WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
-ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
-OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
-```
+Keep this file. The next icon copied out of someone else's source needs its
+notice here, and a file that exists is harder to forget than one that has to be
+created.

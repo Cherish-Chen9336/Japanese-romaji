@@ -56,11 +56,17 @@
   );
   margin-inline: calc(-1 * var(--bleed));
 
-  align-items: baseline;
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  justify-content: space-between;
+  /* Grid, not flex, because the nav has to sit on the page's centre line and
+   * stay there. `space-between` centres the middle item only when the two
+   * outside it happen to be the same width, and the counters are hidden
+   * everywhere but the practice view — the links would have slid right every
+   * time you left practice. Equal outer tracks pin the middle one regardless of
+   * what is in them, or whether anything is. */
+  align-items: center;
+  column-gap: var(--space-3);
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  row-gap: var(--space-3);
 }
 
 /* The wide shell is already the full window, so there is nothing left to bleed
@@ -73,7 +79,9 @@
 }
 
 .logo {
-  align-items: baseline;
+  /* Centred, not baseline: the brand is two lines now, and a baseline would
+   * have hung the tile off the first of them. */
+  align-items: center;
   background: none;
   border: none;
   color: var(--color-dim);
@@ -81,35 +89,83 @@
   display: inline-flex;
   font-size: var(--fs-16);
   font-weight: var(--fw-medium);
+  gap: 11px;
+  justify-self: start;
   letter-spacing: -0.02em;
   padding: 0;
+  /* Logical, so the brand still reads from its own start edge if this is ever
+     dropped into an RTL document. */
+  text-align: start;
 }
 
-.logo b {
-  color: var(--color-accent);
-  font-weight: 600;
-  letter-spacing: 0.04em;
+/* Brand mark — a filled tile carrying か. Everything is in `em` so the mark
+ * scales with the wordmark beside it: one `font-size` on `.logo` still moves
+ * the whole brand. `--font-jp` draws the glyph, the same stack as the practice
+ * line, so the kana never falls back to a Latin font's substitute. */
+.logo__tile {
+  align-items: center;
+  background: var(--color-accent);
+  border-radius: 11px;
+  color: var(--color-accent-fg);
+  display: flex;
+  flex: none;
+  font-family: var(--font-jp);
+  font-size: 1.45em;
+  font-weight: 400;
+  height: 1.75em;
+  justify-content: center;
+  /* The glyph is optically high in its em box; a hair of padding-top would push
+   * it the wrong way, so the box is centred and left alone. */
+  line-height: 1;
+  width: 1.75em;
 }
 
+.logo__name {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+/* `line-height: 1` so the two brand lines sit as close as the reference has
+ * them — the inherited 1.5 opened a gap wider than the tagline is tall. */
+.logo__word {
+  align-items: baseline;
+  display: flex;
+  line-height: 1;
+}
+
+/* The wordmark reads in the text colour and the tile beside it carries the
+ * accent, rather than the two competing for it. Tracking goes negative: the old
+ * +0.04em was set for a small-caps wordmark that is no longer here, and at this
+ * weight it just loosened four letters that want to read as one word. */
+.logo b,
 .logo small {
-  font-size: 0.85em;
+  color: var(--color-text);
+  font-size: 1.4em;
+  font-weight: 700;
+  letter-spacing: -0.015em;
 }
 
-.logo:hover b {
+/* Held apart from the wordmark by letter-spacing rather than by size alone: at
+ * 9px the words would otherwise be a grey smudge, and the tracking is what
+ * makes them read as a line of labelling instead of shrunken prose. */
+/* In `rem`, not the 9px it was first written as: a px tagline is the one line
+   of the brand that would not grow when the reader raises their browser's
+   default font, so at 24px the wordmark doubled and the words under it stayed
+   put. 0.5625rem is that same 9px at a 16px default. */
+.logo__tagline {
+  color: var(--color-muted);
+  font-size: 0.5625rem;
+  font-weight: var(--fw-medium);
+  letter-spacing: 0.16em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+/* The whole wordmark, not just `b` — the full stop belongs to the word. */
+.logo:hover .logo__word {
   text-decoration: underline;
   text-underline-offset: 4px;
-}
-
-/* Brand mark — inherits the accent colour via `currentColor`. `align-self:
- * center` sits the rectangle optically on the cap-height of the wordmark
- * instead of on its baseline, where `align-items: baseline` would dump it. */
-.logo__mark {
-  align-self: center;
-  color: var(--color-accent);
-  flex: none;
-  /* Gap lives here rather than on `.logo` so the wordmark and its suffix stay
-   * tight against each other and read as one word. */
-  margin-right: 7px;
 }
 
 .live {
@@ -120,6 +176,7 @@
   font-size: var(--fs-13);
   font-variant-numeric: tabular-nums;
   gap: var(--space-5);
+  justify-self: end;
 }
 
 .live b {
@@ -127,13 +184,84 @@
   font-weight: var(--fw-medium);
 }
 
+/*
+ * Three columns only where three columns fit.
+ *
+ * `1fr auto 1fr` centres the middle track only while neither outer track needs
+ * more than its share. An `fr` track has an automatic minimum, so whichever of
+ * the brand and the counters is wider opens its own track past the half and the
+ * nav slides the other way — the grid never promised equal tracks, only equal
+ * *shares of the free space*, and an earlier comment here claimed the stronger
+ * thing. Measured on the practice screen with a timed run showing all four
+ * counters: brand 205px, counters 264px, nav 277px, two 12px gaps — 829px of
+ * bar, so about 861px of window once the gutters are paid. Below that the nav
+ * drifts: -4.2px at 700px, and -29.5px at 700px with the root font at 24px.
+ *
+ * The two queries below are in `em` and the rest of this file is in `px`, which
+ * is a deliberate split, not an oversight. `em` in a media query is the
+ * reader's own default font size, so a reader who sets 24px carries these
+ * breakpoints up with them; a px breakpoint would have kept three columns at
+ * 700px however large the text, which is the case that drifts worst. The list
+ * breakpoints stay in px because they are set by a fixed 294px of Japanese, not
+ * by the reader's Latin default.
+ */
+@media (max-width: 56em) {
+  /* Brand and counters keep the row; the nav takes one of its own, where being
+     centred is a property of the row rather than of what sits beside it. */
+  .topbar {
+    grid-template-areas:
+      'brand live'
+      'nav nav';
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .logo {
+    grid-area: brand;
+  }
+
+  .live {
+    grid-area: live;
+  }
+
+  .subnav {
+    grid-area: nav;
+  }
+}
+
+@media (max-width: 42.5em) {
+  /* One centred column: even two tracks squeezed the brand and four counters
+     into a width neither could hold. `justify-self` is reset on both, because
+     the desktop rule pins them to the ends of a grid that is no longer there. */
+  .topbar {
+    grid-template-areas:
+      'brand'
+      'nav'
+      'live';
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+    row-gap: var(--space-4);
+  }
+
+  .logo,
+  .live {
+    justify-self: center;
+  }
+
+  .live {
+    gap: var(--space-4);
+  }
+}
+
+/* A step up from --fs-12. These are the controls that change what you practise,
+   and at 13px under a full-width keyboard they read as a footnote about the
+   page rather than as part of it. */
 .source-button,
 .hint-button {
   background: none;
   border: none;
   color: var(--color-muted);
   cursor: pointer;
-  font-size: var(--fs-12);
+  font-size: var(--fs-14);
   padding: 0;
 }
 
@@ -143,24 +271,27 @@
   color: var(--color-accent);
 }
 
-/* Primary navigation — minimal text links flowing in below the stage, so the
- * top-left corner belongs to the wordmark alone. Deliberately not chrome: no
- * bar, no border, no pills. */
+/* Primary navigation — minimal text links in the top bar's middle track.
+ * Deliberately not chrome: no bar, no border, no pills; the grid column is what
+ * places them, so there is nothing to draw around them. The `padding-top` that
+ * used to hold them off the stage went with the move — in the header it was
+ * just pushing them below the brand's centre line. */
 .subnav {
   column-gap: var(--space-6);
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  padding-top: var(--space-6);
   row-gap: var(--space-2);
 }
 
+/* The only way between the four screens, so it is sized as navigation rather
+   than as a caption: --fs-13 left it smaller than the body text beneath it. */
 .subnav__item {
   background: transparent;
   border: none;
   color: var(--color-muted);
   cursor: pointer;
-  font-size: var(--fs-13);
+  font-size: var(--fs-16);
   letter-spacing: 0.04em;
   padding: 0;
   transition: color var(--dur-fast) var(--ease-out);
@@ -174,8 +305,10 @@
   color: var(--color-accent);
 }
 
-/* Grows to fill the viewport so the nav below it lands at the bottom of the
- * page rather than floating mid-screen. */
+/* Grows to fill the viewport. This used to be what pushed the nav to the bottom
+ * of the page; the nav moved into the top bar on 2026-10-26 and the rule stayed,
+ * because the practice stage still wants the height — without it the typing line
+ * and the keyboard bunch up against the header on a tall window. */
 .stage {
   display: flex;
   flex: 1;
@@ -529,7 +662,10 @@ rt {
   color: var(--color-muted);
   display: flex;
   flex-direction: column;
-  font-size: var(--fs-12);
+  /* Sets the floor for the whole block — the row labels and the `N rows`
+     readout inherit it, so raising the buttons alone would have left those two
+     behind at 13px. */
+  font-size: var(--fs-14);
   gap: var(--space-2);
 }
 
@@ -612,30 +748,22 @@ rt {
   max-width: 760px;
 }
 
-/* The mark sits on the heading's baseline, not centred on its box — centred,
-   a 0.9em icon beside a clamped 24px heading drifts up as the window widens. */
-.library__title {
-  align-items: baseline;
-  display: flex;
-  gap: var(--space-3);
-}
+/* The shelf icon that used to lead this heading is gone, and with it the flex
+   row that placed it: one word needs no layout. */
 
-/* Dimmer than the words. It is a label for the page, not a second heading. */
-.library__mark {
-  color: var(--color-dim);
-  flex: none;
-  /* `baseline` on an inline SVG is its bottom edge, which hangs the spines
-     below the text they sit beside. */
-  transform: translateY(0.08em);
-}
-
-/* The page gave up its 760px cap when it took the window; a paste box 1300px
-   wide is not a paste box, and neither is a paragraph explaining one. */
+/*
+ * The 760px cap stays, and the comment that replaced it earlier on 2026-10-26
+ * was wrong. It claimed a library column is at most about 420px, so the column
+ * could be the measure — true only above the 900px breakpoint. Below it the
+ * grid is a single column at page width, and the paste box measured **867px at
+ * 899px of window**: wider than it ever was before the move. The cap binds on
+ * exactly the screens that need it and is inert on the ones that do not.
+ */
 .library__compose {
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
-  max-width: 760px;
+  max-inline-size: 760px;
 }
 
 .page h1,
@@ -680,6 +808,28 @@ textarea {
 
 input[type='range'] {
   width: 100%;
+}
+
+/*
+ * Focus on a text field reads in the accent rather than in the browser's own
+ * ring, which is the platform blue in every theme.
+ *
+ * The border carries the colour, because that edge is already where the eye is.
+ * The 1px outline flush against it is what makes the line read as 2px: raising
+ * `border-width` instead would reflow the text inside the box on focus, which
+ * on the reading inputs would shift the kana a pixel every time you tabbed.
+ */
+textarea:focus-visible,
+input[type='text']:focus-visible,
+/* An `<input>` with no `type` attribute *is* a text input — its DOM `type`
+ * reads "text" — but `[type='text']` matches the attribute, not the default,
+ * so the reading boxes in the review step were missed entirely. They carry the
+ * attribute now; this selector stays so the next input written without one
+ * cannot fall through the same gap in silence. */
+input:not([type]):focus-visible {
+  border-color: var(--color-accent);
+  outline: var(--bw-1) solid var(--color-accent);
+  outline-offset: 0;
 }
 
 .action-row,
@@ -729,12 +879,16 @@ input[type='range'] {
  */
 /*
  * Held to the reading measure, like the paste box before it. The library page
- * gave up its own 760px cap when it took the window, and `.review` is a sibling
+ * gave up its own 760px cap when it took the window, and `.review` was a sibling
  * of `.library__compose` rather than a child of it — so capping the paste
  * box fixed one screen and left the next one at 1328px, with a paragraph of
  * explanation and every reading row stretched the width of the monitor. This is
  * a form, and a form does not want the window just because the index behind it
  * does.
+ *
+ * The paste box moved inside the "your texts" column on 2026-10-26; `.review`
+ * did not, and still replaces the whole grid. The two are no longer siblings,
+ * so this cap is the only one holding the review step in.
  */
 .review {
   display: flex;
@@ -1952,17 +2106,9 @@ meter::-webkit-meter-optimum-value {
     padding-top: var(--space-5);
   }
 
-  .topbar {
-    justify-content: center;
-  }
-
   .stage {
     gap: var(--space-5);
     padding-top: var(--space-6);
-  }
-
-  .live {
-    gap: var(--space-4);
   }
 
   /* Two up, not one. Four single-column cells pushed everything below them a
