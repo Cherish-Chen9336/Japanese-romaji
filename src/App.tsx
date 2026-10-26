@@ -988,6 +988,24 @@ function App() {
       );
     };
 
+    /*
+     * True when the key came from a control that already owns it — anything
+     * focusable other than the typing capture. The capture is excluded by
+     * identity and not by selector, because it is itself an `<input>` and
+     * would match the selector it is being told apart from.
+     *
+     * The window-level practice shortcuts sit on top of whatever has focus, so
+     * this is what keeps them off keys the browser has already given a meaning
+     * there.
+     */
+    const onOtherControl = (event: KeyboardEvent) => {
+      const el = event.target as HTMLElement | null;
+      if (el === hiddenInput) return false;
+      return (
+        el?.closest("button, a, input, select, textarea, [tabindex]") != null
+      );
+    };
+
     const keydown = (event: KeyboardEvent) => {
       // Light the cap before any early return, so modifiers (which set their own
       // ctrl/meta/alt flag on their own keydown) still show as held on the
@@ -1019,34 +1037,35 @@ function App() {
 
       if (event.key === "Tab") {
         /*
-         * The same guard as the result screen's Enter above, for the same
-         * reason. This is a window-level shortcut, so it fired even while a
-         * nav button had focus — `preventDefault` on every Tab meant the top
-         * bar could not be entered or left by keyboard from this screen at
-         * all, measured as `defaultPrevented === true` with the focus on
-         * `practice`. Tab is the fresh-text shortcut while the typing capture
-         * holds focus, which is where focus is while you are typing, and an
-         * ordinary Tab anywhere else. The capture is exempted by identity and
-         * not by selector: it is an `<input>`, so `closest` matches it too.
+         * From the typing capture only, and never with Shift.
          *
-         * Shift+Tab is never taken. It is the way *out* of the capture, which
-         * is focused on load and again after every click on the stage — take
-         * it and the shortcut is a trap with no exit. It was taken before, but
-         * nothing advertised it: the hint reads `Tab fresh text`.
+         * It used to fire on every Tab on this route, so the top bar could be
+         * neither entered nor left by keyboard — measured as
+         * `defaultPrevented === true` with the focus on `practice`. Exempting
+         * focused controls fixed that much and left `<body>` still refreshing
+         * and still going nowhere, which is reachable: the result screen's
+         * Enter starts practice without focusing the new capture, so every
+         * following Tab discarded the passage and moved nothing. Narrowed to
+         * the capture itself, the shortcut belongs to the field it is a
+         * shortcut for, and every other focus state gets an ordinary Tab.
+         *
+         * Shift+Tab is never taken. It is the supported way out of a capture
+         * that is focused on load and again after every click on the stage. It
+         * used to deal fresh text, but nothing advertised that and the hint
+         * reads `Tab fresh text`.
          */
-        if (event.shiftKey) return;
-        const el = event.target as HTMLElement | null;
-        if (
-          el !== hiddenInput &&
-          el?.closest("button, a, input, select, textarea, [tabindex]")
-        )
-          return;
+        if (event.shiftKey || event.target !== hiddenInput) return;
         event.preventDefault();
         freshText();
         return;
       }
       if (event.key === "Enter") {
         if (isComplete()) {
+          /* The same exemption the result screen's Enter above already had,
+             and missing here for the same reason it was needed there: with the
+             run finished and a button focused, Enter dealt a new passage
+             instead of pressing the button the reader had aimed at. */
+          if (onOtherControl(event)) return;
           event.preventDefault();
           freshText();
         }
@@ -1059,6 +1078,19 @@ function App() {
         return;
       }
       if (event.key.length === 1) {
+        /*
+         * Space is the one printable key a focused control already owns: it is
+         * one of the two standard ways to press a button, and this branch was
+         * turning it into a typed space. Harmless while nothing here could be
+         * reached by keyboard — and a dead key the moment Tab could reach the
+         * source buttons, which is the half of that fix that was missing.
+         *
+         * Letters are deliberately not exempted. They mean nothing on a
+         * button, and clicking a source button leaves focus on it, so a reader
+         * who picks a source and carries on typing would be typing into
+         * nothing if they were.
+         */
+        if (event.key === " " && onOtherControl(event)) return;
         event.preventDefault();
         typeChar(event.key);
       }

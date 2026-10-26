@@ -1815,20 +1815,39 @@ readout gone, and bigger navigation type.
 both found while reviewing it. They were held back for a decision rather than
 fixed in passing, because each changes an interaction rather than a style.
 
-- **Tab was prevented on every keystroke on the practice screen**, including
-  while a nav button had focus — `defaultPrevented === true`, confirmed — so
-  the top bar could be neither entered nor left by keyboard from that view. The
-  handler now carries the same guard the result screen's Enter already had: the
-  shortcut fires while the typing capture holds focus, or while focus is
-  nowhere, and Tab is an ordinary Tab anywhere else. The capture is exempted
-  **by identity, not by selector** — it is an `<input>`, so `closest` matches it
-  along with everything else. **Shift+Tab is never taken**, because it is the
-  supported way out of a capture that is focused on load and again after every
-  click on the stage; it used to deal fresh text, but nothing advertised that
-  and the hint reads `Tab fresh text`. Not the *only* way out, which an earlier
-  version of this line claimed: the handler returns early on `event.repeat`, so
-  holding Tab down escapes too. That is an accident of a guard written for key
-  repeat, not a route to rely on or to document as one.
+- **The practice route's window shortcuts sat on top of whatever had focus.**
+  Tab was prevented on every keystroke, including while a nav button held focus
+  — `defaultPrevented === true`, confirmed — so the top bar could be neither
+  entered nor left by keyboard from that view. **Tab is now taken from the
+  typing capture and from nowhere else.** An intermediate version exempted
+  focused controls instead, which left `<body>` still refreshing and still
+  going nowhere; that state is reachable, because the result screen's Enter
+  starts practice without focusing the new capture, and every following Tab
+  then discarded the passage and moved nothing. A shortcut for a field belongs
+  to that field.
+- **Shift+Tab is never taken**, because it is the supported way out of a capture
+  that is focused on load and again after every click on the stage; it used to
+  deal fresh text, but nothing advertised that and the hint reads `Tab fresh
+  text`. Not the *only* way out, which an earlier version of this line claimed:
+  the handler returns early on `event.repeat`, so holding Tab down escapes too.
+  That is an accident of a guard written for key repeat, not a route to rely on
+  or to document as one.
+- **Space and the completed-run Enter went the same way, one round later.** Both
+  were still being swallowed from focused controls, which the Tab fix is what
+  exposed: once a reader could Tab to the source buttons, they arrived at
+  controls that Enter pressed and Space did not. Space is one of the two
+  standard ways to press a button, and a finished run turned Enter into a new
+  passage rather than the button the reader had aimed at. `onOtherControl`
+  carries the test for both, and the capture is excluded **by identity, not by
+  selector** — it is an `<input>` and would match the selector it is being told
+  apart from.
+- **Letters are deliberately not exempted**, which is where this stops. They
+  mean nothing on a button, and clicking a source button leaves focus on it
+  (the handler calls `stopPropagation`, so `refocus` never runs) — exempt them
+  and a reader who picks a source and carries on typing is typing into nothing.
+  Measured both ways before choosing: with the exemption, a letter after a
+  source click reaches the run and the counters move. Backspace is left alone
+  for the same reason, and because it has no meaning on a button either way.
 - **The upload control was unreachable by keyboard.** `.file-button input` was
   `display: none`, which takes the input out of the tab order, and that input
   *is* the control — the label only forwards the click. Measured: Tab from the
