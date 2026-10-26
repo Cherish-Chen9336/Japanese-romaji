@@ -1018,6 +1018,29 @@ function App() {
       if (route() !== "practice") return;
 
       if (event.key === "Tab") {
+        /*
+         * The same guard as the result screen's Enter above, for the same
+         * reason. This is a window-level shortcut, so it fired even while a
+         * nav button had focus — `preventDefault` on every Tab meant the top
+         * bar could not be entered or left by keyboard from this screen at
+         * all, measured as `defaultPrevented === true` with the focus on
+         * `practice`. Tab is the fresh-text shortcut while the typing capture
+         * holds focus, which is where focus is while you are typing, and an
+         * ordinary Tab anywhere else. The capture is exempted by identity and
+         * not by selector: it is an `<input>`, so `closest` matches it too.
+         *
+         * Shift+Tab is never taken. It is the way *out* of the capture, which
+         * is focused on load and again after every click on the stage — take
+         * it and the shortcut is a trap with no exit. It was taken before, but
+         * nothing advertised it: the hint reads `Tab fresh text`.
+         */
+        if (event.shiftKey) return;
+        const el = event.target as HTMLElement | null;
+        if (
+          el !== hiddenInput &&
+          el?.closest("button, a, input, select, textarea, [tabindex]")
+        )
+          return;
         event.preventDefault();
         freshText();
         return;

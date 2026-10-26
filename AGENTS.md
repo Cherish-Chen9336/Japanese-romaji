@@ -1802,13 +1802,29 @@ readout gone, and bigger navigation type.
   strings now. The tagline stays out of it: it is a description, and nobody
   would say it.
 
-**Still open after that review, and deliberately not changed:** the practice
-screen's window-level Tab handler prevents the default on every Tab, including
-when a nav button has focus, so the top bar is unreachable by keyboard *from the
-practice view* — `defaultPrevented === true`, confirmed. Moving the nav did not
-cause it and does not fix it. Scoping the shortcut to the typing capture and
-giving the capture a keyboard way out is a real change to the app's core
-interaction and wants its own decision, not a drive-by.
+**Two keyboard defects closed the same day**, both older than the restyle and
+both found while reviewing it. They were held back for a decision rather than
+fixed in passing, because each changes an interaction rather than a style.
+
+- **Tab was prevented on every keystroke on the practice screen**, including
+  while a nav button had focus — `defaultPrevented === true`, confirmed — so
+  the top bar could be neither entered nor left by keyboard from that view. The
+  handler now carries the same guard the result screen's Enter already had: the
+  shortcut fires while the typing capture holds focus, or while focus is
+  nowhere, and Tab is an ordinary Tab anywhere else. The capture is exempted
+  **by identity, not by selector** — it is an `<input>`, so `closest` matches it
+  along with everything else. **Shift+Tab is never taken**, because it is the
+  only way out of a capture that is focused on load and again after every click
+  on the stage; it used to deal fresh text, but nothing advertised that and the
+  hint reads `Tab fresh text`.
+- **The upload control was unreachable by keyboard.** `.file-button input` was
+  `display: none`, which takes the input out of the tab order, and that input
+  *is* the control — the label only forwards the click. Measured: Tab from the
+  paste box went "check the readings", "cancel", then out of the page, never
+  touching upload. Clipped the way `.sr-only` clips now, so it keeps its tab
+  stop and looks identical. The ring goes on the label via `:focus-within`,
+  because the element that matches focus is a 1px box nobody can see and the
+  element that is drawn never takes focus itself.
 
 The hover fill is `color-mix(in srgb, var(--color-text) 4%, transparent)`.
 `--color-surface` was the first try and it is pure white in the light theme,

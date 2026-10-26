@@ -865,8 +865,36 @@ input:not([type]):focus-visible {
   opacity: 0.45;
 }
 
+/*
+ * Hidden, not removed. `display: none` takes the input out of the tab order
+ * with it, and this input *is* the control — the label only forwards the click
+ * to it — so the only way to upload a file was a pointer. Measured: Tab from
+ * the paste box went "check the readings", then "cancel", then out of the page
+ * entirely, never touching upload. Clipped the way `.sr-only` clips it, it
+ * keeps its tab stop and looks exactly the same.
+ */
+.file-button {
+  /* So the clipped input anchors to the label rather than to the page. */
+  position: relative;
+}
+
 .file-button input {
-  display: none;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  position: absolute;
+  width: 1px;
+  clip: rect(0, 0, 0, 0);
+}
+
+/* Focus lands on the clipped input, so the label around it is what has to show
+   it. `:focus-within` and not `:focus-visible`: the element that matches is a
+   1px box nobody can see, and the element that is drawn never takes focus
+   itself. A pointer click shows the ring too, for the moment before the file
+   dialog opens, which is the cost of the control being a label. */
+.file-button:focus-within {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 
 /*
