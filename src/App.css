@@ -455,10 +455,16 @@ rt {
 
 /* ---- on-screen keyboard (full ANSI) ---------------------------------------
  * One CSS variable `--u` sets the whole keyboard's scale; each cap picks its
- * width via `--w`. Default styling targets the Mac variant — chiclet caps with
- * a prominent corner radius and a slim bottom edge. The Windows overrides at
- * the end sharpen the corners and thicken the bottom edge to evoke sculpted
- * OEM caps. */
+ * width via `--w`. Chiclet caps throughout: a 0.28u corner radius and a bevel
+ * drawn as a `box-shadow` rather than a border.
+ *
+ * There is one board, not two. This said the default targeted "the Mac variant"
+ * and that "the Windows overrides at the end" sharpened the corners and
+ * thickened the bottom edge — there is no variant selector anywhere in this
+ * file and there are no such overrides. The layout settled on a single combined
+ * board whose caps carry a glyph wherever the two platforms disagree on the
+ * word, so no cap says "Backspace" or "Enter"; the comment was left behind by
+ * that merge. */
 
 /* Scale-to-fit wrapper. The keyboard inside has a FIXED pixel width; this
  * wrapper takes the available width and carries the on-screen footprint, its
@@ -873,8 +879,10 @@ input:not([type]):focus-visible {
 /* Focus lands on the clipped input, so the label around it is what has to show
    it. `:focus-within` and not `:focus-visible`: the element that matches is a
    1px box nobody can see, and the element that is drawn never takes focus
-   itself. A pointer click shows the ring too, for the moment before the file
-   dialog opens, which is the cost of the control being a label. */
+   itself. A pointer click shows the ring too — and it stays after the file
+   dialog is cancelled, because the input keeps focus, which is longer than
+   "the moment before the dialog opens" first claimed here. That is correct
+   behaviour, not a leak: focus really is on the control. */
 .file-button:focus-within {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;

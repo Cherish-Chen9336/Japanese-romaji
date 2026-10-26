@@ -1823,9 +1823,12 @@ fixed in passing, because each changes an interaction rather than a style.
   nowhere, and Tab is an ordinary Tab anywhere else. The capture is exempted
   **by identity, not by selector** — it is an `<input>`, so `closest` matches it
   along with everything else. **Shift+Tab is never taken**, because it is the
-  only way out of a capture that is focused on load and again after every click
-  on the stage; it used to deal fresh text, but nothing advertised that and the
-  hint reads `Tab fresh text`.
+  supported way out of a capture that is focused on load and again after every
+  click on the stage; it used to deal fresh text, but nothing advertised that
+  and the hint reads `Tab fresh text`. Not the *only* way out, which an earlier
+  version of this line claimed: the handler returns early on `event.repeat`, so
+  holding Tab down escapes too. That is an accident of a guard written for key
+  repeat, not a route to rely on or to document as one.
 - **The upload control was unreachable by keyboard.** `.file-button input` was
   `display: none`, which takes the input out of the tab order, and that input
   *is* the control — the label only forwards the click. Measured: Tab from the

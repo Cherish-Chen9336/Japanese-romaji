@@ -43,8 +43,14 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
-      - name: Test
-        run: pnpm test
+      # `pnpm test` is `vitest run` with no `--coverage`, so the thresholds in
+      # vite.config.ts — 100% statements/lines/functions on src/engine, 80% on
+      # src/io — never execute under it. A gate that does not run is not a gate:
+      # an exported engine function with no test would have typechecked, passed
+      # the suite, built, and published. `test:coverage` runs the same suite and
+      # enforces both.
+      - name: Test with the coverage thresholds
+        run: pnpm test:coverage
 
       - name: Build
         run: pnpm build
