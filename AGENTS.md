@@ -1470,6 +1470,30 @@ by accident.
 
 #### Authoring a bank
 
+**Every candidate has to be typeable, and that is a separate claim from
+compiling.** `isTypeableRomaji` in `romanization.ts` owns the character set a
+romaji spelling may use — the letters, the word separator, and the apostrophe
+that tells `n'a` from `na` — and `prompt.test.ts` sweeps every bank against it.
+
+The gap it closes is silent. `compileStrict` asks whether the kana can spell the
+romaji and has no opinion about whether the spelling can be *pressed*, so an
+item written `{ kana: 'ひっこしました。', romaji: 'hikkoshimashita。' }`, with
+the full-width mark in the **romaji**, compiles into seven good tokens and
+passes every other invariant here. Demonstrated by poisoning `wordBank` with
+exactly that item: **one test failed and forty-one passed**. The ASCII form of
+the same mistake, `hikkoshimashita.`, is refused by `compileStrict` already —
+which is why this hid for so long, the obvious way of writing it failing loudly
+and the dangerous way not at all.
+
+**The character set is pinned to the board in `keyboard-layouts.test.ts`**,
+which asserts a cap exists for each character the engine permits. Two halves
+that can drift in either direction, both silently: widen the engine's set and a
+bank may ship a character with no key; drop a cap and the hint under the kana
+names a key that is no longer drawn. `ui` may import from `engine` and never
+the reverse, so that test file is the only place the two can be tied together.
+Verified capable of failing by renaming the apostrophe cap.
+
+
 Spaces in `kana`, `reading` and `romaji` mark **display words**, and the three
 strings must split into the same number of them, Nth matching Nth. That is what
 puts furigana over the right characters. Three rules follow, and

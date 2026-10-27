@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { TYPEABLE_ROMAJI_CHARS } from '../engine/romanization'
 import { KEYBOARD_ROWS, ROW_WIDTH_U } from './keyboard-layouts'
 
 describe('KEYBOARD_ROWS', () => {
@@ -80,5 +81,34 @@ describe('KEYBOARD_ROWS', () => {
     expect(KEYBOARD_ROWS[5].map((key) => key.id)).toEqual([
       'fn', 'ctrl', 'opt', 'cmd', 'space', 'cmd2', 'opt2', 'ctrl2',
     ])
+  })
+
+  /*
+   * The other half of the engine's `isTypeableRomaji`.
+   *
+   * That predicate decides what a bundled item's romaji is allowed to contain,
+   * and `prompt.test.ts` holds every bank to it — but on its own it is only a
+   * list someone wrote down. This is what ties it to the board the typist is
+   * actually looking at: the two can disagree in either direction, and both
+   * ways are silent. Widen the predicate and the banks may ship a character
+   * with no cap; drop a cap and the hint under the kana names a key that is no
+   * longer drawn.
+   *
+   * `ui` imports from `engine` and never the reverse, so this file is the only
+   * place the two can be pinned together.
+   */
+  it('draws a cap for every character the engine calls typeable', () => {
+    const drawn = new Set<string>()
+    for (const row of KEYBOARD_ROWS) {
+      for (const key of row) {
+        if (key.variant === 'space') drawn.add(' ')
+        // `id` is the keystroke for letters and punctuation; modifiers carry a
+        // word instead, and a word is never a single character.
+        if (key.id.length === 1) drawn.add(key.id)
+        if (key.shifted?.length === 1) drawn.add(key.shifted)
+      }
+    }
+    const missing = [...TYPEABLE_ROMAJI_CHARS].filter((character) => !drawn.has(character))
+    expect(missing).toEqual([])
   })
 })

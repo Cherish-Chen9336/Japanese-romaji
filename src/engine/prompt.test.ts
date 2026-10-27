@@ -8,7 +8,7 @@ import {
   compileStrict,
   wordIndexForToken,
 } from './prompt'
-import { tokenizeKana } from './romanization'
+import { isTypeableRomaji, tokenizeKana } from './romanization'
 import type { TextItem } from './types'
 
 /*
@@ -144,6 +144,55 @@ describe('every bundled item is derivable from its own kana', () => {
   it('rejects a romaji that is not a spelling of its kana', () => {
     expect(compileStrict({ kana: 'し', romaji: 'xi' })).toBeNull()
     expect(compileStrict({ kana: 'し', romaji: 'shi' })).not.toBeNull()
+  })
+
+  /*
+   * Compiling is not the same claim as being typeable, and until this existed
+   * only the first was checked anywhere.
+   *
+   * `compileStrict` asks whether the kana can spell the romaji. It has no
+   * opinion about whether the spelling can be pressed, so an item carrying a
+   * full-width character in its *romaji* compiles into perfectly good tokens
+   * whose only candidate no key produces. Every check above passes, the suite
+   * passes, the build passes, it publishes — and the run cannot be finished.
+   *
+   * The ASCII form of the same mistake is caught already, which is exactly what
+   * made this hard to notice: `hikkoshimashita.` is refused by `compileStrict`
+   * because 。 cannot spell `.`, so the obvious way of writing it fails loudly
+   * and the dangerous way fails not at all.
+   */
+  for (const [name, bank] of BANKS) {
+    it(`${name} — every candidate can be typed on a real keyboard`, () => {
+      const unreachable: string[] = []
+      for (const item of bank) {
+        const compiled = compileStrict(item)
+        if (compiled === null) continue // the assertion above owns this case
+        for (const token of compiled) {
+          for (const candidate of token.candidates) {
+            if (!isTypeableRomaji(candidate)) {
+              unreachable.push(`${item.kana} — ${token.kana} wants "${candidate}"`)
+            }
+          }
+        }
+      }
+      expect(unreachable).toEqual([])
+    })
+  }
+
+  // Guards that guard. Both of these compile; only one of them is typeable.
+  it('catches a full-width mark hiding in a romaji, which compiles clean', () => {
+    const trap = { kana: 'ひっこしました。', romaji: 'hikkoshimashita。' }
+    const compiled = compileStrict(trap)
+    expect(compiled).not.toBeNull()
+    expect(
+      (compiled ?? []).flatMap((token) => token.candidates).some((c) => !isTypeableRomaji(c)),
+    ).toBe(true)
+
+    const honest = compileStrict({ kana: 'ひっこしました', romaji: 'hikkoshimashita' })
+    expect(honest).not.toBeNull()
+    expect(
+      (honest ?? []).flatMap((token) => token.candidates).every((c) => isTypeableRomaji(c)),
+    ).toBe(true)
   })
 
   /*

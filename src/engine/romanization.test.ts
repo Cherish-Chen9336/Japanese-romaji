@@ -4,6 +4,7 @@ import {
   expectedKana,
   initMatch,
   isMoraToken,
+  isTypeableRomaji,
   legalNext,
   projectMatch,
   stepMatch,
@@ -212,6 +213,34 @@ describe('isMoraToken', () => {
     expect(isMoraToken('ー')).toBe(false)
     expect(isMoraToken('k')).toBe(false)
     expect(isMoraToken(' ')).toBe(false)
+  })
+})
+
+describe('isTypeableRomaji', () => {
+  it('accepts the letters, the word separator and the apostrophe', () => {
+    expect(isTypeableRomaji('shashin')).toBe(true)
+    expect(isTypeableRomaji('kyou wa')).toBe(true)
+    // ん before a vowel: the apostrophe is the only thing telling n'a from na.
+    expect(isTypeableRomaji("n'a")).toBe(true)
+  })
+
+  it('refuses a full-width mark, which is the whole point of it', () => {
+    expect(isTypeableRomaji('hikkoshimashita。')).toBe(false)
+    expect(isTypeableRomaji('、')).toBe(false)
+    expect(isTypeableRomaji('し')).toBe(false)
+  })
+
+  it('refuses capitals, because the matcher is fed lowercase', () => {
+    expect(isTypeableRomaji('Shashin')).toBe(false)
+  })
+
+  /*
+   * Not "the empty string contains no bad characters, therefore it is fine".
+   * A token with an empty candidate accepts nothing and can never complete,
+   * which is the same failure this predicate exists to catch.
+   */
+  it('refuses the empty string', () => {
+    expect(isTypeableRomaji('')).toBe(false)
   })
 })
 

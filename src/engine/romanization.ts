@@ -436,6 +436,41 @@ export function isMoraToken(kana: string): boolean {
 }
 
 /**
+ * Every character a typist can actually send: the letter keys, the word
+ * separator, and the apostrophe that disambiguates ん before a vowel (`n'a`).
+ *
+ * Kept as the characters rather than a pattern so the on-screen keyboard can be
+ * tested against the same list — `keyboard-layouts.test.ts` asserts the board
+ * draws a key for each one. `ui` may import from `engine`, never the reverse,
+ * so this is the only direction in which the two can be pinned together.
+ */
+export const TYPEABLE_ROMAJI_CHARS = "abcdefghijklmnopqrstuvwxyz' "
+
+const TYPEABLE = new Set(TYPEABLE_ROMAJI_CHARS)
+
+/**
+ * Whether a romaji spelling can be produced on a keyboard that exists.
+ *
+ * **"Compiles" and "is typeable" are different claims, and only the first was
+ * ever checked.** `compileStrict` asks whether the kana can spell the romaji;
+ * it has no opinion about whether the result can be pressed. An item written
+ * `{ reading: 'ひっこしました。', romaji: 'hikkoshimashita。' }` — with the
+ * full-width 。 in the *romaji* — compiles clean into seven tokens, passes the
+ * bank invariants, the suite, the typecheck, the build and the publish, and
+ * hands the typist a token whose only candidate is a character no key on the
+ * board produces. The run cannot be finished and nothing anywhere fails.
+ *
+ * The ASCII form fails honestly, which is what hid this: `hikkoshimashita.`
+ * is rejected by `compileStrict`, so the obvious way of writing the mistake is
+ * already caught and the dangerous way is not.
+ */
+export function isTypeableRomaji(romaji: string): boolean {
+  if (romaji.length === 0) return false
+  for (const character of romaji) if (!TYPEABLE.has(character)) return false
+  return true
+}
+
+/**
  * A keystroke that tolerates errors: correct keys advance as usual, and a wrong
  * key advances too — consuming one edge in every direction that was legal, and
  * letting later keystrokes kill the branches that turn out dead.
