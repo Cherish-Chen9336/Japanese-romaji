@@ -890,11 +890,48 @@ sound depends on the mora before it, so on its own it is not a bucket anything
 could mean. **Katakana moras are off-chart**, since 五十音 here is hiragana, so
 pasting katakana puts カ and コ in the "also tracked" strip. Whether カ should
 earn the か cell, a cell of its own, or a chart of its own is open and should be
-settled before katakana is encouraged any further. The
-"also tracked" strip is one horizontal row and is at **nine** off-chart moras
-after the bank expansion — still one row, verified, but the table needs 513px to
-draw it, and that width is what costs the 760–1024 band its height. It will not
-survive many more.
+settled before katakana is encouraged any further — and it is now the cheapest
+lever on the bug below, since **nine of the 22 off-chart moras are katakana**
+(ア イ カ コ ス パ ヒ レ ン) against thirteen sokuon.
+
+**The "also tracked" strip is broken, and this file's own prediction is how it
+got there.** It said the strip was at **nine** off-chart moras, "still one row,
+verified", and closed with "it will not survive many more". It is at **22**, and
+it did not survive. Measured 2026-10-27 against a seeded profile where every
+corpus mora has been met:
+
+| viewport | strip box | strip natural | cell width | page overflow |
+|---|---|---|---|---|
+| 1920, 1600 | 1176px | 1176px | **48px** | 0 |
+| 1440, 1024, 768 | 513px | 513px | **19–23px** | 0 |
+| 390 | 358px | **504px** | 19–23px | **130px** |
+| 320 | 288px | **504px** | 19–23px | **200px** |
+
+Two separate failures, and the second is the serious one:
+
+- **The cells are crushed to under half their size.** A chart cell is 48px and
+  this file's `flex: 0 1 513px` reasoning rests on "the cells carry a fixed
+  48px". They do at 1600 and up, where the strip takes its natural 1176px. From
+  1440 down the container query caps the strip at 513px and 22 cells divide it
+  into 19–23px each, squeezing the kana and reducing the romaji beneath them to
+  near-illegible. っしょ wraps inside its own cell.
+- **On a phone the strip runs off the page.** A `<table>` row cannot wrap, so
+  the strip cannot reflow: at 390 it demands 504px inside a 358px panel and the
+  whole document scrolls sideways by 130px, 200px at 320. This file says
+  "Phones are untouched: a 358px panel is below the 721px floor" and that the
+  layout overflows at no width. Both were true at nine moras.
+
+**The measurement that said "still one row, verified" could not have failed.**
+Counting distinct cell tops in a `<table>` always returns one row, because
+table cells do not wrap — the check confirmed the markup, not the layout. Ask
+instead for the strip's `scrollWidth` against its box, and for
+`document.scrollWidth` against `clientWidth`.
+
+A fix has to let the strip reflow — a wrapping grid rather than one table row —
+or cut what goes in it; settling the katakana question above removes nine of
+the 22 on its own. Whichever is chosen, the aside's container-query thresholds
+(1422px with the strip, about 1078px without) were derived from a 513px
+one-row strip and have to be re-derived with it.
 
 **Do not enumerate the off-chart moras with `grep -oP 'っ.'`.** That matches っ
 plus one character, so it truncates the three-character yoon sokuon: っぴょ comes
@@ -902,7 +939,14 @@ back as っぴ and っしょ collapses into っし, yielding a confident "eight"
 contains one mora which does not exist and misses two that do. This file said
 eight for exactly that reason. Count from the engine instead — `chartMoras()`
 against a corpus built from `allBankItems()` and `itemMoras()` gives **104 chart
-cells, 113 corpus moras, nine off chart, no unreachable cell**. Chart groups are hardcoded, so a new `KanaGroup` needs adding in two
+cells, 126 corpus moras, 22 off chart, no unreachable cell**, measured
+2026-10-27. The figures this file carried before that — 113 corpus moras and
+nine off chart, and "112 distinct" elsewhere — were from before the bank
+expansion and were quoted for months after they stopped being true, which is
+how the strip bug below went unseen. **Re-measure rather than quote**; the whole
+count is six lines in a throwaway test. The off-chart 22 are
+っか っく っこ っし っしょ った っちゃ って っと っぱ っぴょ っぷ っぽ and
+ア イ カ コ ス パ ヒ レ ン. Chart groups are hardcoded, so a new `KanaGroup` needs adding in two
 places. Corpus-wide invariants read `allBankItems()` rather than a hand-listed
 set of banks, so a bank added later joins them by existing.
 
@@ -1507,8 +1551,9 @@ longer claim anything unlocks, since nothing does.
 
 The bundled banks are small on purpose but were *too* small: 24 words meant a
 thirty-item passage repeated every entry. They are 55 / 33 / 14 now, and the
-corpus covers 112 distinct moras with every one of the chart's 104 cells
-reachable. Anything added has to pass `compileStrict` — the test over every bank
+corpus covers **126** distinct moras with every one of the chart's 104 cells
+reachable. (This said 112 until 2026-10-27; see the mastery map section for
+what quoting a stale count cost.) Anything added has to pass `compileStrict` — the test over every bank
 is what makes that a build-time failure rather than a passage nobody can finish.
 
 `gojuonBank` holds the chart, one row per item, tagged `seion` / `dakuten` /
@@ -2101,12 +2146,15 @@ audit disagree, this section is current.
   21% in the difficult bank, so the loss is worst exactly where the material is
   hardest. The practice keyboard already has a job, orientation and pressed-state
   feedback, and persistent historical colour competes with it. Mastery belongs on
-  the 五十音 grid instead, which fits the data closely: 104 of the 119 tracked
-  moras sit on the chart and every chart cell is reachable from the corpus. The
-  fifteen outside it are eleven sokuon (っか っく っこ っし っしょ って っと っぱ
-  っぴょ っぷ っぽ) and four katakana (コ パ ヒ ン), tracked as themselves rather
-  than folded into their hiragana cells. `offChartMoras` shows all fifteen
-  beside the grid rather than dropping them.
+  the 五十音 grid instead, which fits the data closely: 104 of the **126**
+  tracked moras sit on the chart and every chart cell is reachable from the
+  corpus. The **22** outside it are thirteen sokuon (っか っく っこ っし っしょ
+  った っちゃ って っと っぱ っぴょ っぷ っぽ) and nine katakana
+  (ア イ カ コ ス パ ヒ レ ン), tracked as themselves rather than folded into
+  their hiragana cells. `offChartMoras` shows all 22 beside the grid rather
+  than dropping them — which is where the strip bug recorded under "The mastery
+  map" comes from. This paragraph said "104 of the 119" and "the fifteen
+  outside it" until 2026-10-27, and both were stale.
 - **A keyboard heatmap tinted by speed, anywhere.** `keyStats` timing charges the
   interval to the key just pressed, so whichever key *starts* a mora absorbs the
   kana-recall pause. Twelve consonants — `b c d f g j m n p r w z` — never once
