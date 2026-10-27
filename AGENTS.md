@@ -1928,6 +1928,48 @@ element and look at the real browser — and note that finding a rule in
 `document.styleSheets` proves it parsed, not that it renders. That is the
 mistake that let the false explanation above stand for two commits.
 
+## Deployment
+
+Live at **https://cherish-chen9336.github.io/Japanese-romaji/**, published by
+`.github/workflows/deploy.yml` on every push to `main` and on
+`workflow_dispatch`. First deployed 2026-10-27.
+
+**The workflow is the only CI this repo has**, which is why the gates live in
+it: typecheck, then `pnpm test:coverage`, then the build, and a failure in any
+of them stops the publish. It is `test:coverage` and not `pnpm test` on
+purpose — `pnpm test` is `vitest run` with no `--coverage`, so the thresholds
+in `vite.config.ts` never execute under it and the gate would not be a gate.
+
+**`vite.config.ts` sets `base` to `/Japanese-romaji/` for `build` and preview,
+and `/` for dev.** Pages serves a project site from a subpath, so a root base
+publishes a page whose every asset 404s. Verify a build by running
+`pnpm preview`, which serves at the real published path, rather than by
+trusting the dev server.
+
+**Two things about Pages that cost an afternoon, recorded so they are not
+rediscovered:**
+
+- **`actions/configure-pages` cannot enable Pages here.** Its `enablement`
+  input needs a token with admin rights, and the workflow's built-in
+  `GITHUB_TOKEN` does not have them. Enabling Pages is a human click at
+  **Settings → Pages → Source: "GitHub Actions"**, and until it is made the
+  workflow fails at that step having already passed every gate.
+- **Pages on a Free account requires a *public* repository.** Private-repo
+  Pages is a GitHub Pro/Team/Enterprise feature. This repo was private and was
+  made public on 2026-10-27 for that reason. Note what that does and does not
+  buy: a Pages site is public on the internet whatever the repo's visibility —
+  only Enterprise Cloud can make the *site* private — so paying for Pro would
+  have kept the source private and left the site exactly as public as it is
+  now. Cloudflare Pages and Vercel publish from a private repo on their free
+  tiers and were the alternative; both serve from the domain root, so taking
+  one would mean changing `base` to `/`.
+
+**Before the repo went public the history was swept** for committed secrets,
+`.env`/key files and real email addresses. It had none — the commits carry
+`Cherish-Chen9336@users.noreply.github.com` and `noreply@anthropic.com`. One
+local filesystem path and a dead artifact UUID were removed from this file in
+`b9d1b8a`. Sweep again before adding any new remote or credential.
+
 ## Deliberately not built
 
 Decisions to *not* do something leave no commit and no code, so they live here or
