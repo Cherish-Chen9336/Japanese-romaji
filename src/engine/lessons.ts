@@ -4,7 +4,7 @@ import { dealFrom, newDeck, pickRandom, type Deck, type RandomSource } from './r
 import type {
   KanaGroup,
   KanaRow,
-  KanaScriptChoice,
+  KanaScript,
   Lesson,
   PracticeText,
   Settings,
@@ -310,13 +310,8 @@ export const katakanaBank: KanaRow[] = gojuonBank.map((row) => ({
  * `kana` source is the one thing never gated on speed, so the default here is
  * the one that does not hand a first-time typist a syllabary they have not met.
  */
-export function kanaRows(group: KanaGroup, script: KanaScriptChoice = 'hiragana'): TextItem[] {
-  const rows =
-    script === 'katakana'
-      ? katakanaBank
-      : script === 'both'
-        ? [...gojuonBank, ...katakanaBank]
-        : gojuonBank
+export function kanaRows(group: KanaGroup, script: KanaScript = 'hiragana'): TextItem[] {
+  const rows = script === 'katakana' ? katakanaBank : gojuonBank
   return group === 'all' ? rows : rows.filter((row) => row.group === group)
 }
 
@@ -653,7 +648,7 @@ export function planRun(
   library: TextItem[],
   rng: RandomSource,
   kanaGroup: KanaGroup = 'all',
-  kanaScript: KanaScriptChoice = 'hiragana',
+  kanaScript: KanaScript = 'hiragana',
 ): RunPlan {
   // The only fallback left is a library with nothing in it, which is a real
   // emptiness rather than a permission.
@@ -800,7 +795,7 @@ export function generateLesson(
   library: TextItem[],
   rng: RandomSource,
   kanaGroup: KanaGroup = 'all',
-  kanaScript: KanaScriptChoice = 'hiragana',
+  kanaScript: KanaScript = 'hiragana',
 ): Lesson {
   return dealLesson(
     planRun(requestedSource, weakKana, library, rng, kanaGroup, kanaScript),

@@ -1,9 +1,9 @@
 import { lifetimeStatsFromRuns } from '../engine/stats'
 import { MAX_LIBRARY_ITEM_CHARS } from '../engine/lessons'
-import { isKanaGroup, isKanaScriptChoice, isThemeName } from '../engine/types'
+import { isKanaGroup, isKanaScript, isThemeName } from '../engine/types'
 import type {
   KanaGroup,
-  KanaScriptChoice,
+  KanaScript,
   ThemeName,
   LifetimeStats,
   RunResult,
@@ -364,9 +364,9 @@ export function readKanaGroup(): KanaGroup {
  * back drilling exactly what it drilled before, rather than being handed
  * katakana it never asked for.
  */
-export function readKanaScript(): KanaScriptChoice {
+export function readKanaScript(): KanaScript {
   const raw = readJson<unknown>(KANA_SCRIPT_KEY, null)
-  return isKanaScriptChoice(raw) ? raw : 'hiragana'
+  return isKanaScript(raw) ? raw : 'hiragana'
 }
 
 export function readShowKeyboard(): boolean {
@@ -477,7 +477,7 @@ export type Preferences = {
   settings: Settings
   showKeyboard: boolean
   kanaGroup: KanaGroup
-  kanaScript: KanaScriptChoice
+  kanaScript: KanaScript
   source: SourceName
 }
 
@@ -522,7 +522,7 @@ export function parsePreferences(raw: unknown): Preferences {
     settings,
     showKeyboard: typeof r.showKeyboard === 'boolean' ? r.showKeyboard : true,
     kanaGroup: isKanaGroup(r.kanaGroup) ? r.kanaGroup : 'all',
-    kanaScript: isKanaScriptChoice(r.kanaScript) ? r.kanaScript : 'hiragana',
+    kanaScript: isKanaScript(r.kanaScript) ? r.kanaScript : 'hiragana',
     source: isStr(r.source) && VALID_SOURCES.has(r.source) ? (r.source as SourceName) : 'auto',
   }
 }

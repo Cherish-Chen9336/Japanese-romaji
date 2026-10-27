@@ -333,16 +333,28 @@ describe('readKanaScript', () => {
     expect(readKanaScript()).toBe('hiragana')
   })
 
-  it('returns a stored choice, including both', () => {
+  it('returns a stored choice', () => {
     localStorage.setItem(KANA_SCRIPT_KEY, JSON.stringify('katakana'))
     expect(readKanaScript()).toBe('katakana')
-    localStorage.setItem(KANA_SCRIPT_KEY, JSON.stringify('both'))
-    expect(readKanaScript()).toBe('both')
+    localStorage.setItem(KANA_SCRIPT_KEY, JSON.stringify('hiragana'))
+    expect(readKanaScript()).toBe('hiragana')
   })
 
   it('falls back to hiragana for a value it does not know', () => {
     localStorage.setItem(KANA_SCRIPT_KEY, JSON.stringify('all'))
     expect(readKanaScript()).toBe('hiragana')
+  })
+
+  /*
+   * `both` was a third choice for about an hour, between the row of buttons
+   * and the switch that replaced it. The switch has two sides, so it went —
+   * and anyone who stored it in that hour reads back as hiragana rather than
+   * as a value nothing in the app can act on.
+   */
+  it('reads a stored both as hiragana, since the switch has two sides', () => {
+    localStorage.setItem(KANA_SCRIPT_KEY, JSON.stringify('both'))
+    expect(readKanaScript()).toBe('hiragana')
+    expect(parsePreferences({ kanaScript: 'both' }).kanaScript).toBe('hiragana')
   })
 
   it('falls back to hiragana for corrupt JSON', () => {
@@ -362,9 +374,13 @@ describe('readKanaScript', () => {
    * `writePreferences` or `parsePreferences` passed the whole suite.
    */
   it('survives a write and read of the whole preference set', () => {
-    const written = { ...readPreferences(), kanaScript: 'both' as const, kanaGroup: 'yoon' as const }
+    const written = {
+      ...readPreferences(),
+      kanaScript: 'katakana' as const,
+      kanaGroup: 'yoon' as const,
+    }
     expect(writePreferences(written)).toBe(true)
-    expect(readPreferences().kanaScript).toBe('both')
+    expect(readPreferences().kanaScript).toBe('katakana')
     expect(readPreferences().kanaGroup).toBe('yoon')
   })
 

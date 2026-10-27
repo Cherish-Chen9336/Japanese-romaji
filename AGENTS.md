@@ -970,11 +970,25 @@ sentence has retired itself exactly as it was designed to. ヲ, ヂ, ヅ and the
 palatalized rows are reachable now; nothing in the corpus reaches them, but the
 drill does.
 
-**Script is a separate axis from group, and a separate row of buttons.** The
-voiced katakana rows are their own thing to practise, so folding script into
-`KanaGroup` would have made twelve pairs out of seven buttons. `KanaScriptChoice`
-is `'hiragana' | 'katakana' | 'both'` — `both` rather than `all`, because
-`KanaGroup` already owns `all` and the two sit side by side.
+**Script is a separate axis from group.** The voiced katakana rows are their own
+thing to practise, so folding script into `KanaGroup` would have made twelve
+pairs out of seven buttons.
+
+**It is a two-sided switch beside 五十音, not a row.** Built as its own `SCRIPT`
+row first, and Ella had it replaced the same day: a labelled row is the shape
+for a list you scan, and this is a choice with two answers you flip between. The
+sides carry あ and ア and nothing else — the glyph *is* the label, and the row's
+word was saying "script" to someone already looking at two kana. The accessible
+name is still the full word, through `aria-label`, with the glyph `aria-hidden`;
+`aria-pressed` carries which side is on, so it reads as a pair of toggles rather
+than a thing to click.
+
+**Losing the row cost `'both'`, and that is the trade.** `KanaScriptChoice` was
+`'hiragana' | 'katakana' | 'both'`; a switch has two sides, so the type is now
+just `KanaScript`. A profile that stored `'both'` reads back as hiragana rather
+than failing, which is the same absent-key rule applied to a value that no
+longer exists. Mixed drilling is the thing given up — reachable again only by
+putting the third state back, and a three-sided switch is not a switch.
 
 **This one *is* a preference**, unlike the chart's toggle, and the distinction
 is the same rule read the other way: `Preferences` carries what decides the

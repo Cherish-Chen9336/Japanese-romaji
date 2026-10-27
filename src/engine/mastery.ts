@@ -2,6 +2,7 @@ import { allBankItems, gojuonBank, itemMoras } from './lessons'
 import { toKatakana, tokenizeKana } from './romanization'
 import { compileStrict } from './prompt'
 import type { KanaGroup, KanaScript } from './types'
+import { KANA_SCRIPTS } from './types'
 
 /**
  * The 五十音 chart, laid out for display.
@@ -30,9 +31,7 @@ import type { KanaGroup, KanaScript } from './types'
  * and that choice is persisted.
  */
 export type { KanaScript }
-
-/** Both scripts, in the order a toggle should offer them. */
-export const KANA_SCRIPTS: readonly KanaScript[] = ['hiragana', 'katakana']
+export { KANA_SCRIPTS }
 
 export type MasteryCell = {
   kana: string

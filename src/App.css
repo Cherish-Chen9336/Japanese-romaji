@@ -671,6 +671,51 @@ rt {
   margin: 0;
 }
 
+/*
+ * The syllabary switch, sitting against the 五十音 label rather than in a row
+ * of its own.
+ *
+ * Chrome, deliberately, where the options beside it are bare text. The group
+ * buttons are a list of four you read along; this is a two-sided switch you
+ * flip, and giving it a track and a filled side says which of those it is
+ * without a word. It is the only bordered control in the hints block, which is
+ * what keeps "four of these, then one of those" legible at a glance.
+ *
+ * The glyphs are the labels, so the sides are sized by padding rather than by
+ * text: あ and ア are not the same width, and a switch whose halves resize as
+ * you flip it reads as a bug.
+ */
+.script-switch {
+  background: var(--color-surface);
+  border: var(--bw-1) solid var(--color-border);
+  border-radius: 999px;
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+}
+
+.script-switch__side {
+  background: none;
+  border: none;
+  border-radius: 999px;
+  color: var(--color-muted);
+  cursor: pointer;
+  font-size: var(--fs-14);
+  line-height: 1.2;
+  min-inline-size: 2.2em;
+  padding: 2px 0;
+  text-align: center;
+}
+
+.script-switch__side:hover {
+  color: var(--color-accent);
+}
+
+.script-switch__side[aria-pressed="true"] {
+  background: var(--color-accent);
+  color: var(--color-accent-fg);
+}
+
 /* "source" reads as the row's heading, not as another option in it. */
 .hint-label {
   color: var(--color-dim);

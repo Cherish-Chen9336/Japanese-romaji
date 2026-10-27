@@ -47,8 +47,11 @@ describe('kanaRows', () => {
     expect(kanaRows('all', 'katakana').map((row) => row.kana)).toContain('ワヲン')
   })
 
-  it('deals both scripts when asked for both', () => {
-    expect(kanaRows('all', 'both')).toHaveLength(gojuonBank.length * 2)
+  /* One syllabary at a time, and the same count either way: the switch has two
+     sides, so there is no choice that deals 52 rows. */
+  it('deals one script at a time, the same number of rows either way', () => {
+    expect(kanaRows('all', 'katakana')).toHaveLength(gojuonBank.length)
+    expect(kanaRows('all', 'hiragana')).toHaveLength(gojuonBank.length)
   })
 
   /* Script and group are separate axes, and crossing them is the point: the
@@ -57,8 +60,8 @@ describe('kanaRows', () => {
     expect(kanaRows('yoon', 'katakana').map((row) => row.kana)).toEqual(
       gojuonBank.filter((row) => row.group === 'yoon').map((row) => toKatakana(row.kana)),
     )
-    expect(kanaRows('dakuten', 'both')).toHaveLength(
-      gojuonBank.filter((row) => row.group === 'dakuten').length * 2,
+    expect(kanaRows('dakuten', 'katakana')).toHaveLength(
+      gojuonBank.filter((row) => row.group === 'dakuten').length,
     )
   })
 

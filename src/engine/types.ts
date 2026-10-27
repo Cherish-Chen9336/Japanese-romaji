@@ -45,26 +45,23 @@ export function isKanaGroup(value: unknown): value is KanaGroup {
   return KANA_GROUPS.includes(value as KanaGroup)
 }
 
-/** One syllabary. The mastery chart draws one of these at a time. */
+/**
+ * One syllabary. The mastery chart draws one at a time, and the 五十音 drill
+ * deals one at a time — which is a **separate axis** from which part of the
+ * chart it deals, so the two are chosen separately rather than crossed into a
+ * list of pairs.
+ *
+ * **Two states, not three.** A `both` choice shipped for about an hour and was
+ * dropped: the control is a switch sitting beside the 五十音 label with あ on
+ * one side and ア on the other, and a switch has two sides. A stored `both`
+ * falls back to hiragana like any other value this does not recognise.
+ */
 export type KanaScript = 'hiragana' | 'katakana'
 
-/**
- * Which syllabary the 五十音 drill deals, which is a **separate axis** from
- * which part of the chart it deals. Crossing them is the point: the voiced
- * katakana rows are their own thing to practise, and folding script into
- * `KanaGroup` would have made that an eight-way list of pairs instead of two
- * short rows of buttons.
- *
- * `both` rather than `all`, because `KanaGroup` already owns `all` and the two
- * sit side by side in the picker — "all · both" reads as two answers to two
- * questions, where "all · all" reads as one question asked twice.
- */
-export type KanaScriptChoice = KanaScript | 'both'
+export const KANA_SCRIPTS: readonly KanaScript[] = ['hiragana', 'katakana']
 
-export const KANA_SCRIPT_CHOICES: readonly KanaScriptChoice[] = ['hiragana', 'katakana', 'both']
-
-export function isKanaScriptChoice(value: unknown): value is KanaScriptChoice {
-  return KANA_SCRIPT_CHOICES.includes(value as KanaScriptChoice)
+export function isKanaScript(value: unknown): value is KanaScript {
+  return KANA_SCRIPTS.includes(value as KanaScript)
 }
 
 /** A row of the chart, tagged with the group it belongs to. */

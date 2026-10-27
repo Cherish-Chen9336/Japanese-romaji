@@ -70,7 +70,7 @@ import {
 } from "./engine/stats";
 import {
   KANA_GROUPS,
-  KANA_SCRIPT_CHOICES,
+  KANA_SCRIPTS,
   SOURCE_LABELS,
   STANDARD_TIMED_MS,
   THEME_NAMES,
@@ -78,7 +78,7 @@ import {
 import { Furigana } from "./ui/Furigana";
 import type {
   KanaGroup,
-  KanaScriptChoice,
+  KanaScript,
   ThemeName,
   Lesson,
   LifetimeStats,
@@ -141,13 +141,13 @@ const KANA_GROUP_LABELS: Record<KanaGroup, string> = {
   yoon: "yōon",
 };
 
-/* The syllabary itself, rather than the word for it — あ and ア are the two
-   things being chosen between, and a learner who cannot yet read "katakana"
-   can read ア. */
-const KANA_SCRIPT_LABELS: Record<KanaScriptChoice, string> = {
-  hiragana: "あ hiragana",
-  katakana: "ア katakana",
-  both: "both",
+/* The switch shows the syllabary itself rather than the word for it: あ and ア
+   are the two things being chosen between, and a learner can read those before
+   they can read "hiragana". The word goes on `aria-label`, since a glyph is not
+   a name. */
+const KANA_SCRIPT_GLYPHS: Record<KanaScript, string> = {
+  hiragana: "あ",
+  katakana: "ア",
 };
 
 function App() {
@@ -197,7 +197,7 @@ function App() {
   };
   const [kanaGroup, setKanaGroup] = createSignal<KanaGroup>(readKanaGroup());
   const [kanaScript, setKanaScript] =
-    createSignal<KanaScriptChoice>(readKanaScript());
+    createSignal<KanaScript>(readKanaScript());
   const [customText, setCustomText] = createSignal("");
   /*
    * A paste held between arriving and being committed. Null means the box is
@@ -636,7 +636,7 @@ function App() {
   /* Same shape as the group change, and for the same reason: the deck in hand
      was built from the old choice, so it has to be dealt again or the next
      thing typed is the syllabary that was just switched away from. */
-  const changeKanaScript = (choice: KanaScriptChoice) => {
+  const changeKanaScript = (choice: KanaScript) => {
     persist(KANA_SCRIPT_KEY, choice);
     setKanaScript(choice);
     if (source() === "kana") {
@@ -1368,6 +1368,43 @@ function App() {
               <Show when={source() === "kana"}>
                 <div class="practice-hints__row">
                   <span class="hint-label">五十音</span>
+                  {/*
+                    The syllabary, as a switch beside the label rather than a
+                    row of its own. It is the same two-sided question the label
+                    asks — which 五十音 — so it belongs against the label, and
+                    a row underneath made a second heading out of a choice
+                    between two characters.
+
+                    The glyphs carry it. あ and ア are the two things being
+                    chosen between and a learner can read them before they can
+                    read the words, but a glyph is not a name, so each side
+                    carries one for anything that cannot see it.
+                  */}
+                  <div
+                    class="script-switch"
+                    role="group"
+                    aria-label="Syllabary"
+                  >
+                    <For each={KANA_SCRIPTS}>
+                      {(choice) => (
+                        <button
+                          type="button"
+                          class="script-switch__side"
+                          aria-pressed={kanaScript() === choice}
+                          aria-label={choice}
+                          title={choice}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            changeKanaScript(choice);
+                          }}
+                        >
+                          <span aria-hidden="true">
+                            {KANA_SCRIPT_GLYPHS[choice]}
+                          </span>
+                        </button>
+                      )}
+                    </For>
+                  </div>
                   <For each={KANA_GROUPS}>
                     {(group) => (
                       <button
@@ -1387,29 +1424,6 @@ function App() {
                   <span class="source-current">
                     {kanaRows(kanaGroup(), kanaScript()).length} rows
                   </span>
-                </div>
-                {/* A second row, not more buttons on the first. Script and
-                    group are separate questions — the voiced katakana rows are
-                    their own thing to drill — and crossing them into one list
-                    would make twelve buttons out of seven. */}
-                <div class="practice-hints__row">
-                  <span class="hint-label">script</span>
-                  <For each={KANA_SCRIPT_CHOICES}>
-                    {(choice) => (
-                      <button
-                        type="button"
-                        class="source-button"
-                        classList={{ active: kanaScript() === choice }}
-                        title={KANA_SCRIPT_LABELS[choice]}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          changeKanaScript(choice);
-                        }}
-                      >
-                        {KANA_SCRIPT_LABELS[choice]}
-                      </button>
-                    )}
-                  </For>
                 </div>
               </Show>
               <div class="practice-hints__row">
