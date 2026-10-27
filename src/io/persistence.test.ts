@@ -16,8 +16,13 @@ import {
   readTheme,
   THEME_KEY,
   readKanaGroup,
+  readKanaScript,
   readShowKeyboard,
   readSource,
+  readPreferences,
+  writePreferences,
+  ALL_PREFERENCE_KEYS,
+  KANA_SCRIPT_KEY,
 } from './persistence'
 
 const RUNS_KEY = 'japanese-romaji:runs'
@@ -314,6 +319,59 @@ describe('readShowKeyboard', () => {
   it('returns false when the key stores JSON false', () => {
     localStorage.setItem(SHOW_KB_KEY, 'false')
     expect(readShowKeyboard()).toBe(false)
+  })
+})
+
+describe('readKanaScript', () => {
+  /*
+   * Hiragana, not "both". A profile saved before this key existed has to come
+   * back drilling what it drilled, and the 五十音 source is the one a complete
+   * beginner is pointed at — handing them a syllabary they have never met
+   * because the storage was empty is the opposite of what the default is for.
+   */
+  it('defaults to hiragana when nothing is stored', () => {
+    expect(readKanaScript()).toBe('hiragana')
+  })
+
+  it('returns a stored choice, including both', () => {
+    localStorage.setItem(KANA_SCRIPT_KEY, JSON.stringify('katakana'))
+    expect(readKanaScript()).toBe('katakana')
+    localStorage.setItem(KANA_SCRIPT_KEY, JSON.stringify('both'))
+    expect(readKanaScript()).toBe('both')
+  })
+
+  it('falls back to hiragana for a value it does not know', () => {
+    localStorage.setItem(KANA_SCRIPT_KEY, JSON.stringify('all'))
+    expect(readKanaScript()).toBe('hiragana')
+  })
+
+  it('falls back to hiragana for corrupt JSON', () => {
+    localStorage.setItem(KANA_SCRIPT_KEY, '{nope')
+    expect(readKanaScript()).toBe('hiragana')
+  })
+
+  /* A preference nobody sweeps is a preference that survives "erase
+     everything", which is the one promise the reset button makes. */
+  it('is swept by a reset', () => {
+    expect(ALL_PREFERENCE_KEYS).toContain(KANA_SCRIPT_KEY)
+  })
+
+  /*
+   * The gap this block was written for. Every other preference test checks one
+   * field at a time, so a field added to `Preferences` and forgotten in
+   * `writePreferences` or `parsePreferences` passed the whole suite.
+   */
+  it('survives a write and read of the whole preference set', () => {
+    const written = { ...readPreferences(), kanaScript: 'both' as const, kanaGroup: 'yoon' as const }
+    expect(writePreferences(written)).toBe(true)
+    expect(readPreferences().kanaScript).toBe('both')
+    expect(readPreferences().kanaGroup).toBe('yoon')
+  })
+
+  it('round-trips through parsePreferences, and refuses a bad one', () => {
+    expect(parsePreferences({ kanaScript: 'katakana' }).kanaScript).toBe('katakana')
+    expect(parsePreferences({ kanaScript: 'nonsense' }).kanaScript).toBe('hiragana')
+    expect(parsePreferences({}).kanaScript).toBe('hiragana')
   })
 })
 

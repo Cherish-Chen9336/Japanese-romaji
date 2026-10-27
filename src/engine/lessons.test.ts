@@ -14,6 +14,7 @@ import {
   generateLesson,
   gojuonBank,
   kanaRows,
+  katakanaBank,
   sourceOptions,
   parseLibraryText,
   quoteBank,
@@ -27,7 +28,76 @@ import { acceptsSpelling, compileStrict } from './prompt'
 import type { RomajiToken } from './romanization'
 import { mulberry32 } from './rng'
 import type { KanaRow, Settings, TextItem } from './types'
+import { toKatakana } from './romanization'
 import { SOURCE_LABELS } from './types'
+
+describe('kanaRows', () => {
+  it('deals hiragana unless asked otherwise', () => {
+    expect(kanaRows('all').map((row) => row.kana)).toEqual(gojuonBank.map((row) => row.kana))
+    expect(kanaRows('all', 'hiragana')).toEqual(kanaRows('all'))
+  })
+
+  /* Mirrored from the same bank, so a row can never exist in one script and
+     not the other — the same guarantee the mastery chart's grids have. */
+  it('mirrors every row into katakana, keeping the spelling and the group', () => {
+    expect(katakanaBank).toEqual(
+      gojuonBank.map((row) => ({ ...row, kana: toKatakana(row.kana) })),
+    )
+    expect(kanaRows('all', 'katakana').map((row) => row.kana)).toContain('アイウエオ')
+    expect(kanaRows('all', 'katakana').map((row) => row.kana)).toContain('ワヲン')
+  })
+
+  it('deals both scripts when asked for both', () => {
+    expect(kanaRows('all', 'both')).toHaveLength(gojuonBank.length * 2)
+  })
+
+  /* Script and group are separate axes, and crossing them is the point: the
+     voiced katakana rows are their own thing to practise. */
+  it('crosses the script with the group rather than replacing it', () => {
+    expect(kanaRows('yoon', 'katakana').map((row) => row.kana)).toEqual(
+      gojuonBank.filter((row) => row.group === 'yoon').map((row) => toKatakana(row.kana)),
+    )
+    expect(kanaRows('dakuten', 'both')).toHaveLength(
+      gojuonBank.filter((row) => row.group === 'dakuten').length * 2,
+    )
+  })
+
+  /* Every katakana row has to be typeable, exactly as the hiragana rows are —
+     `prompt.test.ts` sweeps the banks, and this bank is derived, so a mirror
+     that produced an unspellable row would otherwise fail far from its cause. */
+  it('compiles every katakana row to its own spelling', () => {
+    const broken = katakanaBank.filter((row) => compileStrict(row) === null)
+    expect(broken).toEqual([])
+  })
+})
+
+describe('drills reaching katakana', () => {
+  /*
+   * Opened by making the 五十音 drill deal katakana: ヲ and the palatalized
+   * katakana rows appear nowhere else in the corpus, so a weakness there used
+   * to select nothing and fall through to the hiragana fallback — the chart
+   * naming a weakness the drills could not take you to.
+   */
+  it('finds a drill for a mora only the katakana rows contain', () => {
+    const items = drillBankFromWeakKana(['ヲ'])
+    expect(items.length).toBeGreaterThan(0)
+    expect(items.every((item) => itemMoras(item).includes('ヲ'))).toBe(true)
+  })
+
+  it('offers katakana among the moras a drill can target', () => {
+    expect(drillMoras).toContain('ヲ')
+    expect(drillMoras).toContain('キョ')
+    expect(drillMoras).toContain('を')
+  })
+
+  /* And costs nothing to a typist who has never met katakana: the filter is on
+     weak moras, so there is nothing katakana for it to select. */
+  it('leaves a hiragana weakness drawing on hiragana', () => {
+    const items = drillBankFromWeakKana(['き'])
+    expect(items.length).toBeGreaterThan(0)
+    expect(items.some((item) => /[\u30A1-\u30FA]/.test(item.kana))).toBe(false)
+  })
+})
 
 describe('SOURCE_LABELS', () => {
   it('gives every source in the picker a label', () => {

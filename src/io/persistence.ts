@@ -1,8 +1,9 @@
 import { lifetimeStatsFromRuns } from '../engine/stats'
 import { MAX_LIBRARY_ITEM_CHARS } from '../engine/lessons'
-import { isKanaGroup, isThemeName } from '../engine/types'
+import { isKanaGroup, isKanaScriptChoice, isThemeName } from '../engine/types'
 import type {
   KanaGroup,
+  KanaScriptChoice,
   ThemeName,
   LifetimeStats,
   RunResult,
@@ -32,6 +33,7 @@ export const LIFETIME_KEY = 'japanese-romaji:lifetime'
 export const KEYBOARD_LAYOUT_KEY = 'japanese-romaji:keyboard-layout'
 export const THEME_KEY = 'japanese-romaji:theme'
 export const KANA_GROUP_KEY = 'japanese-romaji:kana-group'
+export const KANA_SCRIPT_KEY = 'japanese-romaji:kana-script'
 export const SOURCE_KEY = 'japanese-romaji:source'
 
 // Additive: runs stored before `kana` existed still carry one of the older
@@ -356,6 +358,17 @@ export function readKanaGroup(): KanaGroup {
   return isKanaGroup(raw) ? raw : 'all'
 }
 
+/**
+ * Which syllabary the kana source drills. **Hiragana unless chosen**, and the
+ * absent key reads as hiragana — so a profile saved before this existed comes
+ * back drilling exactly what it drilled before, rather than being handed
+ * katakana it never asked for.
+ */
+export function readKanaScript(): KanaScriptChoice {
+  const raw = readJson<unknown>(KANA_SCRIPT_KEY, null)
+  return isKanaScriptChoice(raw) ? raw : 'hiragana'
+}
+
 export function readShowKeyboard(): boolean {
   try {
     const raw = localStorage.getItem(SHOW_KEYBOARD_KEY)
@@ -464,6 +477,7 @@ export type Preferences = {
   settings: Settings
   showKeyboard: boolean
   kanaGroup: KanaGroup
+  kanaScript: KanaScriptChoice
   source: SourceName
 }
 
@@ -472,6 +486,7 @@ export function readPreferences(): Preferences {
     settings: readSettings(),
     showKeyboard: readShowKeyboard(),
     kanaGroup: readKanaGroup(),
+    kanaScript: readKanaScript(),
     source: readSource(),
   }
 }
@@ -482,6 +497,7 @@ export function writePreferences(preferences: Preferences): boolean {
     writeJson(SETTINGS_KEY, preferences.settings),
     writeJson(SHOW_KEYBOARD_KEY, preferences.showKeyboard),
     writeJson(KANA_GROUP_KEY, preferences.kanaGroup),
+    writeJson(KANA_SCRIPT_KEY, preferences.kanaScript),
     writeJson(SOURCE_KEY, preferences.source),
   ]
   return writes.every(Boolean)
@@ -506,6 +522,7 @@ export function parsePreferences(raw: unknown): Preferences {
     settings,
     showKeyboard: typeof r.showKeyboard === 'boolean' ? r.showKeyboard : true,
     kanaGroup: isKanaGroup(r.kanaGroup) ? r.kanaGroup : 'all',
+    kanaScript: isKanaScriptChoice(r.kanaScript) ? r.kanaScript : 'hiragana',
     source: isStr(r.source) && VALID_SOURCES.has(r.source) ? (r.source as SourceName) : 'auto',
   }
 }
@@ -517,6 +534,7 @@ export const ALL_PREFERENCE_KEYS: readonly string[] = [
   // Retired, and kept here so a reset still sweeps it up. See its declaration.
   KEYBOARD_LAYOUT_KEY,
   KANA_GROUP_KEY,
+  KANA_SCRIPT_KEY,
   SOURCE_KEY,
   // The pre-IndexedDB record keys. Still present after migration, since they
   // were the only copy until the first write landed — a reset has to take them

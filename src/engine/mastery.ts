@@ -1,7 +1,7 @@
 import { allBankItems, gojuonBank, itemMoras } from './lessons'
 import { toKatakana, tokenizeKana } from './romanization'
 import { compileStrict } from './prompt'
-import type { KanaGroup } from './types'
+import type { KanaGroup, KanaScript } from './types'
 
 /**
  * The 五十音 chart, laid out for display.
@@ -18,17 +18,18 @@ import type { KanaGroup } from './types'
  * quietly out of date.
  */
 
-/**
- * Which syllabary a chart draws.
- *
+/*
  * Two charts rather than one grid with both glyphs in each cell, and not カ
  * folded into か either. カ and か are typed with exactly the same keystrokes,
  * `ka`, so the only thing that differs between them is whether the reader can
  * read the character — and recognition is what this app measures. Folded, a
  * few hundred fluent か encounters would paint カ clean. See AGENTS.md for why
  * the other three arrangements lost.
+ *
+ * `KanaScript` lives in `types.ts` because the 五十音 drill chooses one too,
+ * and that choice is persisted.
  */
-export type KanaScript = 'hiragana' | 'katakana'
+export type { KanaScript }
 
 /** Both scripts, in the order a toggle should offer them. */
 export const KANA_SCRIPTS: readonly KanaScript[] = ['hiragana', 'katakana']

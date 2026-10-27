@@ -70,6 +70,7 @@ import {
 } from "./engine/stats";
 import {
   KANA_GROUPS,
+  KANA_SCRIPT_CHOICES,
   SOURCE_LABELS,
   STANDARD_TIMED_MS,
   THEME_NAMES,
@@ -77,6 +78,7 @@ import {
 import { Furigana } from "./ui/Furigana";
 import type {
   KanaGroup,
+  KanaScriptChoice,
   ThemeName,
   Lesson,
   LifetimeStats,
@@ -96,6 +98,7 @@ import {
 } from "./io/backup";
 import {
   KANA_GROUP_KEY,
+  KANA_SCRIPT_KEY,
   THEME_KEY,
   SETTINGS_KEY,
   SHOW_KEYBOARD_KEY,
@@ -104,6 +107,7 @@ import {
   loadProfile,
   migrateLocalStorage,
   readKanaGroup,
+  readKanaScript,
   readTheme,
   readSettings,
   readShowKeyboard,
@@ -135,6 +139,15 @@ const KANA_GROUP_LABELS: Record<KanaGroup, string> = {
   seion: "seion",
   dakuten: "dakuten",
   yoon: "yōon",
+};
+
+/* The syllabary itself, rather than the word for it — あ and ア are the two
+   things being chosen between, and a learner who cannot yet read "katakana"
+   can read ア. */
+const KANA_SCRIPT_LABELS: Record<KanaScriptChoice, string> = {
+  hiragana: "あ hiragana",
+  katakana: "ア katakana",
+  both: "both",
 };
 
 function App() {
@@ -183,6 +196,8 @@ function App() {
     setThemeSignal(next);
   };
   const [kanaGroup, setKanaGroup] = createSignal<KanaGroup>(readKanaGroup());
+  const [kanaScript, setKanaScript] =
+    createSignal<KanaScriptChoice>(readKanaScript());
   const [customText, setCustomText] = createSignal("");
   /*
    * A paste held between arriving and being committed. Null means the box is
@@ -368,6 +383,7 @@ function App() {
     setSettings(preferences.settings);
     setShowKeyboard(preferences.showKeyboard);
     setKanaGroup(preferences.kanaGroup);
+    setKanaScript(preferences.kanaScript);
     setSource(preferences.source);
     setLesson(nextLesson(preferences.source, preferences.settings));
     resetRunState();
@@ -387,6 +403,7 @@ function App() {
     setSettings(readSettings());
     setShowKeyboard(readShowKeyboard());
     setKanaGroup(readKanaGroup());
+    setKanaScript(readKanaScript());
     setSource(readSource());
     setLesson(nextLesson(readSource()));
     resetRunState();
@@ -511,7 +528,14 @@ function App() {
     nextSettings: Settings = settings(),
   ) => {
     setChosenText(null);
-    plan = planRun(nextSource, weakKana(), library(), Math.random, kanaGroup());
+    plan = planRun(
+      nextSource,
+      weakKana(),
+      library(),
+      Math.random,
+      kanaGroup(),
+      kanaScript(),
+    );
     const dealt = dealLesson(plan, nextSettings, Math.random);
     plan = dealt.plan;
     return dealt.lesson;
@@ -536,7 +560,14 @@ function App() {
       navigate("practice");
       return;
     }
-    plan = planRun(source(), weakKana(), library(), Math.random, kanaGroup());
+    plan = planRun(
+      source(),
+      weakKana(),
+      library(),
+      Math.random,
+      kanaGroup(),
+      kanaScript(),
+    );
     resetRunState();
     navigate("practice");
   };
@@ -596,6 +627,18 @@ function App() {
   const changeKanaGroup = (group: KanaGroup) => {
     persist(KANA_GROUP_KEY, group);
     setKanaGroup(group);
+    if (source() === "kana") {
+      setLesson(nextLesson("kana"));
+      resetRunState();
+    }
+  };
+
+  /* Same shape as the group change, and for the same reason: the deck in hand
+     was built from the old choice, so it has to be dealt again or the next
+     thing typed is the syllabary that was just switched away from. */
+  const changeKanaScript = (choice: KanaScriptChoice) => {
+    persist(KANA_SCRIPT_KEY, choice);
+    setKanaScript(choice);
     if (source() === "kana") {
       setLesson(nextLesson("kana"));
       resetRunState();
@@ -1342,8 +1385,31 @@ function App() {
                     )}
                   </For>
                   <span class="source-current">
-                    {kanaRows(kanaGroup()).length} rows
+                    {kanaRows(kanaGroup(), kanaScript()).length} rows
                   </span>
+                </div>
+                {/* A second row, not more buttons on the first. Script and
+                    group are separate questions — the voiced katakana rows are
+                    their own thing to drill — and crossing them into one list
+                    would make twelve buttons out of seven. */}
+                <div class="practice-hints__row">
+                  <span class="hint-label">script</span>
+                  <For each={KANA_SCRIPT_CHOICES}>
+                    {(choice) => (
+                      <button
+                        type="button"
+                        class="source-button"
+                        classList={{ active: kanaScript() === choice }}
+                        title={KANA_SCRIPT_LABELS[choice]}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          changeKanaScript(choice);
+                        }}
+                      >
+                        {KANA_SCRIPT_LABELS[choice]}
+                      </button>
+                    )}
+                  </For>
                 </div>
               </Show>
               <div class="practice-hints__row">

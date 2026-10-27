@@ -45,6 +45,28 @@ export function isKanaGroup(value: unknown): value is KanaGroup {
   return KANA_GROUPS.includes(value as KanaGroup)
 }
 
+/** One syllabary. The mastery chart draws one of these at a time. */
+export type KanaScript = 'hiragana' | 'katakana'
+
+/**
+ * Which syllabary the 五十音 drill deals, which is a **separate axis** from
+ * which part of the chart it deals. Crossing them is the point: the voiced
+ * katakana rows are their own thing to practise, and folding script into
+ * `KanaGroup` would have made that an eight-way list of pairs instead of two
+ * short rows of buttons.
+ *
+ * `both` rather than `all`, because `KanaGroup` already owns `all` and the two
+ * sit side by side in the picker — "all · both" reads as two answers to two
+ * questions, where "all · all" reads as one question asked twice.
+ */
+export type KanaScriptChoice = KanaScript | 'both'
+
+export const KANA_SCRIPT_CHOICES: readonly KanaScriptChoice[] = ['hiragana', 'katakana', 'both']
+
+export function isKanaScriptChoice(value: unknown): value is KanaScriptChoice {
+  return KANA_SCRIPT_CHOICES.includes(value as KanaScriptChoice)
+}
+
 /** A row of the chart, tagged with the group it belongs to. */
 export type KanaRow = TextItem & { group: Exclude<KanaGroup, 'all'> }
 

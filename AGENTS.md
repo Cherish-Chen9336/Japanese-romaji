@@ -962,9 +962,38 @@ not use at all, and the palatalized ones (キョ ニャ ニョ ヒャ ヒョ ミ
 them**. That is the strongest form the claim survives in. Anyone tempted to
 write "impossible" here should read the paragraph above first.
 
-**The other way to close it** is katakana rows in the kana drill, mirroring
-`gojuonBank` the way the chart already does. Not built; it needs a decision
-about how the drill picks a script.
+**Built 2026-10-27, at Ella's request: the 五十音 drill deals katakana.**
+`katakanaBank` is `gojuonBank` mirrored through `toKatakana` — the third place
+that mirror earns its keep — and `kanaRows(group, script)` crosses it with the
+group. **Katakana reach is now 104 of 104**, so the panel's bundled-coverage
+sentence has retired itself exactly as it was designed to. ヲ, ヂ, ヅ and the
+palatalized rows are reachable now; nothing in the corpus reaches them, but the
+drill does.
+
+**Script is a separate axis from group, and a separate row of buttons.** The
+voiced katakana rows are their own thing to practise, so folding script into
+`KanaGroup` would have made twelve pairs out of seven buttons. `KanaScriptChoice`
+is `'hiragana' | 'katakana' | 'both'` — `both` rather than `all`, because
+`KanaGroup` already owns `all` and the two sit side by side.
+
+**This one *is* a preference**, unlike the chart's toggle, and the distinction
+is the same rule read the other way: `Preferences` carries what decides the
+material you practise, and this decides it. New key
+`japanese-romaji:kana-script`, in `ALL_PREFERENCE_KEYS` so a reset sweeps it and
+in the backup so a restore carries it. **It defaults to hiragana, and an absent
+key reads as hiragana**, so a profile saved before the key existed comes back
+drilling what it drilled rather than being handed a syllabary it never chose.
+
+**Weakness drills had to follow.** `drillBankFromWeakKana` drew from
+`gojuonBank`, `wordBank` and `difficultBank`, none of which contain ヲ — so the
+chart could name a weakness the drills could not take you to, and the drill fell
+through to the hiragana fallback. `katakanaBank` is in the candidates now. It
+costs nothing to a typist who has never typed katakana, because the filter is on
+*weak* moras and they have none.
+
+**The preference tests were a sieve before this.** Every one checked a single
+field, so a field added to `Preferences` and forgotten in `writePreferences` or
+`parsePreferences` passed the whole suite. There is now a whole-set round trip.
 
 **Katakana sokuon joined the off-chart strip.** ック, ット, ッピ and ップ, from
 ミュージック, ヘルメット, ショッピング and チューリップ. The mastery test caught

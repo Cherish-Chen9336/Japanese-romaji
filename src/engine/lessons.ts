@@ -1,9 +1,10 @@
-import { isMoraToken, tokenizeKana } from './romanization'
+import { isMoraToken, toKatakana, tokenizeKana } from './romanization'
 import { sentenceBank, sentenceTexts } from './sentences'
 import { dealFrom, newDeck, pickRandom, type Deck, type RandomSource } from './rng'
 import type {
   KanaGroup,
   KanaRow,
+  KanaScriptChoice,
   Lesson,
   PracticeText,
   Settings,
@@ -290,9 +291,33 @@ export const gojuonBank: KanaRow[] = [
   { group: 'yoon', kana: 'ぴゃぴゅぴょ', romaji: 'pyapyupyo' },
 ]
 
-/** Rows for one group of the chart, or the whole chart. */
-export function kanaRows(group: KanaGroup): TextItem[] {
-  return group === 'all' ? gojuonBank : gojuonBank.filter((row) => row.group === group)
+/**
+ * The same twenty-six rows in katakana, mirrored rather than written out — the
+ * second place this trick earns its keep, after the mastery chart's katakana
+ * grids. A hand-typed second bank would be twenty-six more rows to keep in
+ * step, and a drill that disagrees with the chart it fills is the failure this
+ * avoids.
+ */
+export const katakanaBank: KanaRow[] = gojuonBank.map((row) => ({
+  ...row,
+  kana: toKatakana(row.kana),
+}))
+
+/**
+ * Rows for one group of the chart, in one script or both.
+ *
+ * Hiragana unless asked otherwise. A beginner meets hiragana first and the
+ * `kana` source is the one thing never gated on speed, so the default here is
+ * the one that does not hand a first-time typist a syllabary they have not met.
+ */
+export function kanaRows(group: KanaGroup, script: KanaScriptChoice = 'hiragana'): TextItem[] {
+  const rows =
+    script === 'katakana'
+      ? katakanaBank
+      : script === 'both'
+        ? [...gojuonBank, ...katakanaBank]
+        : gojuonBank
+  return group === 'all' ? rows : rows.filter((row) => row.group === group)
 }
 
 /**
@@ -381,7 +406,7 @@ export const sourceBanks: Record<
  * a new bank join those invariants by existing.
  */
 export function allBankItems(): TextItem[] {
-  return [...Object.values(sourceBanks).flat(), ...gojuonBank]
+  return [...Object.values(sourceBanks).flat(), ...gojuonBank, ...katakanaBank]
 }
 
 function stripMarkdownChars(text: string): string {
@@ -552,7 +577,7 @@ export function itemMoras(item: TextItem): string[] {
 
 /** Every mora the drill corpus can actually teach. */
 export const drillMoras: readonly string[] = [
-  ...new Set([...gojuonBank, ...wordBank, ...difficultBank].flatMap(itemMoras)),
+  ...new Set([...gojuonBank, ...katakanaBank, ...wordBank, ...difficultBank].flatMap(itemMoras)),
 ]
 
 /**
@@ -579,8 +604,16 @@ export function drillBankFromWeakKana(weak: readonly string[]): TextItem[] {
    * moras, so drawing from the catalog would turn a drill on `き` into general
    * sentence practice that happens to contain some.
    */
-  const candidates = [...gojuonBank, ...wordBank, ...difficultBank].filter((item) =>
-    itemMoras(item).some((mora) => wanted.has(mora)),
+  /*
+   * `katakanaBank` is here because the 五十音 drill can deal katakana. Without
+   * it, a weakness on ヲ or キョ — moras nothing else in the corpus contains —
+   * selected no candidate at all and fell through to the hiragana fallback, so
+   * the one place the chart said to practise was the one place a drill could
+   * not take you. Costs nothing to a typist who has never typed katakana: the
+   * filter is on *weak* moras, and they have none.
+   */
+  const candidates = [...gojuonBank, ...katakanaBank, ...wordBank, ...difficultBank].filter(
+    (item) => itemMoras(item).some((mora) => wanted.has(mora)),
   )
   return candidates.length > 0 ? candidates : drillFallbackBank
 }
@@ -620,6 +653,7 @@ export function planRun(
   library: TextItem[],
   rng: RandomSource,
   kanaGroup: KanaGroup = 'all',
+  kanaScript: KanaScriptChoice = 'hiragana',
 ): RunPlan {
   // The only fallback left is a library with nothing in it, which is a real
   // emptiness rather than a permission.
@@ -637,7 +671,7 @@ export function planRun(
 
   const items =
     usableSource === 'kana'
-      ? kanaRows(kanaGroup)
+      ? kanaRows(kanaGroup, kanaScript)
       : usableSource === 'drills'
         ? drillBankFromWeakKana(weakKana)
         : usableSource === 'library'
@@ -766,6 +800,11 @@ export function generateLesson(
   library: TextItem[],
   rng: RandomSource,
   kanaGroup: KanaGroup = 'all',
+  kanaScript: KanaScriptChoice = 'hiragana',
 ): Lesson {
-  return dealLesson(planRun(requestedSource, weakKana, library, rng, kanaGroup), settings, rng).lesson
+  return dealLesson(
+    planRun(requestedSource, weakKana, library, rng, kanaGroup, kanaScript),
+    settings,
+    rng,
+  ).lesson
 }
