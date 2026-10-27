@@ -17,9 +17,10 @@ browser.
 - **Practice** — work through a passage or run a timed sprint. Text comes from
   bundled kana tables, drills, words and quotes, from the mistakes you keep
   repeating, or from your own library.
-- **Library** — paste in plain Japanese and it becomes practice material.
+- **Library** — paste in plain Japanese, confirm or supply the kana readings for
+  any kanji, and it becomes practice material.
 - **Stats** — per-mora timing, lifetime totals, a progress chart, and a confusion
-  table showing which kana you mistake for which.
+  table showing which romaji keys you hit instead of which.
 - **Mastery map** — which kana groups you have actually learned, split by seion,
   dakuten and yoon.
 - **Settings** — paragraph length; system, light, dark or book theme.
@@ -28,8 +29,8 @@ browser.
 
 There is no account and no server. Progress lives in that browser's IndexedDB and
 localStorage, which means it does not follow you to another device and it goes
-away if you clear the site's data. Settings → Backup exports the whole profile to
-a file and imports it back, which is the way to move it.
+away if you clear the site's data. **Settings → your data** exports the whole
+profile to a file and imports it back, which is the way to move it.
 
 ## Architecture
 
@@ -73,8 +74,10 @@ Coverage thresholds are gated in `vite.config.ts`:
 
 ## Running it
 
-This project is pinned to **pnpm** — `pnpm-lock.yaml` is the only lockfile, and
+This project uses **pnpm**. `pnpm-lock.yaml` is the only lockfile, so
 `npm install` would write a second one beside it and resolve different versions.
+Nothing enforces this — there is no `packageManager` field — so it is a
+convention you have to follow rather than one the tooling keeps.
 
 ```bash
 pnpm install

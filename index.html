@@ -11,12 +11,30 @@
     />
 
     <!--
-      Absolute URLs, not root-relative ones. Vite rewrites asset paths only in
-      the attributes it knows (link[href], img[src], source[srcset] and so on);
-      `meta content` is not among them, so `/og.png` would ship verbatim and
-      404 under this site's `/Japanese-romaji/` base. Link scrapers want an
-      absolute URL regardless — most will not resolve a relative one — so the
-      host is written out. Change these four if the site ever moves.
+      These four carry the host, and the reason is not the one first written
+      here. The claim was that Vite never processes `meta content`, so a
+      root-relative `/og.png` would ship verbatim and 404 under this site's
+      `/Japanese-romaji/` base. That is false, and the test behind it was no
+      test at all: an absolute URL is deliberately left alone, so watching one
+      survive the build says nothing about what happens to a relative one.
+
+      Measured on this build (Vite 8.0.16), one tag changed at a time:
+
+        og:image, twitter:image   /og.png      -> /Japanese-romaji/og.png
+        canonical (link[href])    /og.png      -> /Japanese-romaji/og.png
+        canonical (link[href])    /            -> BUILD FAILS, EISDIR
+        canonical (link[href])    /no-such     -> left alone
+        og:url                    anything     -> left alone
+
+      So `link[href]` is processed whatever its rel — rewritten when it resolves
+      to a file, fatal when it resolves to a directory — and `meta content` is
+      processed for the image tags but not for og:url.
+
+      They stay absolute because that is what the tags mean, not because a
+      relative one could not be built. og:url and canonical are defined as the
+      object's own absolute URL, and an absolute image URL is the portable
+      choice even though some scrapers (Discord documents this) do resolve a
+      root-relative one. Change all four together if the site ever moves.
     -->
     <link rel="canonical" href="https://cherish-chen9336.github.io/Japanese-romaji/" />
     <meta property="og:type" content="website" />
