@@ -1970,6 +1970,48 @@ rediscovered:**
 local filesystem path and a dead artifact UUID were removed from this file in
 `b9d1b8a`. Sweep again before adding any new remote or credential.
 
+### Being found
+
+Asked by Ella on 2026-10-27: how do users find this site?
+
+**Search is not the answer and should not be designed for.** A new page on a
+`github.io` subpath with no inbound links does not rank against 寿司打 and
+e-typing, and no amount of markup changes that in the near term. The paths that
+actually bring readers are **the link being shared** and **the repo page**, so
+that is where the work goes. Do not add keyword copy, a sitemap or structured
+data on the theory that it will help; it will not.
+
+**The link-preview tags in `index.html` are therefore the high-value surface.**
+Description, canonical, Open Graph and a `summary_large_image` Twitter card,
+pointing at `public/og.png` — a 2:1 screenshot of the practice screen, which is
+what a reader is deciding about when they see the link in a chat.
+
+**The URLs in them are absolute, and must stay absolute.** Vite rewrites asset
+paths only in the attributes it knows — `link[href]`, `img[src]`,
+`source[srcset]` and a short list more — and **`meta content` is not among
+them**. A root-relative `/og.png` therefore ships verbatim and 404s under this
+site's `/Japanese-romaji/` base, with nothing failing anywhere a test could see
+it. Scrapers want an absolute URL regardless, since most will not resolve a
+relative one. Five values carry the host (`canonical`, `og:url`, `og:image`,
+`twitter:image`) and all of them move together if the site ever does.
+
+**`og:image:width`/`height` must match the file on disk.** They are a hint
+scrapers lay out the card from before fetching the image; wrong values draw a
+card the wrong shape. Re-measure after regenerating `og.png`.
+
+**The image lives in `public/`** so it is copied to the `dist` root rather than
+hashed into `assets/` — the URL is written out by hand in the meta tags and has
+to stay predictable. The README's screenshot is a *separate* file under `docs/`,
+deliberately outside `public/`, because it is repo documentation and has no
+business being downloaded by visitors to the site.
+
+**The README now leads with the live link and pins pnpm.** It said `npm`
+throughout while `pnpm-lock.yaml` is the only lockfile, so following it writes a
+second lockfile and resolves different versions. It also states that progress
+lives in that one browser and is lost when site data is cleared, which the app
+itself never says — it warns when storage *fails*, but never says where the
+profile is.
+
 ## Deliberately not built
 
 Decisions to *not* do something leave no commit and no code, so they live here or

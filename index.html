@@ -5,6 +5,53 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>kana. — Japanese typing practice</title>
+    <meta
+      name="description"
+      content="Practice Japanese typing in your browser. Type the romaji for kana and kanji, and see which moras slow you down — per mora, not per word. No signup."
+    />
+
+    <!--
+      Absolute URLs, not root-relative ones. Vite rewrites asset paths only in
+      the attributes it knows (link[href], img[src], source[srcset] and so on);
+      `meta content` is not among them, so `/og.png` would ship verbatim and
+      404 under this site's `/Japanese-romaji/` base. Link scrapers want an
+      absolute URL regardless — most will not resolve a relative one — so the
+      host is written out. Change these four if the site ever moves.
+    -->
+    <link rel="canonical" href="https://cherish-chen9336.github.io/Japanese-romaji/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="kana." />
+    <meta property="og:url" content="https://cherish-chen9336.github.io/Japanese-romaji/" />
+    <meta property="og:title" content="kana. — Japanese typing practice" />
+    <meta
+      property="og:description"
+      content="Practice Japanese typing in your browser. Type the romaji for kana and kanji, and see which moras slow you down — per mora, not per word. No signup."
+    />
+    <meta property="og:image" content="https://cherish-chen9336.github.io/Japanese-romaji/og.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="The kana. practice screen: a line of Japanese with the romaji being typed beneath it."
+    />
+    <meta property="og:locale" content="en_US" />
+
+    <!--
+      `summary_large_image` and not `summary`: the card is a screenshot of a
+      line of Japanese, which is unreadable in the small square crop.
+    -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="kana. — Japanese typing practice" />
+    <meta
+      name="twitter:description"
+      content="Practice Japanese typing in your browser. Type the romaji for kana and kanji, and see which moras slow you down — per mora, not per word. No signup."
+    />
+    <meta name="twitter:image" content="https://cherish-chen9336.github.io/Japanese-romaji/og.png" />
+    <meta
+      name="twitter:image:alt"
+      content="The kana. practice screen: a line of Japanese with the romaji being typed beneath it."
+    />
   </head>
   <body>
     <div id="root"></div>
