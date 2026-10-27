@@ -294,6 +294,102 @@ export const sentenceTexts: PracticeText[] = [
     source: 'sentences',
     items: [{ kana: '郵便局 は 銀行 の 隣 に あります', reading: 'ゆうびんきょく わ ぎんこう の となり に あります', romaji: 'yuubinkyoku wa ginkou no tonari ni arimasu' }],
   },
+
+  /*
+   * Katakana, in connected text rather than only in a word list.
+   *
+   * A katakana word carries its own reading — it is written in the script it
+   * is typed in — so the `reading` piece repeats the kana piece, exactly as
+   * カレー and コーヒー already did above. The alignment rules are unchanged:
+   * スーパー is one display word in all three strings.
+   */
+  {
+    id: 'kaimono',
+    title: 'Shopping in town',
+    source: 'sentences',
+    items: [
+      { kana: '今日 は スーパー で 買い物 を しました', reading: 'きょう わ スーパー で かいもの を しました', romaji: 'kyou wa suupaa de kaimono wo shimashita' },
+      { kana: 'パン と チーズ と ミルク を 買いました', reading: 'パン と チーズ と ミルク を かいました', romaji: 'pan to chiizu to miruku wo kaimashita' },
+      { kana: '帰り に デパート で セーター を 見ました', reading: 'かえり に デパート で セーター を みました', romaji: 'kaeri ni depaato de seetaa wo mimashita' },
+      { kana: '夜 は 家族 と テレビ を 見ました', reading: 'よる わ かぞく と テレビ を みました', romaji: 'yoru wa kazoku to terebi wo mimashita' },
+    ],
+  },
+  {
+    id: 'nichiyoubi',
+    title: 'A Sunday of sport',
+    source: 'sentences',
+    items: [
+      { kana: '日曜日 の 朝 は テニス を します', reading: 'にちようび の あさ わ テニス を します', romaji: 'nichiyoubi no asa wa tenisu wo shimasu' },
+      { kana: '午後 は プール で 泳ぎます', reading: 'ごご わ プール で およぎます', romaji: 'gogo wa puuru de oyogimasu' },
+      { kana: '夕方 に ニュース で スポーツ を 見ます', reading: 'ゆうがた に ニュース で スポーツ を みます', romaji: 'yuugata ni nyuusu de supootsu wo mimasu' },
+      { kana: '夜 は ギター を 練習 します', reading: 'よる わ ギター を れんしゅう します', romaji: 'yoru wa gitaa wo renshuu shimasu' },
+    ],
+  },
+  {
+    id: 'pasokon',
+    source: 'sentences',
+    items: [{ kana: '新しい パソコン を 買いました', reading: 'あたらしい パソコン を かいました', romaji: 'atarashii pasokon wo kaimashita' }],
+  },
+  {
+    id: 'takushii',
+    source: 'sentences',
+    items: [{ kana: '駅 まで タクシー で 行きます', reading: 'えき まで タクシー で いきます', romaji: 'eki made takushii de ikimasu' }],
+  },
+  {
+    id: 'hoteru',
+    source: 'sentences',
+    items: [{ kana: 'ホテル の 部屋 は とても 静か でした', reading: 'ホテル の へや わ とても しずか でした', romaji: 'hoteru no heya wa totemo shizuka deshita' }],
+  },
+  {
+    id: 'keeki',
+    source: 'sentences',
+    items: [{ kana: '母 に ケーキ を 作って もらいました', reading: 'はは に ケーキ を つくって もらいました', romaji: 'haha ni keeki wo tsukutte moraimashita' }],
+  },
+  {
+    id: 'meeru',
+    source: 'sentences',
+    items: [{ kana: '先生 に メール を 送りました', reading: 'せんせい に メール を おくりました', romaji: 'sensei ni meeru wo okurimashita' }],
+  },
+  {
+    id: 'kamera',
+    source: 'sentences',
+    items: [{ kana: '新しい カメラ で 写真 を 撮りました', reading: 'あたらしい カメラ で しゃしん を とりました', romaji: 'atarashii kamera de shashin wo torimashita' }],
+  },
+  {
+    id: 'basu',
+    source: 'sentences',
+    items: [{ kana: 'バス が 来る まで 本 を 読みます', reading: 'バス が くる まで ほん を よみます', romaji: 'basu ga kuru made hon wo yomimasu' }],
+  },
+  {
+    id: 'piano',
+    source: 'sentences',
+    items: [{ kana: '妹 は ピアノ が とても 上手 です', reading: 'いもうと わ ピアノ が とても じょうず です', romaji: 'imouto wa piano ga totemo jouzu desu' }],
+  },
+  {
+    id: 'hirugohan',
+    source: 'sentences',
+    items: [{ kana: '昼ご飯 に サラダ と パン を 食べました', reading: 'ひるごはん に サラダ と パン を たべました', romaji: 'hirugohan ni sarada to pan wo tabemashita' }],
+  },
+  {
+    id: 'geemu',
+    source: 'sentences',
+    items: [{ kana: '弟 は 毎日 ゲーム を して います', reading: 'おとうと わ まいにち ゲーム を して います', romaji: 'otouto wa mainichi geemu wo shite imasu' }],
+  },
+  {
+    id: 'chokoreeto',
+    source: 'sentences',
+    items: [{ kana: '友達 に チョコレート を あげました', reading: 'ともだち に チョコレート を あげました', romaji: 'tomodachi ni chokoreeto wo agemashita' }],
+  },
+  {
+    id: 'jogingu',
+    source: 'sentences',
+    items: [{ kana: '毎朝 公園 で ジョギング を して います', reading: 'まいあさ こうえん で ジョギング を して います', romaji: 'maiasa kouen de jogingu wo shite imasu' }],
+  },
+  {
+    id: 'teeburu',
+    source: 'sentences',
+    items: [{ kana: 'テーブル の 上 に 新聞 が あります', reading: 'テーブル の うえ に しんぶん が あります', romaji: 'teeburu no ue ni shinbun ga arimasu' }],
+  },
 ]
 
 /** The same sentences as a flat pool, for a run that deals at random. */

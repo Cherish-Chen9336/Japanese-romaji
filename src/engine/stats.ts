@@ -7,7 +7,7 @@ import type {
   TimingStat,
   Unlock,
 } from './types'
-import { STANDARD_TIMED_MS } from './types'
+import { SOURCE_LABELS, STANDARD_TIMED_MS } from './types'
 import type { SourceName } from './types'
 
 export function dayKey(dateString: string): string {
@@ -320,8 +320,14 @@ export function runCohorts(runs: RunResult[]): Cohort[] {
     seen.set(key, {
       key,
       source: run.source,
+      /* The stored name is the key; the label is what a person reads. A run
+         recorded before a label changed still groups with the new ones,
+         because only the wording moved. `?? run.source` covers a stored name
+         this build no longer knows, which would otherwise print "undefined". */
       label:
-        mode.kind === 'timed' ? `${run.source} · ${Math.round(mode.durationMs / SECONDS)}s` : `${run.source}`,
+        mode.kind === 'timed'
+          ? `${SOURCE_LABELS[run.source] ?? run.source} · ${Math.round(mode.durationMs / SECONDS)}s`
+          : `${SOURCE_LABELS[run.source] ?? run.source}`,
       count: 1,
     })
   }

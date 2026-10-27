@@ -1,11 +1,15 @@
-import { For, Show, children, createMemo } from "solid-js";
+import { For, Show, children, createMemo, createSignal } from "solid-js";
 import type { JSX } from "solid-js";
 import {
   cellState,
+  chartCoverage,
+  chartReach,
   gojuonGrids,
+  KANA_SCRIPTS,
   offChartMoras,
   romajiFor,
   type CellState,
+  type KanaScript,
   type MasteryCell,
 } from "../engine/mastery";
 import { smoothedErrorRate } from "../engine/stats";
@@ -27,6 +31,11 @@ import type { AggregatedMoraStat } from "../engine/types";
  * implement. Each cell also carries its full status as visually-hidden text,
  * because the stats used to live only in `title` — invisible to a screen reader
  * and unreachable on a touch screen, which is most of the timing model gone.
+ *
+ * Two syllabaries behind a toggle, rather than four tables or a fourth row of
+ * cells. The selected script keeps the existing three-table geometry, which is
+ * the whole reason it is a toggle: katakana doubles the chart's content without
+ * being allowed to double its footprint on the page's primary surface.
  */
 
 const GROUP_LABEL: Record<string, string> = {
@@ -82,13 +91,36 @@ export function MasteryMap(props: {
    * tracked" strip.
    *
    * The three gojuon grids have very different row counts — plain and
-   * contracted run 613px while voiced runs 307 and the off-chart strip 76 — and
-   * `.mastery` is a top-aligned flex row, so the tallest column decided the
-   * panel's height and the shortest left a 537px hole in the top right. The
-   * margin is that hole, given something to hold.
+   * contracted run 613px while voiced runs 307 — and `.mastery` is a
+   * top-aligned flex row, so the tallest column decided the panel's height and
+   * the shortest left a 537px hole in the top right. The margin is that hole,
+   * given something to hold. (Pixel figures measured 2026-10-26, before the
+   * off-chart strip was made to wrap; the shape of the problem is what
+   * matters, not the numbers.)
    */
   aside?: JSX.Element;
 }) {
+  /*
+   * Session-local, not a preference. `Preferences` is what a backup carries so
+   * that a new machine comes up with the same keyboard and the same source —
+   * things that decide what you practise. Which half of the chart you last
+   * looked at decides nothing, and does not belong in an export.
+   */
+  const [script, setScript] = createSignal<KanaScript>("hiragana");
+  /*
+   * Two separate facts about the chart being looked at, and they have to stay
+   * separate.
+   *
+   * `met` counts what this typist has encountered, from every source including
+   * their own uploads. `reach` counts what the *bundled* text can teach, which
+   * is a property of the corpus and nothing to do with the typist. Folded into
+   * one sentence they implied a shared denominator: a profile that had met all
+   * 104 katakana cells through uploads was still told the rest were waiting on
+   * its library. Measured rather than written into the copy, so the second
+   * line narrows and disappears by itself as content arrives.
+   */
+  const reach = createMemo(() => chartReach(script()));
+  const met = createMemo(() => chartCoverage(props.stats, script()).met);
   const statFor = (kana: string) => props.stats.get(kana);
   /*
    * Resolved once. `props.aside` is a getter, so reading it twice — in the
@@ -163,107 +195,147 @@ export function MasteryMap(props: {
   };
 
   return (
-    <div class="mastery">
-      {/* The three kana tables wrap among themselves, so the column beside
-          them keeps its place instead of being pushed onto a line of its own. */}
-      <div class="mastery-tables">
-        <For each={gojuonGrids()}>
-          {(grid) => (
-            <div class="mastery-grid">
-              <table class="mastery-table">
-                <caption>{GROUP_LABEL[grid.group] ?? grid.group}</caption>
-                <thead>
-                  <tr>
-                    <td class="mastery-cell mastery-cell--label" />
-                    <For each={grid.columns}>
-                      {(vowel) => (
-                        <th
-                          scope="col"
-                          class="mastery-cell mastery-cell--label"
-                        >
-                          {vowel}
-                        </th>
-                      )}
-                    </For>
-                  </tr>
-                </thead>
-                <tbody>
-                  <For each={grid.rows}>
-                    {(row) => (
-                      <tr>
-                        <th
-                          scope="row"
-                          class="mastery-cell mastery-cell--label"
-                        >
-                          {row.label || <span class="sr-only">vowels</span>}
-                        </th>
-                        <For each={row.cells}>
-                          {(cell) => (
-                            <Show
-                              when={cell}
-                              fallback={
-                                <td class="mastery-cell mastery-cell--gap" />
-                              }
-                            >
-                              {(present) => renderCell(present())}
-                            </Show>
-                          )}
-                        </For>
-                      </tr>
-                    )}
-                  </For>
-                  <Show when={grid.extras.length > 0}>
-                    <tr>
-                      <th scope="row" class="mastery-cell mastery-cell--label">
-                        n
-                      </th>
-                      <For each={grid.extras}>{(cell) => renderCell(cell)}</For>
-                    </tr>
-                  </Show>
-                </tbody>
-              </table>
-            </div>
+    <>
+      {/*
+        A plain group of buttons, not tabs. `role="tablist"` promises arrow-key
+        navigation between the tabs and a `tabpanel` to land in, neither of
+        which exists here — and the thing being switched is the chart's
+        content, which a pressed button already describes. `aria-pressed`
+        carries the state the `.active` class carries visually.
+      */}
+      <div class="mastery-scripts pill-row" role="group" aria-label="Syllabary">
+        <For each={KANA_SCRIPTS}>
+          {(name) => (
+            <button
+              type="button"
+              class="pill"
+              classList={{ active: script() === name }}
+              aria-pressed={script() === name}
+              onClick={() => setScript(name)}
+            >
+              {name}
+            </button>
           )}
         </For>
       </div>
-      <Show when={offChart().length > 0 || aside() !== undefined}>
-        <div
-          class="mastery-aside"
-          // The strip is 513px wide; without it this column is the width of the
-          // rankings alone. That changes the width at which the column stops
-          // fitting beside the tables, and so which arrangement App.css picks.
-          classList={{ "mastery-aside--strip": offChart().length > 0 }}
-        >
-          {/*
-            A list, not a table, and that is a correction rather than a style
-            choice. The three charts above are genuinely two-dimensional — a
-            cell means "this consonant row, that vowel column" — and a `<table>`
-            hands a screen reader both for free. This is a flat bag of moras
-            with no second axis: its only row header was an empty `sr-only`
-            cell, present because a `<tr>` has to start somewhere.
-
-            Drawn as one table row it also could not reflow, because a table
-            row cannot wrap. At nine moras that was invisible. At 22 it meant
-            the strip demanded 504px inside a 358px panel and scrolled the
-            whole stats page sideways by 130px on a phone, while from 1440 down
-            a container query crushed the cells from 48px to 19px to make them
-            fit. One unbounded width, failing two different ways. A wrapping
-            list grows downward instead, which is what an inventory should do.
-
-            `role="list"` because Safari drops list semantics from a `<ul>`
-            whose `list-style` is `none`, which is exactly what the cells need.
-          */}
-          <Show when={offChart().length > 0}>
-            <div class="mastery-extras">
-              <h4 class="mastery-extras__title">also tracked</h4>
-              <ul class="mastery-extras__list" role="list">
-                <For each={offChart()}>{(cell) => renderListCell(cell)}</For>
-              </ul>
-            </div>
-          </Show>
-          {aside()}
+      <p class="muted mastery-reach">
+        {met()} of {reach().total} encountered.
+        <Show when={reach().reachable < reach().total}>
+          {" "}
+          The bundled text covers {reach().reachable} of these cells; your own
+          library can reach the rest.
+        </Show>
+      </p>
+      <div class="mastery">
+        {/* The three kana tables wrap among themselves, so the column beside
+            them keeps its place instead of being pushed onto a line of its own. */}
+        <div class="mastery-tables">
+          <For each={gojuonGrids(script())}>
+            {(grid) => (
+              <div class="mastery-grid">
+                <table class="mastery-table">
+                  {/* The script belongs in the caption, not only in the
+                      pressed button above. A screen reader jumping table to
+                      table lands on "plain" either way, and カ and か are
+                      often spoken identically — so without this the two charts
+                      are indistinguishable to anyone not looking at them. */}
+                  <caption>
+                    {GROUP_LABEL[grid.group] ?? grid.group}
+                    <span class="sr-only"> · {script()}</span>
+                  </caption>
+                  <thead>
+                    <tr>
+                      <td class="mastery-cell mastery-cell--label" />
+                      <For each={grid.columns}>
+                        {(vowel) => (
+                          <th
+                            scope="col"
+                            class="mastery-cell mastery-cell--label"
+                          >
+                            {vowel}
+                          </th>
+                        )}
+                      </For>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <For each={grid.rows}>
+                      {(row) => (
+                        <tr>
+                          <th
+                            scope="row"
+                            class="mastery-cell mastery-cell--label"
+                          >
+                            {row.label || <span class="sr-only">vowels</span>}
+                          </th>
+                          <For each={row.cells}>
+                            {(cell) => (
+                              <Show
+                                when={cell}
+                                fallback={
+                                  <td class="mastery-cell mastery-cell--gap" />
+                                }
+                              >
+                                {(present) => renderCell(present())}
+                              </Show>
+                            )}
+                          </For>
+                        </tr>
+                      )}
+                    </For>
+                    <Show when={grid.extras.length > 0}>
+                      <tr>
+                        <th scope="row" class="mastery-cell mastery-cell--label">
+                          n
+                        </th>
+                        <For each={grid.extras}>{(cell) => renderCell(cell)}</For>
+                      </tr>
+                    </Show>
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </For>
         </div>
-      </Show>
-    </div>
+        <Show when={offChart().length > 0 || aside() !== undefined}>
+          <div
+            class="mastery-aside"
+            // The strip is 513px wide; without it this column is the width of the
+            // rankings alone. That changes the width at which the column stops
+            // fitting beside the tables, and so which arrangement App.css picks.
+            classList={{ "mastery-aside--strip": offChart().length > 0 }}
+          >
+            {/*
+              A list, not a table, and that is a correction rather than a style
+              choice. The three charts above are genuinely two-dimensional — a
+              cell means "this consonant row, that vowel column" — and a `<table>`
+              hands a screen reader both for free. This is a flat bag of moras
+              with no second axis: its only row header was an empty `sr-only`
+              cell, present because a `<tr>` has to start somewhere.
+
+              Drawn as one table row it also could not reflow, because a table
+              row cannot wrap. At nine moras that was invisible. At 22 it meant
+              the strip demanded 504px inside a 358px panel and scrolled the
+              whole stats page sideways by 130px on a phone, while from 1440 down
+              a container query crushed the cells from 48px to 19px to make them
+              fit. One unbounded width, failing two different ways. A wrapping
+              list grows downward instead, which is what an inventory should do.
+
+              `role="list"` because Safari drops list semantics from a `<ul>`
+              whose `list-style` is `none`, which is exactly what the cells need.
+            */}
+            <Show when={offChart().length > 0}>
+              <div class="mastery-extras">
+                <h4 class="mastery-extras__title">also tracked</h4>
+                <ul class="mastery-extras__list" role="list">
+                  <For each={offChart()}>{(cell) => renderListCell(cell)}</For>
+                </ul>
+              </div>
+            </Show>
+            {aside()}
+          </div>
+        </Show>
+      </div>
+    </>
   );
 }

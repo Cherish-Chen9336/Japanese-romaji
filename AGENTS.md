@@ -893,13 +893,12 @@ map exists to show.
 That gap is closed: katakana and ー now reach the token model too, and `MORA` no
 longer admits ー, which was the half of the mismatch the regex had wrong — its
 sound depends on the mora before it, so on its own it is not a bucket anything
-could mean. **Katakana moras are off-chart**, since 五十音 here is hiragana, so
-pasting katakana puts カ and コ in the "also tracked" strip. Whether カ should
-earn the か cell, a cell of its own, or a chart of its own is open and should be
-settled before katakana is encouraged any further.
+could mean. **Katakana moras were off-chart** until 2026-10-27, since 五十音
+here was hiragana alone, so pasting katakana put カ and コ in the "also tracked"
+strip. They now have a chart of their own; the strip holds sokuon only.
 
-**Settled 2026-10-27, after Codex: a katakana chart of its own, behind a
-hiragana/katakana toggle. Not folding, and not built yet.**
+**Settled and built 2026-10-27, after Codex: a katakana chart of its own,
+behind a hiragana/katakana toggle. Not folding.**
 
 The deciding fact is that カ and か are typed with *exactly* the same
 keystrokes, `ka`. Sharing the keystrokes removes a **motor** difference and
@@ -921,15 +920,106 @@ three-table geometry. The mostly-empty view is answered by labelling it — "9 o
 104 encountered", hiragana as the default — so emptiness reads as untested
 rather than as failure.
 
-**It is recorded rather than built, deliberately.** Five of 189 bundled items
-contain katakana (カレー twice, アイス, コーヒー, パン), yielding nine moras. A
-script selector on the primary mastery surface for nine moras is UI ahead of
-content; this is the gate the paragraph above already describes, so build it
-when katakana content arrives. **No migration when it is**: `kanaStats` is
-keyed by the mora string, so existing `"カ"` records populate the katakana
-chart directly, and neither `DB_VERSION` nor `BACKUP_VERSION` needs a bump —
-nothing is being reinterpreted. Keep ー out of it: it stays a separate typing
-token excluded from mora mastery, and a clean コ must not imply コー.
+**Built the same day the decision was recorded, and the content followed it
+the same day.** The gate this file set — "build it when katakana content
+arrives" — was overruled by Ella, and the mostly-empty chart that gate was
+protecting against is answered by saying so rather than by withholding the
+chart: `chartReach` counts how many of a chart's cells the bundled text can
+actually fill, and the panel prints a line whenever that is short of the total.
+**Measured, not written down.** The line narrows by itself as content arrives,
+which is the only way a caption like that can be trusted.
+
+**Katakana content, added 2026-10-27.** 71 katakana words in `wordBank` and 21
+sentences in `sentences.ts`, two of them passages. Katakana reach went from 9
+of 104 cells to **88**. **Do not quote these two numbers** — re-derive them
+from `chartReach`; the paragraph below is what happens when they are asserted
+instead.
+
+**A claim this file made and lost the same day.** The first version of this
+section said the then-unreached 28 cells were "a permanent gap, not a to-do",
+on the reasoning that katakana writes loanwords and ウ, ヌ, ユ, ゾ and the
+contracted rows do not occur in them. Codex answered with ウール, ヌードル,
+ユーモア and ゾーン. Twelve ordinary words — those four plus シューズ,
+バーベキュー, ギャラリー, レギュラー, ギョーザ, インタビュー, コンピューター
+and ヒューズ — closed twelve of the cells, and the claim was wrong before it
+was a day old.
+
+**What is actually left is 16 cells**: ヲ, ヂ and ヅ, which modern katakana does
+not use at all, and the palatalized ones (キョ ニャ ニョ ヒャ ヒョ ミャ ミョ リャ
+リョ ビャ ビョ ピャ ピョ), which are **rare in loanwords rather than absent from
+them**. That is the strongest form the claim survives in. Anyone tempted to
+write "impossible" here should read the paragraph above first.
+
+**The other way to close it** is katakana rows in the kana drill, mirroring
+`gojuonBank` the way the chart already does. Not built; it needs a decision
+about how the drill picks a script.
+
+**Katakana sokuon joined the off-chart strip.** ック, ット, ッピ and ップ, from
+ミュージック, ヘルメット, ショッピング and チューリップ. The mastery test caught
+them on the way in by naming them as a new category; they are the same category
+as っこ written in the other script, and the test now admits both marks. The
+bundled strip is 17 moras — **not a ceiling**, since an upload introduces
+whatever sokuon it contains (ガッツポーズ would add ッツ).
+
+**How it is wired.** `KanaScript` is `'hiragana' | 'katakana'`; `gojuonGrids`,
+`chartMoras` and `chartCoverage` all take one and default to hiragana, so the
+page's headline figure is unchanged by this. The katakana grids are mirrored
+out of the same `gojuonBank` through `toKatakana` (now exported from
+`romanization.ts`), so the two charts cannot disagree about which rows exist.
+Both are cached per script. The toggle is a **component-local signal in
+`MasteryMap`, deliberately not a preference**: `Preferences` is what a backup
+carries so a new machine comes up practising the same material, and which half
+of a chart you last looked at decides nothing and does not belong in an export.
+*Component*-local and not session-local — it resets whenever the statistics
+route remounts, so lift the signal if it should survive leaving the page.
+
+**`chartCoverage` stays on the hiragana chart**, and the headline reads
+**"hiragana seen · of 104"** because of it. Every hiragana cell is reachable
+from the bundled text — pinned by a test — so that figure is a target a typist
+can finish. Summing both charts would put unreachable cells in the denominator.
+The label matters as much as the arithmetic: while it read "moras seen", a
+profile that had met every katakana cell and no hiragana was told it had seen
+**0**, which Codex caught. The katakana count belongs beside the katakana
+chart, and that is where it now is.
+
+**The chart's own caption carries two facts, kept apart.** What the typist has
+encountered counts every source, uploads included; what `chartReach` measures
+counts bundled content only. One sentence holding both implied a shared
+denominator, and told a profile that had met all 104 katakana cells through
+uploads that the rest were waiting on its library.
+
+**`offChartMoras` now means "no cell on either chart."** カ had no cell when
+hiragana was the only chart and belonged in the "also tracked" strip; it has
+one now, and leaving it in the strip would print the same mora twice and call
+one of the two homeless. What is left there is sokuon, in both scripts —
+verified in the browser, not reasoned.
+
+### The source label is not the source name
+
+`SOURCE_LABELS` in `types.ts` maps a `SourceName` to the word shown on screen,
+and the two are allowed to differ. **`quotes` reads "proverbs"**, because the
+bank is fourteen ことわざ — 七転び八起き, 石の上にも三年 — and not one of them is
+a quotation or carries a quotation mark. Ella noticed the mismatch on
+2026-10-27.
+
+**The name could not move with it.** `quotes` is written into the stored source
+preference and into `RunResult.source` on every run ever recorded, so renaming
+the value would strand that history in a cohort nothing matches. The value
+stays; only the wording changed.
+
+**Three surfaces showed a source, and each spelled it out for itself** — the
+practice picker via `sourceOptions`, the result screen's `.result-meta`, and
+the statistics cohorts via `runCohorts`. A label-only change would have left
+the stats page saying "quotes" beside a picker saying "proverbs", so all three
+now read `SOURCE_LABELS`. `runCohorts` keeps keying on the raw name and falls
+back to it when a build meets a source it does not know, which is what stops a
+retired name printing as `undefined`.
+
+**No migration was needed**: `kanaStats` is keyed by the mora string, so
+existing `"カ"` records populated the katakana chart directly, and neither
+`DB_VERSION` nor `BACKUP_VERSION` moved — nothing is being reinterpreted. ー
+stays out of it: a separate typing token excluded from mora mastery, because a
+clean コ must not imply コー.
 
 **Thirteen sokuon stay off-chart under every one of those options**, because
 五十音 has no square for っこ. So the strip had to be fixed regardless, and
@@ -1015,8 +1105,10 @@ back as っぴ and っしょ collapses into っし, yielding a confident "eight"
 contains one mora which does not exist and misses two that do. This file said
 eight for exactly that reason. Count from the engine instead — `chartMoras()`
 against a corpus built from `allBankItems()` and `itemMoras()` gives **104 chart
-cells, 126 corpus moras, 22 off chart, no unreachable cell**, measured
-2026-10-27. The figures this file carried before that — 113 corpus moras and
+cells per script, 209 corpus moras, 17 off chart, no unreachable hiragana
+cell**, measured 2026-10-27 *after* the katakana content landed; it read "126
+corpus moras, 22 off chart" earlier the same day, before it. The figures this
+file carried before that — 113 corpus moras and
 nine off chart, and "112 distinct" elsewhere — were from before the bank
 expansion and were quoted for months after they stopped being true, which is
 how the strip bug below went unseen. **Re-measure rather than quote**; the whole
@@ -1464,9 +1556,11 @@ worth keeping in view, because both were invisible from the outside:
 
 The katakana table is **mirrored from the hiragana one** at a 0x60 codepoint
 offset rather than written out, so the two cannot disagree and a hundred
-hand-typed rows cannot carry a typo the sweep would miss. The token keeps the
-script it was written in; folding カ to か would decide the chart question above
-by accident.
+hand-typed rows cannot carry a typo the sweep would miss. `toKatakana` is
+exported for the same reason the table uses it: the mastery chart's katakana
+grids are mirrored out of the same `gojuonBank` the hiragana grids come from.
+The token keeps the script it was written in, which is what left room for
+katakana to get a chart of its own rather than folding カ into か.
 
 #### Authoring a bank
 
@@ -1650,10 +1744,13 @@ rather than a permission. Speed milestones survive as plain achievements and no
 longer claim anything unlocks, since nothing does.
 
 The bundled banks are small on purpose but were *too* small: 24 words meant a
-thirty-item passage repeated every entry. They are 55 / 33 / 14 now, and the
-corpus covers **126** distinct moras with every one of the chart's 104 cells
-reachable. (This said 112 until 2026-10-27; see the mastery map section for
-what quoting a stale count cost.) Anything added has to pass `compileStrict` — the test over every bank
+thirty-item passage repeated every entry. Words / difficult / proverbs /
+sentences stood at **126 / 33 / 14 / 82** when last measured on 2026-10-27,
+covering **209** distinct moras, with every one of the hiragana chart's 104
+cells reachable and 88 of the katakana chart's. (This said "55 / 33 / 14" and
+"126 moras" earlier the same day, and "112" before that — **derive these from
+`allBankItems()` rather than reading them here**; see the mastery map section
+for what quoting a stale count cost.) Anything added has to pass `compileStrict` — the test over every bank
 is what makes that a build-time failure rather than a passage nobody can finish.
 
 `gojuonBank` holds the chart, one row per item, tagged `seion` / `dakuten` /
@@ -2246,15 +2343,17 @@ audit disagree, this section is current.
   21% in the difficult bank, so the loss is worst exactly where the material is
   hardest. The practice keyboard already has a job, orientation and pressed-state
   feedback, and persistent historical colour competes with it. Mastery belongs on
-  the 五十音 grid instead, which fits the data closely: 104 of the **126**
-  tracked moras sit on the chart and every chart cell is reachable from the
-  corpus. The **22** outside it are thirteen sokuon (っか っく っこ っし っしょ
-  った っちゃ って っと っぱ っぴょ っぷ っぽ) and nine katakana
-  (ア イ カ コ ス パ ヒ レ ン), tracked as themselves rather than folded into
-  their hiragana cells. `offChartMoras` shows all 22 beside the grid rather
-  than dropping them — which is where the strip bug recorded under "The mastery
-  map" comes from. This paragraph said "104 of the 119" and "the fifteen
-  outside it" until 2026-10-27, and both were stale.
+  the 五十音 grid instead, which fits the data closely. **Measured 2026-10-27,
+  after the katakana content**: 209 tracked moras, 104 hiragana chart cells with
+  every one of them reachable from the corpus, 104 katakana cells with 88
+  reachable, and 17 moras outside both charts — all of them sokuon, in both
+  scripts (っか … っぽ, plus ック ット ッピ ップ), since 五十音 has no square for
+  a sokuon under either syllabary. Katakana itself was off-chart until the
+  katakana chart landed on 2026-10-27. **Re-derive these figures rather than
+  quoting them**: this paragraph said "104 of the 119" and "the fifteen outside
+  it" until that morning and both were stale, then "126 tracked moras" and "22
+  outside" until that afternoon, when the content landed. `mastery.test.ts`
+  measures them.
 - **A keyboard heatmap tinted by speed, anywhere.** `keyStats` timing charges the
   interval to the key just pressed, so whichever key *starts* a mora absorbs the
   kana-recall pause. Twelve consonants — `b c d f g j m n p r w z` — never once

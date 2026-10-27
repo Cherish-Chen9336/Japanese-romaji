@@ -101,16 +101,45 @@ const HIRAGANA_MAP: Record<string, string[]> = {
  *
  * **The token keeps the script it was written in.** カ is not folded to か,
  * because the chart is about reading a character and コ and こ are two
- * characters to read, not one. What that should mean for the mastery chart —
- * whether カ earns the か cell, its own, or a chart of its own — is still open;
- * until then a katakana mora is simply off-chart, as any mora without a cell
- * is.
+ * characters to read, not one. The mastery chart follows from that: katakana
+ * gets a chart of its own rather than sharing か's cell, because カ and か are
+ * typed with exactly the same keystrokes, so a shared cell would remove the
+ * motor difference — there isn't one — and leave the recognition difference,
+ * which is the thing this app measures, untouched. See `KanaScript` in
+ * `mastery.ts`.
  */
 const KATAKANA_OFFSET = 0x60
+/* ぁ to ゖ — the hiragana letters, and the only range the offset is valid for.
+   ゛ ゜ ゝ ゞ and the ideographic space sit above it in the same block. */
+const HIRAGANA_FIRST = 0x3041
+const HIRAGANA_LAST = 0x3096
 
-function toKatakana(kana: string): string {
-  return [...kana]
-    .map((char) => String.fromCodePoint((char.codePointAt(0) ?? 0) + KATAKANA_OFFSET))
+/**
+ * The katakana twin of a hiragana string.
+ *
+ * Used twice over: once below to mirror this table, and once by the mastery
+ * chart to mirror its katakana grids out of the same `gojuonBank` the hiragana
+ * grids come from. Exported for the second — a hand-written katakana bank
+ * would be twenty-six more rows to keep in step with the first twenty-six, and
+ * a chart that disagrees with the table it is drawn from is the failure this
+ * avoids.
+ *
+ * **Only the hiragana letters move.** Everything else is passed through
+ * untouched. Shifting blind was safe while this was private and fed only
+ * `HIRAGANA_MAP` keys, but an exported function is reachable from anywhere,
+ * and blind arithmetic turns `。` into ぢ and a space into a control
+ * character — silently, in whatever string it was handed. The input is
+ * normalized first so that a decomposed か\u3099 is composed to が before the
+ * shift rather than becoming カ with a stray combining mark after it.
+ */
+export function toKatakana(kana: string): string {
+  return [...kana.normalize('NFC')]
+    .map((char) => {
+      const code = char.codePointAt(0) ?? 0
+      return code >= HIRAGANA_FIRST && code <= HIRAGANA_LAST
+        ? String.fromCodePoint(code + KATAKANA_OFFSET)
+        : char
+    })
     .join('')
 }
 

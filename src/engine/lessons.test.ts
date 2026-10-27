@@ -27,6 +27,33 @@ import { acceptsSpelling, compileStrict } from './prompt'
 import type { RomajiToken } from './romanization'
 import { mulberry32 } from './rng'
 import type { KanaRow, Settings, TextItem } from './types'
+import { SOURCE_LABELS } from './types'
+
+describe('SOURCE_LABELS', () => {
+  it('gives every source in the picker a label', () => {
+    const unlabelled = sourceOptions.filter((option) => !SOURCE_LABELS[option.value])
+    expect(unlabelled).toEqual([])
+  })
+
+  /*
+   * The label may differ from the name; the name may not move. `quotes` is
+   * written into the stored source preference and into `RunResult.source` on
+   * every run ever recorded, so renaming the value would strand that history
+   * in a cohort nothing matches. The bank holds proverbs, so the *label* says
+   * proverbs and the value stays put.
+   */
+  it('shows the proverb bank as proverbs while keeping its stored name', () => {
+    expect(SOURCE_LABELS.quotes).toBe('proverbs')
+    expect(sourceOptions.map((option) => option.value)).toContain('quotes')
+  })
+
+  /* None of the fourteen is a quotation, and none carries a quotation mark —
+     which is what made the old label wrong rather than merely loose. */
+  it('has no quotation marks in the bank that used to be called quotes', () => {
+    const quoted = quoteBank.filter((item) => /[「」『』"']/.test(item.kana))
+    expect(quoted).toEqual([])
+  })
+})
 
 const settings: Settings = { paragraphItems: 3, stopOnError: true, confidenceMode: false, whitespaceMarkers: true, timedMode: false }
 

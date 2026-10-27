@@ -10,6 +10,7 @@ import type {
   SourceName,
   TextItem,
 } from './types'
+import { SOURCE_LABELS } from './types'
 
 /*
  * Every source, available from the first run.
@@ -20,19 +21,26 @@ import type {
  * case plainest — it is the typist's own upload, withheld until they were fast
  * enough to read back what they had already given the app.
  */
-export const sourceOptions: { value: SourceName; label: string }[] = [
-  { value: 'auto', label: 'auto' },
+const SOURCE_ORDER: SourceName[] = [
+  'auto',
   // First in the explicit list and never gated: the syllabary chart is what a
   // beginner needs most, so locking it behind a speed threshold would be exactly
   // backwards.
-  { value: 'kana', label: 'kana' },
-  { value: 'drills', label: 'drills' },
-  { value: 'words', label: 'words' },
-  { value: 'difficult', label: 'difficult' },
-  { value: 'quotes', label: 'quotes' },
-  { value: 'sentences', label: 'sentences' },
-  { value: 'library', label: 'library' },
+  'kana',
+  'drills',
+  'words',
+  'difficult',
+  'quotes',
+  'sentences',
+  'library',
 ]
+
+/* The picker, in picker order. Labels come from `SOURCE_LABELS` rather than
+   being spelled out again here, so the word on this button and the word on the
+   statistics cohort beside it cannot disagree. */
+export const sourceOptions: { value: SourceName; label: string }[] = SOURCE_ORDER.map(
+  (value) => ({ value, label: SOURCE_LABELS[value] }),
+)
 
 /**
  * Everyday vocabulary, written the way it is actually written. Words normally
@@ -103,6 +111,103 @@ export const wordBank: TextItem[] = [
   { kana: '天気', reading: 'てんき', romaji: 'tenki' },
   { kana: '季節', reading: 'きせつ', romaji: 'kisetsu' },
   { kana: '約束', reading: 'やくそく', romaji: 'yakusoku' },
+  /*
+   * Katakana entries, and the reason the katakana mastery chart has anything
+   * to fill. No `reading`: katakana is what is written *and* what is typed, so
+   * a reading field would only repeat the kana.
+   *
+   * Loanwords, because that is what katakana is for in modern Japanese. What
+   * these reach is measured by `chartReach`, never asserted here — this block
+   * first shipped claiming the unreached cells were a property of the script
+   * that "no amount of natural vocabulary" could fill, and Codex answered it
+   * with ウール, ヌードル, ユーモア and ゾーン. The cells were missing from the
+   * corpus, not from the language. The second block below is that correction.
+   */
+  { kana: 'コーヒー', romaji: 'koohii' },
+  { kana: 'テレビ', romaji: 'terebi' },
+  { kana: 'パソコン', romaji: 'pasokon' },
+  { kana: 'カメラ', romaji: 'kamera' },
+  { kana: 'ホテル', romaji: 'hoteru' },
+  { kana: 'タクシー', romaji: 'takushii' },
+  { kana: 'ニュース', romaji: 'nyuusu' },
+  { kana: 'スポーツ', romaji: 'supootsu' },
+  { kana: 'ケーキ', romaji: 'keeki' },
+  { kana: 'ノート', romaji: 'nooto' },
+  { kana: 'ペン', romaji: 'pen' },
+  { kana: 'バス', romaji: 'basu' },
+  { kana: 'ドア', romaji: 'doa' },
+  { kana: 'ギター', romaji: 'gitaa' },
+  { kana: 'プール', romaji: 'puuru' },
+  { kana: 'メール', romaji: 'meeru' },
+  { kana: 'ゲーム', romaji: 'geemu' },
+  { kana: 'サラダ', romaji: 'sarada' },
+  { kana: 'チーズ', romaji: 'chiizu' },
+  { kana: 'ワイン', romaji: 'wain' },
+  { kana: 'ズボン', romaji: 'zubon' },
+  { kana: 'シャツ', romaji: 'shatsu' },
+  { kana: 'ジュース', romaji: 'juusu' },
+  { kana: 'ヨーグルト', romaji: 'yooguruto' },
+  { kana: 'ピアノ', romaji: 'piano' },
+  { kana: 'ミルク', romaji: 'miruku' },
+  { kana: 'テニス', romaji: 'tenisu' },
+  { kana: 'メモ', romaji: 'memo' },
+  { kana: 'ラジオ', romaji: 'rajio' },
+  { kana: 'ネクタイ', romaji: 'nekutai' },
+  { kana: 'ボタン', romaji: 'botan' },
+  { kana: 'レモン', romaji: 'remon' },
+  { kana: 'バナナ', romaji: 'banana' },
+  { kana: 'トマト', romaji: 'tomato' },
+  { kana: 'メロン', romaji: 'meron' },
+  { kana: 'スーパー', romaji: 'suupaa' },
+  { kana: 'セーター', romaji: 'seetaa' },
+  { kana: 'デパート', romaji: 'depaato' },
+  { kana: 'エレベーター', romaji: 'erebeetaa' },
+  { kana: 'クリスマス', romaji: 'kurisumasu' },
+  { kana: 'フランス', romaji: 'furansu' },
+  { kana: 'ゴルフ', romaji: 'gorufu' },
+  { kana: 'ゼロ', romaji: 'zero' },
+  // The contracted katakana rows and the last few plain ones. シャ, ジュ and
+  // ニュ arrive above in シャツ, ジュース and ニュース; these are the rest of
+  // the yōon a loanword actually uses, plus ハ, ガ, ザ, ブ, ヤ and ヘ.
+  { kana: 'ハンカチ', romaji: 'hankachi' },
+  { kana: 'ガラス', romaji: 'garasu' },
+  { kana: 'ピザ', romaji: 'piza' },
+  { kana: 'テーブル', romaji: 'teeburu' },
+  { kana: 'タイヤ', romaji: 'taiya' },
+  { kana: 'ヘルメット', romaji: 'herumetto' },
+  { kana: 'チョコレート', romaji: 'chokoreeto' },
+  { kana: 'キャンプ', romaji: 'kyanpu' },
+  { kana: 'ジャム', romaji: 'jamu' },
+  { kana: 'ショッピング', romaji: 'shoppingu' },
+  { kana: 'チャンス', romaji: 'chansu' },
+  { kana: 'ミュージック', romaji: 'myuujikku' },
+  { kana: 'リュック', romaji: 'ryukku' },
+  { kana: 'ジョギング', romaji: 'jogingu' },
+  { kana: 'チューリップ', romaji: 'chuurippu' },
+  /*
+   * The cells the block above wrongly called unreachable. Each of these is an
+   * ordinary word, and each one closes a chart cell the corpus had nothing for:
+   * ウ ヌ ユ ゾ シュ キュ ギャ ギュ ギョ ビュ ピュ ヒュ.
+   *
+   * What is left after them really is thin on the ground in loanwords — ヲ, ヂ
+   * and ヅ are not used in modern katakana at all, and the remaining
+   * palatalized cells (キョ ニャ ニョ ヒャ ヒョ ミャ ミョ リャ リョ ビャ ビョ
+   * ピャ ピョ) are rare rather than impossible. Stated that way deliberately:
+   * the last claim of impossibility here was wrong within a day.
+   */
+  { kana: 'ウール', romaji: 'uuru' },
+  { kana: 'ヌードル', romaji: 'nuudoru' },
+  { kana: 'ユーモア', romaji: 'yuumoa' },
+  { kana: 'ゾーン', romaji: 'zoon' },
+  { kana: 'シューズ', romaji: 'shuuzu' },
+  { kana: 'シャンプー', romaji: 'shanpuu' },
+  { kana: 'バーベキュー', romaji: 'baabekyuu' },
+  { kana: 'ギャラリー', romaji: 'gyararii' },
+  { kana: 'レギュラー', romaji: 'regyuraa' },
+  { kana: 'ギョーザ', romaji: 'gyooza' },
+  { kana: 'インタビュー', romaji: 'intabyuu' },
+  { kana: 'コンピューター', romaji: 'konpyuutaa' },
+  { kana: 'ヒューズ', romaji: 'hyuuzu' },
 ]
 
 /** Words chosen for the typing, not the reading: sokuon and yōon throughout. */

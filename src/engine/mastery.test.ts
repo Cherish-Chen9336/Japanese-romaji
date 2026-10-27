@@ -1,7 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { cellState, chartCoverage, chartMoras, gojuonGrids, offChartMoras, romajiFor, rowCells } from './mastery'
-import { allBankItems, gojuonBank } from './lessons'
-import { isMoraToken, tokenizeKana } from './romanization'
+import {
+  cellState,
+  chartCoverage,
+  chartMoras,
+  chartReach,
+  gojuonGrids,
+  KANA_SCRIPTS,
+  offChartMoras,
+  romajiFor,
+  rowCells,
+} from './mastery'
+import { allBankItems, gojuonBank, itemMoras } from './lessons'
+import { isMoraToken, tokenizeKana, toKatakana } from './romanization'
 
 describe('gojuonGrids', () => {
   const grids = gojuonGrids()
@@ -76,30 +86,121 @@ describe('gojuonGrids', () => {
   })
 
   /*
-   * What the chart cannot show. Two categories, both deliberate:
+   * What the two charts together cannot show, which is sokuon and nothing
+   * else: 五十音 has no square for っこ, under either syllabary. Katakana used
+   * to be the second category here, and the katakana chart is what closed it.
    *
-   * - **Sokuon.** 五十音 has no square for っこ, so a weakness there can never
-   *   appear on the map.
-   * - **Katakana.** The chart is the hiragana syllabary, and コ is tracked as
-   *   itself rather than folded into こ, so コーヒー contributes moras with no
-   *   cell to land in.
+   * **Both sokuon marks.** ッ as well as っ, since katakana loanwords brought
+   * ック, ップ, ット and ッピ into the corpus — this test caught them on the way
+   * in, naming them as a fourth category when they are the same one written in
+   * the other script.
    *
-   * Worth knowing when reading the map, and worth failing here if a third
-   * category ever joins them unnoticed.
+   * Worth failing if a genuinely new category ever joins them unnoticed — a
+   * corpus addition the map silently cannot draw is a weakness it can never
+   * report.
    */
-  it('covers all but the sokuon and katakana of what the corpus tracks', () => {
+  it('covers all but the sokuon of what the corpus tracks', () => {
     const corpus = new Set(
       allBankItems()
         .flatMap((item) => tokenizeKana(item.reading ?? item.kana))
         .map((token) => token.kana)
         .filter(isMoraToken),
     )
-    const chart = new Set(chartMoras())
-    const missing = [...corpus].filter((kana) => !chart.has(kana))
-    const unexplained = missing.filter(
-      (kana) => !kana.startsWith('っ') && !/^[ァ-ヺー]+$/.test(kana),
-    )
-    expect(unexplained).toEqual([])
+    const charted = new Set(KANA_SCRIPTS.flatMap((script) => [...chartMoras(script)]))
+    const missing = [...corpus].filter((kana) => !charted.has(kana))
+    expect(missing.filter((kana) => !/^[っッ]/.test(kana))).toEqual([])
+    /* And the sokuon really are there, in both scripts, so the line above
+       cannot pass by the corpus having quietly stopped containing any. */
+    expect(missing.some((kana) => kana.startsWith('っ'))).toBe(true)
+    expect(missing.some((kana) => kana.startsWith('ッ'))).toBe(true)
+  })
+})
+
+describe('the katakana chart', () => {
+  /*
+   * One assertion for the whole mirror, because that is the invariant: the two
+   * charts are the same twenty-six rows with the same spellings, differing only
+   * in glyph. Anything weaker — checking a row here, a count there — passes a
+   * katakana chart that has quietly lost a row or renamed a column, which is
+   * exactly what writing a second bank out by hand would eventually produce.
+   */
+  it('mirrors the hiragana chart row for row, keeping every spelling', () => {
+    const mirrored = gojuonGrids('hiragana').map((grid) => ({
+      group: grid.group,
+      columns: grid.columns,
+      rows: grid.rows.map((row) => ({
+        label: row.label,
+        cells: row.cells.map((cell) =>
+          cell === null ? null : { kana: toKatakana(cell.kana), romaji: cell.romaji },
+        ),
+      })),
+      extras: grid.extras.map((cell) => ({ kana: toKatakana(cell.kana), romaji: cell.romaji })),
+    }))
+    expect(gojuonGrids('katakana')).toEqual(mirrored)
+  })
+
+  /* The same spelling choice the hiragana row is taught with: `ji`/`zu` are the
+     keystrokes that produce ジ and ズ, so ヂ and ヅ have to read `di`/`du`. */
+  it('teaches ヂ and ヅ as di and du, as the hiragana row does', () => {
+    const grid = gojuonGrids('katakana').find((g) => g.group === 'dakuten')!
+    const da = grid.rows.find((row) => row.label === 'd')!
+    expect(da.cells.map((cell) => cell?.kana ?? null)).toEqual(['ダ', 'ヂ', 'ヅ', 'デ', 'ド'])
+    expect(da.cells.map((cell) => cell?.romaji ?? null)).toEqual(['da', 'di', 'du', 'de', 'do'])
+  })
+
+  it('sets ン apart rather than filing it under a vowel', () => {
+    const grid = gojuonGrids('katakana').find((g) => g.group === 'seion')!
+    expect(grid.extras.map((cell) => cell.kana)).toEqual(['ン'])
+  })
+
+  it('is the same size as the hiragana chart, and shares no cell with it', () => {
+    const hiragana = chartMoras('hiragana')
+    const katakana = chartMoras('katakana')
+    expect(katakana).toHaveLength(hiragana.length)
+    expect(katakana.filter((kana) => hiragana.includes(kana))).toEqual([])
+  })
+
+  it('draws only katakana', () => {
+    expect(chartMoras('katakana').filter((kana) => !/^[ァ-ヺ]+$/.test(kana))).toEqual([])
+  })
+
+  it('displays only real moras', () => {
+    expect(chartMoras('katakana').filter((kana) => !isMoraToken(kana))).toEqual([])
+  })
+
+  /* The engine's default and the toggle's first option have to be the same
+     script, or the chart opens on one while the pressed pill names the other. */
+  it('offers both scripts, hiragana first', () => {
+    expect([...KANA_SCRIPTS]).toEqual(['hiragana', 'katakana'])
+    expect(chartMoras()).toBe(chartMoras('hiragana'))
+    expect(gojuonGrids()).toBe(gojuonGrids('hiragana'))
+  })
+})
+
+describe('chartReach', () => {
+  /*
+   * The hiragana chart being reachable end to end is what lets the page print
+   * "N moras seen · of 104" as a target. If a cell ever stops being reachable
+   * that headline quietly becomes a number nobody can finish, which is the
+   * reason `chartCoverage` stays on this one chart.
+   */
+  it('finds every cell of the hiragana chart reachable from the bundled text', () => {
+    const total = chartMoras('hiragana').length
+    expect(chartReach('hiragana')).toEqual({ reachable: total, total })
+  })
+
+  /* Recomputed independently rather than pinned to a figure: the katakana
+     chart's reach is a property of the corpus, and the panel's caption appears
+     and disappears with it. */
+  it('counts a chart against the moras the corpus actually holds', () => {
+    const corpus = new Set(allBankItems().flatMap(itemMoras))
+    for (const script of KANA_SCRIPTS) {
+      const cells = chartMoras(script)
+      expect(chartReach(script)).toEqual({
+        reachable: cells.filter((kana) => corpus.has(kana)).length,
+        total: cells.length,
+      })
+    }
   })
 })
 
@@ -138,6 +239,16 @@ describe('offChartMoras', () => {
     expect(offChartMoras(new Map([['か', stat(9)]]))).toEqual([])
   })
 
+  /*
+   * カ was the whole reason this strip ever held katakana. It has a cell of its
+   * own now, and a mora drawn on one chart must not also be listed as having no
+   * chart — that prints it twice and calls one of the two homeless.
+   */
+  it('leaves out a katakana mora, now that katakana has a chart', () => {
+    expect(offChartMoras(new Map([['カ', stat(4)], ['ン', stat(2)]]))).toEqual([])
+    expect(offChartMoras(new Map([['カ', stat(4)], ['っこ', stat(1)]]))).toEqual(['っこ'])
+  })
+
   /* Nothing is "also tracked" until it has actually been met once. */
   it('leaves out an off-chart mora with no attempts', () => {
     expect(offChartMoras(new Map([['っこ', stat(0)]]))).toEqual([])
@@ -157,6 +268,14 @@ describe('gojuonGrids caching', () => {
   it('returns the same object rather than rebuilding', () => {
     expect(gojuonGrids()).toBe(gojuonGrids())
     expect(chartMoras()).toBe(chartMoras())
+  })
+
+  /* Per script, so working the toggle does not rebuild a chart already built —
+     and not one shared slot, which would rebuild on every single switch. */
+  it('caches each script separately', () => {
+    expect(gojuonGrids('katakana')).toBe(gojuonGrids('katakana'))
+    expect(chartMoras('katakana')).toBe(chartMoras('katakana'))
+    expect(gojuonGrids('katakana')).not.toBe(gojuonGrids('hiragana'))
   })
 })
 
@@ -204,5 +323,20 @@ describe('chartCoverage', () => {
   /* An off-chart mora is met, but it is not chart coverage. */
   it('does not count an off-chart mora toward coverage', () => {
     expect(chartCoverage(new Map([['っこ', { attempts: 5 }]])).met).toBe(0)
+  })
+
+  /*
+   * The headline figure on the stats page calls this with no script, and has to
+   * keep counting the hiragana chart alone — カ must not add to a total of 104,
+   * and must not raise that total either.
+   */
+  it('counts the hiragana chart unless asked for the other one', () => {
+    const stats = new Map([['カ', { attempts: 3 }]])
+    expect(chartCoverage(stats).met).toBe(0)
+    expect(chartCoverage(stats).total).toBe(chartMoras('hiragana').length)
+    expect(chartCoverage(stats, 'katakana')).toEqual({
+      met: 1,
+      total: chartMoras('katakana').length,
+    })
   })
 })

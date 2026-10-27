@@ -2273,6 +2273,26 @@ meter::-webkit-meter-optimum-value {
   container: mastery-panel / inline-size;
 }
 
+/*
+ * The syllabary toggle, and the line that explains a chart the bundled text
+ * cannot fill.
+ *
+ * Above `.mastery` rather than inside it. `.mastery` centres its items, and a
+ * two-button control centred over a chart more than a thousand pixels wide
+ * reads as a caption rather than as something to press; `.mastery-panel` is
+ * `fit-content`, so a block placed here starts at the chart's own left edge,
+ * which is where a control that switches the chart belongs.
+ */
+.mastery-scripts {
+  margin-block-end: var(--space-4);
+}
+
+/* A sentence, so it takes a sentence's measure rather than the chart's. */
+.mastery-reach {
+  margin-block-end: var(--space-4);
+  max-inline-size: 60ch;
+}
+
 .mastery {
   display: flex;
   flex-flow: row wrap;

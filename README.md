@@ -15,8 +15,8 @@ browser.
 ## What it does
 
 - **Practice** — work through a passage or run a timed sprint. Text comes from
-  bundled kana tables, drills, words and quotes, from the mistakes you keep
-  repeating, or from your own library.
+  bundled kana tables, drills, words, proverbs and sentences, from the mistakes
+  you keep repeating, or from your own library.
 - **Library** — paste in plain Japanese, confirm or supply the kana readings for
   any kanji, and it becomes practice material.
 - **Stats** — per-mora timing, lifetime totals, a progress chart, and a confusion

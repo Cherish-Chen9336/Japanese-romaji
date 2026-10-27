@@ -68,7 +68,12 @@ import {
   leastPractisedKana,
   weakestKana,
 } from "./engine/stats";
-import { KANA_GROUPS, STANDARD_TIMED_MS, THEME_NAMES } from "./engine/types";
+import {
+  KANA_GROUPS,
+  SOURCE_LABELS,
+  STANDARD_TIMED_MS,
+  THEME_NAMES,
+} from "./engine/types";
 import { Furigana } from "./ui/Furigana";
 import type {
   KanaGroup,
@@ -1416,7 +1421,7 @@ function App() {
                   </div>
 
                   <div class="result-meta">
-                    <span>{run().source}</span>
+                    <span>{SOURCE_LABELS[run().source] ?? run().source}</span>
                     <span>{run().chars} characters</span>
                     <span>{new Date(run().date).toLocaleString()}</span>
                   </div>
@@ -1573,9 +1578,16 @@ function App() {
                 costs the page its opening summary, and a reader arriving wants
                 the four numbers before they want them filed. */}
             <div class="stat-grid">
+              {/* "hiragana", not "moras". `chartCoverage` counts the hiragana
+                  chart alone — deliberately, since every one of its cells is
+                  reachable from the bundled text and so the figure is a target
+                  that can be finished. Called "moras seen" it quietly became a
+                  lie the moment katakana got a chart: a profile that had met
+                  every katakana cell and no hiragana read "0 moras seen". The
+                  katakana count lives beside its own chart. */}
               <div>
                 <b>{coverage().met}</b>
-                <span>moras seen · of {coverage().total}</span>
+                <span>hiragana seen · of {coverage().total}</span>
               </div>
               <div>
                 <b>{weakMoras()}</b>

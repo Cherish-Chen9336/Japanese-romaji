@@ -8,6 +8,34 @@ export type SourceName =
   | 'sentences'
   | 'library'
 
+/**
+ * What each source is called on screen.
+ *
+ * Kept apart from the `SourceName` it keys, because the name is **stored** and
+ * the label is only read. `quotes` sits in the source preference and in
+ * `RunResult.source` on every run ever recorded, so renaming the value would
+ * orphan that history; renaming the label costs nothing.
+ *
+ * `quotes` reads **proverbs** because that is what the bank holds — fourteen
+ * ことわざ, 七転び八起き and 石の上にも三年 among them. Not one of them is a
+ * quotation, and not one carries a quotation mark.
+ *
+ * Every surface that shows a source to a person reads this: the practice
+ * picker through `sourceOptions`, the result screen, and the statistics
+ * cohorts through `runCohorts`. Each used to spell the source out for itself,
+ * which is three places for the same word to drift apart in.
+ */
+export const SOURCE_LABELS: Record<SourceName, string> = {
+  auto: 'auto',
+  kana: 'kana',
+  drills: 'drills',
+  words: 'words',
+  difficult: 'difficult',
+  quotes: 'proverbs',
+  sentences: 'sentences',
+  library: 'library',
+}
+
 /** Which part of the 五十音図 to drill. */
 export type KanaGroup = 'all' | 'seion' | 'dakuten' | 'yoon'
 

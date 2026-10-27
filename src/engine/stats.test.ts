@@ -655,6 +655,31 @@ describe('cohorts', () => {
   })
 
   /*
+   * The cohort reads the source's *label*, not its stored name. These two
+   * differ for `quotes`, whose bank is proverbs — and this is the surface that
+   * made a label-only rename insufficient, because it spelled the wording out
+   * for itself and so went on saying "quotes" beside a picker that no longer
+   * did. The key stays the stored name, so old runs still group with new ones.
+   */
+  it('labels a cohort with the source label while keying on the stored name', () => {
+    const [cohort] = runCohorts([run({ source: 'quotes' })])
+    expect(cohort.label).toBe('proverbs')
+    expect(cohort.key).toBe('quotes:passage')
+    expect(cohort.source).toBe('quotes')
+  })
+
+  it('carries the label into a timed cohort too', () => {
+    expect(runCohorts([run({ source: 'quotes', mode: timed(60_000) })])[0].label).toBe('proverbs · 60s')
+  })
+
+  /* A run stored by a build that knew a source this one does not still has to
+     render as something a person can read, not as "undefined". */
+  it('falls back to the stored name when no label is known', () => {
+    const [cohort] = runCohorts([run({ source: 'retired-source' as SourceName })])
+    expect(cohort.label).toBe('retired-source')
+  })
+
+  /*
    * The most recent run's cohort, not the largest. Defaulting to whichever has
    * the most history would answer a question about a kind of practice the typist
    * may have stopped doing.

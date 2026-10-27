@@ -9,6 +9,7 @@ import {
   projectMatch,
   stepMatch,
   stepWithRecovery,
+  toKatakana,
   tokenizeKana,
 } from './romanization'
 
@@ -166,6 +167,50 @@ describe('tokenizeKana', () => {
     expect(tokenizeKana('カ')[0].kana).toBe('カ')
     expect(tokenizeKana('ッカ')[0].kana).toBe('ッカ')
     expect(tokenizeKana('ン')[0].kana).toBe('ン')
+  })
+})
+
+describe('toKatakana', () => {
+  /*
+   * Literal expectations, written out rather than computed. The mastery
+   * chart's mirror test builds what it expects with this same function, so it
+   * would agree with a `toKatakana` that was wrong in both halves; these are
+   * the assertions that can actually catch that.
+   */
+  it('mirrors the plain, voiced and contracted letters', () => {
+    expect(toKatakana('あいうえお')).toBe('アイウエオ')
+    expect(toKatakana('ぱぴぷぺぽ')).toBe('パピプペポ')
+    expect(toKatakana('きゃきゅきょ')).toBe('キャキュキョ')
+    expect(toKatakana('っこ')).toBe('ッコ')
+    expect(toKatakana('わをん')).toBe('ワヲン')
+  })
+
+  /*
+   * The hazard the export introduced. Shifting every code point by 0x60 is
+   * only valid inside the hiragana letters: `。` U+3002 lands on ぢ U+3062 and
+   * a space on a control character, so a blind shift corrupts any string that
+   * is not pure hiragana — quietly, and in a function the mastery chart now
+   * calls on content.
+   */
+  it('leaves everything that is not a hiragana letter alone', () => {
+    expect(toKatakana('。、 ')).toBe('。、 ')
+    expect(toKatakana('a1')).toBe('a1')
+    expect(toKatakana('学校')).toBe('学校')
+    expect(toKatakana('コーヒー')).toBe('コーヒー')
+    expect(toKatakana('ねこ 。 いぬ')).toBe('ネコ 。 イヌ')
+  })
+
+  /* ゛ and ゜ sit in the same block just above the letters, and the long-vowel
+     mark just below the katakana. None of them has a twin to move to. */
+  it('leaves the marks that border the letter range alone', () => {
+    expect(toKatakana('\u309B\u309C\u309D')).toBe('\u309B\u309C\u309D')
+    expect(toKatakana('\u3040')).toBe('\u3040')
+  })
+
+  /* A decomposed か + combining dakuten is one letter plus a mark; shifting
+     the pair without composing it first gives カ followed by a stray ヹ. */
+  it('composes a decomposed voiced letter before mirroring it', () => {
+    expect(toKatakana('\u304B\u3099')).toBe('ガ')
   })
 
   /*
