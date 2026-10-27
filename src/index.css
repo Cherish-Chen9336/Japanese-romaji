@@ -313,6 +313,28 @@ input {
   font: inherit;
 }
 
+/* Chrome draws its own focus ring on anything it is not given one for — a
+ * black box with a white inner line — and on this page that is the loudest
+ * object on screen and the one thing in it that belongs to no theme. Five
+ * component rules in App.css already carried this exact recipe; it belongs on
+ * the base rule, where the nav, the brand and the source buttons pick it up
+ * too and a control added later cannot fall through to the browser's.
+ *
+ * `:focus-visible` and not `:focus`: a ring that answers the mouse as well
+ * would box every button the moment it is clicked.
+ *
+ * Text fields keep their own treatment in App.css — the accent carried by the
+ * border plus a 1px outline flush outside it — which out-specifies this. So do
+ * the library rows and the chart cells, which inset the ring instead.
+ */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
 kbd {
   align-items: center;
   background: var(--color-surface);

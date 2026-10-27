@@ -1857,6 +1857,35 @@ fixed in passing, because each changes an interaction rather than a style.
   because the element that matches focus is a 1px box nobody can see and the
   element that is drawn never takes focus itself.
 
+- **Arriving at practice focuses the typing capture, and `navigate` is where
+  that happens.** Ella reported it on 2026-10-27 as a black box appearing in
+  the nav on the first Tab, and the box was the symptom: once `Tab` was
+  narrowed to the capture, every way of reaching practice that left focus
+  somewhere else turned the shortcut into ordinary tabbing along the top bar.
+  There were three. The nav buttons call `stopPropagation`, so `<main>`'s
+  `onClick={refocus}` never ran for them and clicking `practice` left the
+  reader holding the button; choosing a text in the library left focus on that
+  row; the result screen's Enter left it on `<body>`. Every route change
+  funnels through `navigate`, and `refocus` is a no-op off this route, so one
+  call there covers all of them and touches no other destination. `hashchange`
+  gets it too, for Back and Forward. **Do not fix this by widening the Tab
+  shortcut again** — Tab belongs to the capture, and taking it from the nav is
+  the keyboard trap that was closed the day before.
+- **The focus ring is a base rule in `index.css`, not a component rule.** What
+  Ella saw was Chrome's own ring — a black box with a white inner line — on a
+  nav that had never been given one. Five component rules in App.css already
+  carried `outline: 2px solid var(--color-accent); outline-offset: 2px`, so
+  the nav, the brand and the source buttons were the ones that had been
+  forgotten rather than the ones needing a new treatment. On
+  `button, input, select, textarea` at `:focus-visible`, where a control added
+  later picks it up by existing. The text-field treatment in App.css
+  out-specifies it (`input[type='text']`, `input:not([type])`, `textarea` all
+  score higher or come later), as do the library rows and the chart cells,
+  which inset their ring. `:focus-visible` and not `:focus`, or every button
+  would be boxed the moment it was clicked. Verified in Chromium: the ring
+  measures `rgb(15, 122, 105) solid 2px off:2px` on all four nav items and on
+  the brand under keyboard focus, and `none` after a mouse click.
+
 The hover fill is `color-mix(in srgb, var(--color-text) 4%, transparent)`.
 `--color-surface` was the first try and it is pure white in the light theme,
 which on this warm grey-green page read as a highlighter stripe rather than a

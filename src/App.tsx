@@ -391,6 +391,23 @@ function App() {
   const navigate = (next: RouteName) => {
     window.location.hash = next === "practice" ? "#/practice" : `#/${next}`;
     setRoute(next);
+    /*
+     * Arriving at practice puts focus back on the typing capture. Every route
+     * change funnels through here, so this is the one place that can promise
+     * it — and the promise is what the `Tab fresh text` hint depends on, since
+     * the shortcut is taken from the capture and from nowhere else.
+     *
+     * Three ways in were landing somewhere else. The nav buttons call
+     * `stopPropagation`, so `<main>`'s `onClick={refocus}` never ran for them
+     * and a reader who clicked `practice` was left holding the button, where
+     * the next Tab stepped along the nav instead of dealing a passage.
+     * Choosing a text in the library left focus on that row. The result
+     * screen's Enter left it on `<body>`.
+     *
+     * `refocus` is a no-op off this route, so every other destination keeps
+     * the focus the reader put there.
+     */
+    refocus();
   };
 
   const cancelCompletion = () => {
@@ -972,7 +989,12 @@ function App() {
   onMount(() => {
     refocus();
     const interval = window.setInterval(() => setTick(Date.now()), 500);
-    const hashchange = () => setRoute(routeFromHash());
+    // Back and forward are route changes too, and landing on practice through
+    // either should leave the reader able to type, the same as `navigate`.
+    const hashchange = () => {
+      setRoute(routeFromHash());
+      refocus();
+    };
 
     /*
      * Coming back from a hidden tab, the gap since the last keystroke is not
