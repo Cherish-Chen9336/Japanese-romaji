@@ -1940,6 +1940,25 @@ of them stops the publish. It is `test:coverage` and not `pnpm test` on
 purpose — `pnpm test` is `vitest run` with no `--coverage`, so the thresholds
 in `vite.config.ts` never execute under it and the gate would not be a gate.
 
+**Pull requests against `main` run the same three gates and then stop**, added
+2026-10-27 after Codex pointed out that a contributor got no checks until after
+merge. **One workflow, not two**: a `ci.yml` beside this would have to restate
+the gates, and the `test:coverage`-not-`pnpm test` distinction is exactly the
+kind of thing a second copy loses. The two Pages steps carry
+`if: github.event_name != 'pull_request'` and so does the `deploy` job.
+
+**The concurrency group is per-event for a reason.** Publishes share the one
+`pages` group and are never cancelled, because a half-finished upload leaves
+the live site on a partial set of files. Pull-request runs get a group per
+branch and *do* cancel in progress — a run against a superseded commit is only
+occupying a runner. Leaving them in the publish group would have queued PR
+checks behind deploys and deploys behind PR checks.
+
+**Permissions are deliberately left at the workflow level** rather than scoped
+to the publish job. Narrowing them is the tidier-looking change and risks the
+one thing that must not break; a fork's pull request gets a read-only token
+whatever is declared, and a branch pull request here is the owner's own.
+
 **`vite.config.ts` sets `base` to `/Japanese-romaji/` for `build` and preview,
 and `/` for dev.** Pages serves a project site from a subpath, so a root base
 publishes a page whose every asset 404s. Verify a build by running

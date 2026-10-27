@@ -1,26 +1,40 @@
-# Builds the site and publishes it to GitHub Pages.
+# Checks every change, and publishes the ones that land on `main`.
 #
 # The repo has no other CI, so the checks live here rather than in a workflow of
 # their own: typecheck and the test suite run before the build, and a failure in
 # either stops the publish. A deploy job that only builds would ship whatever
 # happens to compile.
-name: Deploy to Pages
+#
+# Pull requests run the same three gates and then stop. **One workflow and not
+# two** — a `ci.yml` beside this would have to restate the gates, and two copies
+# of a rule are two things that drift: the whole reason `test:coverage` is
+# written here instead of `pnpm test` is that a gate which does not run is not a
+# gate, and a second file is exactly where that distinction gets lost. The
+# Pages-specific steps carry an `if` instead.
+name: Checks, and deploy from main
 
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
+# Left at the workflow level, so the publish keeps the permissions it has today.
+# A pull request from a fork gets a read-only token whatever is declared here,
+# and a pull request from a branch of this repo is the owner's own.
 permissions:
   contents: read
   pages: write
   id-token: write
 
-# One publish at a time, and never cancel one in flight: a half-finished upload
-# leaves the live site on a partial set of files.
 concurrency:
-  group: pages
-  cancel-in-progress: false
+  # Publishes share one group and are never cancelled: a half-finished upload
+  # leaves the live site on a partial set of files. Pull-request checks get a
+  # group per branch and *do* cancel, because a run against a commit that has
+  # already been superseded is only occupying a runner.
+  group: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.ref) || 'pages' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
@@ -55,14 +69,19 @@ jobs:
       - name: Build
         run: pnpm build
 
+      # A pull request is checked, not published. Everything above this line
+      # runs on both events; everything from here down is the publish.
       - uses: actions/configure-pages@v5
+        if: github.event_name != 'pull_request'
 
       - uses: actions/upload-pages-artifact@v3
+        if: github.event_name != 'pull_request'
         with:
           path: dist
 
   deploy:
     needs: build
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

@@ -95,3 +95,8 @@ a path problem that would 404 on the live site only shows up under preview.
 `.github/workflows/deploy.yml` publishes to GitHub Pages on every push to `main`.
 It is the only CI here, so the gates live in it: typecheck, then
 `pnpm test:coverage`, then the build — a failure in any of them stops the publish.
+Pull requests against `main` run the same three gates and publish nothing.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
