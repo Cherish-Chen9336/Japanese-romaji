@@ -142,24 +142,35 @@ export function MasteryMap(props: {
    * the weak-state mark or the hidden status text is how one of them silently
    * loses it.
    *
-   * Note this still reads `stat` and `state` once, at render. That is the
-   * pre-existing reactivity bug recorded in AGENTS.md — a cell drawn from stale
-   * stats stays stale while the route is open — and it is deliberately left
-   * alone here rather than fixed in passing, because fixing it means turning
-   * the whole cell body into accessors and that is its own change.
+   * **Accessors, not values.** These used to read `stat` and `state` once, at
+   * render, which made every cell a snapshot of the stats as they stood when
+   * the chart was built. `<For>` keys on the grid array and the grids are
+   * cached, so nothing re-ran the callback when `props.stats` changed and the
+   * cells kept their original colour, their original weak-state dot and their
+   * original screen-reader text.
+   *
+   * It was latent rather than live: the stats page is behind
+   * `<Show when={route() === "stats"}>`, so the chart is rebuilt on every visit
+   * and nothing on that route writes a run. That is a property of today's
+   * routing, not of this component — the first control that changes data
+   * without leaving the page turns a latent bug into a visible one, and a chart
+   * whose whole job is to colour cells by stats should not be relying on being
+   * unmounted to stay truthful.
    */
   const cellParts = (cell: MasteryCell) => {
-    const stat = statFor(cell.kana);
-    const state: CellState = cellState(stat);
-    const text = statusText(cell, stat);
+    const stat = () => statFor(cell.kana);
+    const state = (): CellState => cellState(stat());
+    const text = () => statusText(cell, stat());
+    const weakness = () => {
+      const current = stat();
+      return state() === "weak" && current
+        ? { "--weakness": String(severity(current)) }
+        : {};
+    };
     return {
-      state,
       text,
-      class: `mastery-cell mastery-cell--${state}`,
-      style:
-        state === "weak" && stat
-          ? { "--weakness": String(severity(stat)) }
-          : {},
+      class: () => `mastery-cell mastery-cell--${state()}`,
+      style: weakness,
       body: (
         <>
           <b aria-hidden="true">{cell.kana}</b>
@@ -167,10 +178,10 @@ export function MasteryMap(props: {
             <small aria-hidden="true">{cell.romaji}</small>
           </Show>
           {/* Colour must not be the only thing separating weak from clean. */}
-          <Show when={state === "weak"}>
+          <Show when={state() === "weak"}>
             <i class="mastery-cell__mark" aria-hidden="true" />
           </Show>
-          <span class="sr-only">{text}</span>
+          <span class="sr-only">{text()}</span>
         </>
       ),
     };
@@ -179,7 +190,12 @@ export function MasteryMap(props: {
   const renderCell = (cell: MasteryCell) => {
     const p = cellParts(cell);
     return (
-      <td class={p.class} style={p.style} tabindex="0" {...tipFor(() => p.text)}>
+      <td
+        class={p.class()}
+        style={p.style()}
+        tabindex="0"
+        {...tipFor(() => p.text())}
+      >
         {p.body}
       </td>
     );
@@ -188,7 +204,12 @@ export function MasteryMap(props: {
   const renderListCell = (cell: MasteryCell) => {
     const p = cellParts(cell);
     return (
-      <li class={p.class} style={p.style} tabindex="0" {...tipFor(() => p.text)}>
+      <li
+        class={p.class()}
+        style={p.style()}
+        tabindex="0"
+        {...tipFor(() => p.text())}
+      >
         {p.body}
       </li>
     );

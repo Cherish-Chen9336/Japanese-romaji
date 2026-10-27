@@ -847,12 +847,24 @@ missed. A single ramp collapses the first two into the same pale cell, which
 tells a beginner they are fine at every kana they have yet to see. Only the
 missed cells carry colour.
 
-**Open bug, pre-existing: the chart's cells do not react.** `MasteryMap`
-captures `stat` and `state` once while rendering each cell, so a cell drawn from
-stale stats stays stale while the route is open. It does not show up in normal
-use, because stats do not change while you are looking at them — it needs a run
-to complete with the page already open. Found by review, left alone: fixing it
-means restructuring the cell body into accessors, which is not a restyle.
+**Fixed 2026-10-27: the chart's cells react.** `MasteryMap` used to capture
+`stat` and `state` once while rendering each cell, so a cell drawn from stale
+stats stayed stale while the route was open. `<For>` keys on the grid array and
+the grids are cached, so nothing re-ran the callback when `props.stats` changed.
+`cellParts` now returns accessors and the three carriers — class, weak-state dot
+and screen-reader text — all follow the same read.
+
+**It was latent, not live, and that is why it needed a test rather than a
+look.** The statistics page sits behind `<Show when={route() === "stats"}>` and
+nothing on that route writes a run, so the chart is rebuilt on every visit and
+the failure cannot be reached through the UI. That is a property of today's
+routing, not of the component: the first control that changes data without
+leaving the page would have made it visible. `MasteryMap.test.tsx` is the
+project's **only component test** and exists for exactly this — it renders the
+chart against a signal, changes the stats underneath it, and asserts the cell
+follows. Three of its five cases fail against the old snapshot code; that was
+checked, not assumed. It needs jsdom, which the file asks for with
+`// @vitest-environment jsdom` rather than moving the whole suite off `node`.
 
 **Accuracy gets the colour; timing goes in the tooltip.** See "Deliberately not
 built" for why speed never gets a channel of its own here.
