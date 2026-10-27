@@ -1934,9 +1934,9 @@ Decisions to *not* do something leave no commit and no code, so they live here o
 nowhere. Each of these has been proposed at least once and rejected on purpose;
 re-proposing one is fine, but start from the reason it lost.
 
-The capability gap audit of 2026-08-21 (artifact
-`5d7fd5a8-93ee-42c7-a671-6fbc16d50d03`, measured against
-`/home/web-ella/githubs/type-review`) is the source of several of these. It is a
+The capability gap audit of 2026-08-21 — measured against `type-review`, the
+English typing trainer this project borrowed its three-layer split from — is the
+source of several of these. It is a
 useful inventory, but it measures this app against an **English** trainer, so
 "missing" in it sometimes means "does not apply". Where this section and that
 audit disagree, this section is current.
