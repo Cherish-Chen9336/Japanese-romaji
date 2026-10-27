@@ -103,30 +103,62 @@ export function MasteryMap(props: {
     })),
   );
 
-  const renderCell = (cell: MasteryCell) => {
+  /*
+   * The parts a cell carries wherever it is drawn. Split out because the chart
+   * renders cells as `<td>` and the "also tracked" list renders the same cells
+   * as `<li>`; everything except the element is identical, and two copies of
+   * the weak-state mark or the hidden status text is how one of them silently
+   * loses it.
+   *
+   * Note this still reads `stat` and `state` once, at render. That is the
+   * pre-existing reactivity bug recorded in AGENTS.md — a cell drawn from stale
+   * stats stays stale while the route is open — and it is deliberately left
+   * alone here rather than fixed in passing, because fixing it means turning
+   * the whole cell body into accessors and that is its own change.
+   */
+  const cellParts = (cell: MasteryCell) => {
     const stat = statFor(cell.kana);
     const state: CellState = cellState(stat);
+    const text = statusText(cell, stat);
+    return {
+      state,
+      text,
+      class: `mastery-cell mastery-cell--${state}`,
+      style:
+        state === "weak" && stat
+          ? { "--weakness": String(severity(stat)) }
+          : {},
+      body: (
+        <>
+          <b aria-hidden="true">{cell.kana}</b>
+          <Show when={cell.romaji}>
+            <small aria-hidden="true">{cell.romaji}</small>
+          </Show>
+          {/* Colour must not be the only thing separating weak from clean. */}
+          <Show when={state === "weak"}>
+            <i class="mastery-cell__mark" aria-hidden="true" />
+          </Show>
+          <span class="sr-only">{text}</span>
+        </>
+      ),
+    };
+  };
+
+  const renderCell = (cell: MasteryCell) => {
+    const p = cellParts(cell);
     return (
-      <td
-        class={`mastery-cell mastery-cell--${state}`}
-        style={
-          state === "weak" && stat
-            ? { "--weakness": String(severity(stat)) }
-            : {}
-        }
-        tabindex="0"
-        {...tipFor(() => statusText(cell, stat))}
-      >
-        <b aria-hidden="true">{cell.kana}</b>
-        <Show when={cell.romaji}>
-          <small aria-hidden="true">{cell.romaji}</small>
-        </Show>
-        {/* Colour must not be the only thing separating weak from clean. */}
-        <Show when={state === "weak"}>
-          <i class="mastery-cell__mark" aria-hidden="true" />
-        </Show>
-        <span class="sr-only">{statusText(cell, stat)}</span>
+      <td class={p.class} style={p.style} tabindex="0" {...tipFor(() => p.text)}>
+        {p.body}
       </td>
+    );
+  };
+
+  const renderListCell = (cell: MasteryCell) => {
+    const p = cellParts(cell);
+    return (
+      <li class={p.class} style={p.style} tabindex="0" {...tipFor(() => p.text)}>
+        {p.body}
+      </li>
     );
   };
 
@@ -202,19 +234,31 @@ export function MasteryMap(props: {
           // fitting beside the tables, and so which arrangement App.css picks.
           classList={{ "mastery-aside--strip": offChart().length > 0 }}
         >
+          {/*
+            A list, not a table, and that is a correction rather than a style
+            choice. The three charts above are genuinely two-dimensional — a
+            cell means "this consonant row, that vowel column" — and a `<table>`
+            hands a screen reader both for free. This is a flat bag of moras
+            with no second axis: its only row header was an empty `sr-only`
+            cell, present because a `<tr>` has to start somewhere.
+
+            Drawn as one table row it also could not reflow, because a table
+            row cannot wrap. At nine moras that was invisible. At 22 it meant
+            the strip demanded 504px inside a 358px panel and scrolled the
+            whole stats page sideways by 130px on a phone, while from 1440 down
+            a container query crushed the cells from 48px to 19px to make them
+            fit. One unbounded width, failing two different ways. A wrapping
+            list grows downward instead, which is what an inventory should do.
+
+            `role="list"` because Safari drops list semantics from a `<ul>`
+            whose `list-style` is `none`, which is exactly what the cells need.
+          */}
           <Show when={offChart().length > 0}>
-            <div class="mastery-grid">
-              <table class="mastery-table">
-                <caption>also tracked</caption>
-                <tbody>
-                  <tr>
-                    <th scope="row" class="mastery-cell mastery-cell--label">
-                      <span class="sr-only">off-chart moras</span>
-                    </th>
-                    <For each={offChart()}>{(cell) => renderCell(cell)}</For>
-                  </tr>
-                </tbody>
-              </table>
+            <div class="mastery-extras">
+              <h4 class="mastery-extras__title">also tracked</h4>
+              <ul class="mastery-extras__list" role="list">
+                <For each={offChart()}>{(cell) => renderListCell(cell)}</For>
+              </ul>
             </div>
           </Show>
           {aside()}

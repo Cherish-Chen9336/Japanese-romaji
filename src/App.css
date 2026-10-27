@@ -2367,12 +2367,11 @@ meter::-webkit-meter-optimum-value {
   }
 
   /*
-   * Shrinks but does not grow: the table inside never fills its box — the cells
-   * carry a fixed 48px — so a growing container only opens a void between the
-   * last mora and the rankings, measured at 327.5px at 1440. The rankings take
-   * the slack instead.
+   * Shrinks but does not grow: a growing container only opens a void between
+   * the last mora and the rankings, measured at 327.5px at 1440. The rankings
+   * take the slack instead.
    */
-  .mastery-aside--strip > .mastery-grid {
+  .mastery-aside--strip > .mastery-extras {
     flex: 0 1 513px;
   }
 
@@ -2406,6 +2405,62 @@ meter::-webkit-meter-optimum-value {
   }
 }
 
+
+/*
+ * The "also tracked" moras — sokuon, katakana, anything the 五十音 grid has no
+ * square for.
+ *
+ * **The width is declared, not discovered, and that is the whole fix.** As one
+ * table row this took whatever its contents needed: 513px at nine moras, which
+ * is where that number in the container queries came from, and 1176px at 22,
+ * which pushed the column off the tables' line at every width. The container
+ * query then capped it at 513px from 1440 down and the cells divided what was
+ * left — 19px each against the 48px a chart cell gets. On a phone it could not
+ * even do that, because a table row cannot wrap: 504px inside a 358px panel,
+ * and the document scrolled sideways by 130px.
+ *
+ * 513px is kept as the *preferred* width so the thresholds derived from it
+ * (909px of tables + 513 + gaps = 1422px) still hold, but it is now a box the
+ * moras wrap inside rather than a figure their number dictates. Ten per row at
+ * that width; fewer as the panel narrows; never fewer cells than fit, and the
+ * cells themselves never shrink.
+ */
+.mastery-extras__title {
+  /* The kana tables label themselves with a `<caption>`; this is the same kind
+     of label on a list, so it is given the same treatment rather than its own. */
+  margin: 0 0 var(--space-1);
+  padding-inline-start: 3px;
+  font-size: var(--fs-12);
+  font-weight: 400;
+  color: var(--color-muted);
+  letter-spacing: 0.04em;
+}
+
+.mastery-extras__list {
+  display: flex;
+  flex-flow: row wrap;
+  /* The tables' `border-spacing`, so the two read as one family of cells. */
+  gap: 3px;
+  margin: 0;
+  padding: 0 3px;
+  list-style: none;
+  inline-size: 513px;
+  max-inline-size: 100%;
+}
+
+/*
+ * `flex: 0 0 auto` is the half of this that matters: a cell may wrap to the
+ * next row but must never be made narrower to fit the current one, which is
+ * the failure being fixed. A `<td>` centred its contents with
+ * `vertical-align: middle`; an `<li>` has to be told.
+ */
+.mastery-extras__list > .mastery-cell {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
 
 .mastery-table {
   border-collapse: separate;

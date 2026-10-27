@@ -455,11 +455,17 @@ that band is now +63px at 1024 and +174 to +177px at 760/768, where it was +203
 and +280. What is left is the three tables wrapping at 768, which no footer can
 help, and the rankings having moved into this panel at all.
 
-Robustness, measured rather than assumed: a fresh profile drops the column
-entirely — `App.tsx` passes `aside` as `undefined` when neither ranking has
-anything to say, because as a footer an empty wrapper would otherwise claim a
-whole flex line. Five long sokuon rankings cost 47px at 768 and nothing at 1024
-or 1440. With no off-chart moras the strip drops out and the rankings sit alone
+Robustness, measured rather than assumed. **A fresh profile does not drop the
+column, and this file said it did.** The claim was that `App.tsx` passes `aside`
+as `undefined` when neither ranking has anything to say, so an empty wrapper
+could not claim a whole flex line. It cannot: `aside` is a fragment holding the
+rankings *and* the legend, and only the rankings are inside a `<Show>` — so the
+fragment always exists and `.mastery-aside` always renders. Measured on a fresh
+profile at 1440 and 390: no strip, 104 unseen cells, the column present holding
+the legend alone, no overflow. That is the right behaviour — the legend should
+be there before you have practised anything — so what is wrong is the
+explanation, not the layout. Five long sokuon rankings cost 47px at 768 and
+nothing at 1024 or 1440. With no off-chart moras the strip drops out and the rankings sit alone
 at 46.1px. Text enlarged to a 24px root overflows at no width, and at 768 the
 footer wraps to two lines.
 
@@ -890,9 +896,44 @@ sound depends on the mora before it, so on its own it is not a bucket anything
 could mean. **Katakana moras are off-chart**, since 五十音 here is hiragana, so
 pasting katakana puts カ and コ in the "also tracked" strip. Whether カ should
 earn the か cell, a cell of its own, or a chart of its own is open and should be
-settled before katakana is encouraged any further — and it is now the cheapest
-lever on the bug below, since **nine of the 22 off-chart moras are katakana**
-(ア イ カ コ ス パ ヒ レ ン) against thirteen sokuon.
+settled before katakana is encouraged any further.
+
+**Settled 2026-10-27, after Codex: a katakana chart of its own, behind a
+hiragana/katakana toggle. Not folding, and not built yet.**
+
+The deciding fact is that カ and か are typed with *exactly* the same
+keystrokes, `ka`. Sharing the keystrokes removes a **motor** difference and
+leaves the **recognition** one untouched, and recognition is what this app
+measures — the same reason mastery is tracked per mora and not per key. Fold
+them and hundreds of fluent か encounters can conceal repeated failures on カ,
+which is the beginner protection the three cell states exist for, inverted.
+
+Why the others lost. **Folding** destroys the evidence and would paint an
+unseen カ with a clean か's history. **A cell of its own inside the existing
+chart** either widens the three tables or doubles their rows, and puts two
+independently coloured cells under every spelling on the page's primary
+surface. **Leaving it off-chart** shows katakana *weaknesses* but never
+katakana *coverage*: the strip only ever contains what has already been met, so
+it cannot tell a learner what they have not seen.
+
+A toggle rather than a fourth table, so the selected script keeps the existing
+three-table geometry. The mostly-empty view is answered by labelling it — "9 of
+104 encountered", hiragana as the default — so emptiness reads as untested
+rather than as failure.
+
+**It is recorded rather than built, deliberately.** Five of 189 bundled items
+contain katakana (カレー twice, アイス, コーヒー, パン), yielding nine moras. A
+script selector on the primary mastery surface for nine moras is UI ahead of
+content; this is the gate the paragraph above already describes, so build it
+when katakana content arrives. **No migration when it is**: `kanaStats` is
+keyed by the mora string, so existing `"カ"` records populate the katakana
+chart directly, and neither `DB_VERSION` nor `BACKUP_VERSION` needs a bump —
+nothing is being reinterpreted. Keep ー out of it: it stays a separate typing
+token excluded from mora mastery, and a clean コ must not imply コー.
+
+**Thirteen sokuon stay off-chart under every one of those options**, because
+五十音 has no square for っこ. So the strip had to be fixed regardless, and
+settling katakana would have reduced its height rather than removed the bug.
 
 **The "also tracked" strip is broken, and this file's own prediction is how it
 got there.** It said the strip was at **nine** off-chart moras, "still one row,
@@ -927,11 +968,46 @@ table cells do not wrap — the check confirmed the markup, not the layout. Ask
 instead for the strip's `scrollWidth` against its box, and for
 `document.scrollWidth` against `clientWidth`.
 
-A fix has to let the strip reflow — a wrapping grid rather than one table row —
-or cut what goes in it; settling the katakana question above removes nine of
-the 22 on its own. Whichever is chosen, the aside's container-query thresholds
-(1422px with the strip, about 1078px without) were derived from a 513px
-one-row strip and have to be re-derived with it.
+**Fixed the same day by making the strip a list.** The chart's three grids are
+genuinely two-dimensional and stay `<table>`s; this one never was. Its only row
+header was an empty `sr-only` cell, present because a `<tr>` has to start
+somewhere — and a table row cannot wrap, which is the whole mechanical cause.
+It is a `<ul role="list">` of the same cells now (`role` explicit, because
+Safari drops list semantics from a list styled `list-style: none`), wrapping on
+`flex-flow: row wrap` with the cells at `flex: 0 0 auto`.
+
+**The real fix is that 513px is now declared rather than discovered.** As one
+row the strip's width was whatever its contents needed — 513px at nine moras,
+which is where that figure in the container queries came from in the first
+place, and 1176px at 22. Both failures followed from that: the aside ballooned
+to 1176px and could never sit beside the tables, and from 1440 down the
+container query capped it at 513px with the cells dividing whatever was left.
+Declaring `inline-size: 513px; max-inline-size: 100%` on the list keeps every
+threshold derived from 513 valid while letting the inventory grow *downward*.
+Ten cells per row there, fewer as the panel narrows, and `flex: 0 0 auto` means
+a cell wraps rather than shrinks.
+
+Measured after, same seeded profile, cells **48×48 at every width** and **no
+page overflow at any width**:
+
+| viewport | before | after |
+|---|---|---|
+| 1920 | aside 1176px, below the tables, doc 2387px | aside 513px, **beside** them, doc 2042px |
+| 1440 | cells 19–23px, panel 821px | cells 48px, panel 897px |
+| 390 | **page +130px sideways** | **0**, strip wraps to four rows |
+| 320 | **page +200px sideways** | **0** |
+
+So it is ~345px shorter at 1920 — the column sitting beside the tables from
+1500 up is restored, which had quietly stopped being true — and 76–127px taller
+where the strip wraps, which is the honest cost of showing 22 moras legibly.
+Verified unchanged on a profile with no off-chart moras (column beside the
+tables from 1920 down to 1120, footer at 1024) and on a fresh one.
+
+**The three-character moras fill their cell exactly.** っしょ, っちゃ and っぴょ
+wrap to two lines inside a 48px cell and measure 0px of spill — tight but
+contained; every other cell has 10px of slack. Shrinking the kana for
+three-character moras is the obvious next move if it ever reads as cramped;
+it was left alone because nothing overflows.
 
 **Do not enumerate the off-chart moras with `grep -oP 'っ.'`.** That matches っ
 plus one character, so it truncates the three-character yoon sokuon: っぴょ comes
