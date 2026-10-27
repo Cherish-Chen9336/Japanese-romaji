@@ -2037,6 +2037,69 @@ audit disagree, this section is current.
   to drill, 、 and 。 would need their own design rather than a toggle, and
   remapping keycaps has near-zero value for someone learning kana on QWERTY.
 
+- **Japanese punctuation — 。 and 、 in the practice text.** Raised by Ella on
+  2026-10-27 after noticing `quoteBank` carries none, investigated with Codex,
+  and **deferred rather than refused**: the design below is settled, so a later
+  attempt starts from it instead of from scratch.
+
+  **The quotes are not the place, and are not missing anything.** They are
+  citation forms — the way a dictionary prints a proverb — and 一期一会 has
+  nowhere to put a stop. They already carry something real writing does *not*:
+  the spaces in 七転び 八起き are this project's furigana-alignment device, not
+  orthography. Adding 。 would move them further from how they are written.
+  (The first version of this argument said no one writes a proverb with 。 at
+  all; that is too absolute — a sentence-like proverb can take one in running
+  prose. The distinction is citation versus running text.)
+
+  **`sentenceBank` is the place**: 61 sentences, of which 26 sit in the five
+  titled passages and 35 stand alone. 急いで準備をしてください really does end
+  in 。, and on the live site five of them run together with nothing between.
+
+  **Two tokenizer traps, both reproduced.** Neither is visible from the call
+  site, and both corrupt kana rather than failing:
+
+  - **`HIRAGANA_MAP` is mirrored to katakana by adding `0x60` to every key.**
+    。 is U+3002, and U+3002 + 0x60 is U+3062 — **ぢ**. 、 is U+3001 → U+3061,
+    **ち**. Adding punctuation there overwrites two kana with `.` and `,`.
+  - **`ROMAJI_MAP` makes it geminatable.** `isGeminatable` treats a mapped
+    non-vowel candidate as doublable, so っ。 compiles to `..`.
+
+  The shape that avoids both is a **separate `PUNCTUATION_MAP` consulted inside
+  `tokenizeKana` before the ordinary lookup**, leaving `HIRAGANA_MAP`,
+  `ROMAJI_MAP`, `MAPPED_KANA` and the mora predicate alone.
+
+  **The failure that would actually ship is silent.** Measured: an item written
+  `{ reading: 'ひっこしました。', romaji: 'hikkoshimashita.' }` is rejected by
+  `compileStrict`, which `prompt.test.ts` catches. But writing the romaji with
+  the full-width character — `hikkoshimashita。` — **compiles clean, seven
+  tokens**, passes the bank invariant, the suite, the build and the publish,
+  and hands the typist a token whose only candidate is the literal character 。,
+  unreachable on a keyboard without an IME. The invariant this repo is missing
+  is not "compiles" but **"is typeable with keys that exist"**, and that test is
+  worth having whatever happens to punctuation.
+
+  **What is already free, and what is not.** `isMoraToken`
+  (`/^[ぁ-ゖァ-ヺ]+$/`) excludes punctuation from `kanaStats`, the chart and the
+  weakest list with no new code, and the board already draws `,` and `.` with
+  their `Comma`/`Period` codes. It does **not** keep punctuation out of the
+  consistency samples or the **baseline median**, which `mergeMoraStats`
+  subtracts from every mora's excess — word separators already participate, so
+  the defensible choice is to keep it deliberately and say so, not to discover
+  it later. `LONGEST_PHRASE_ROMAJI` is unaffected (sentences are excluded from
+  it), but `dealPassage` counts characters: adding terminal stops moved **19 of
+  100 deterministic eight-item deals from seven sentences to six**.
+
+  **Pasted text does not have to change with it.** `pastedLines` splits a paste
+  at 。 and 、 — they are the sentence boundary, not characters — and authored
+  punctuation alongside normalized imports is defensible as long as the paste
+  screen says so. If imports should keep their marks later, the splitter
+  becomes "newline, and after 。 keeping the terminator".
+
+  **The key mapping, checked against Mozc's own romaji table**: `,` → 、,
+  `.` → 。, `[` → 「, `]` → 」 are solid. `/` → ・ is **not** universal (Mozc
+  uses `z/`), and ！／？ are a full-width preedit rule rather than a key
+  mapping — so a design that needs those wants its own evidence.
+
 ## Shared Memory
 
 **Always write new instructions, rules, and memory to `AGENTS.md` only.**
