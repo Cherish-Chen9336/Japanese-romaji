@@ -16,14 +16,17 @@ browser.
 
 - **Practice** — work through a passage or run a timed sprint. Text comes from
   bundled kana tables, drills, words, proverbs and sentences, from the mistakes
-  you keep repeating, or from your own library.
+  you keep repeating, or from your own library. The 五十音 drill deals either
+  syllabary: the あ/ア switch picks one, and the choice is remembered.
 - **Library** — paste in plain Japanese, confirm or supply the kana readings for
   any kanji, and it becomes practice material.
 - **Stats** — per-mora timing, lifetime totals, a progress chart, and a confusion
   table showing which romaji keys you hit instead of which.
 - **Mastery map** — which kana groups you have actually learned, split by seion,
-  dakuten and yoon.
+  dakuten and yoon, with a chart for each syllabary.
 - **Settings** — paragraph length; system, light, dark or book theme.
+
+![The 五十音 drill dealing voiced katakana: the あ/ア switch beside the 五十音 label is set to ア, with パピプペポ ザジズゼゾ ガギグゲゴ above the romaji being typed](docs/kana-drill.png)
 
 ## Your progress stays in your browser
 

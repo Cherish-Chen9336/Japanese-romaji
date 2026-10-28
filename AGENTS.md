@@ -2418,8 +2418,22 @@ card the wrong shape. Re-measure after regenerating `og.png`.
 
 **The image lives in `public/`** so it is copied to the `dist` root rather than
 hashed into `assets/` — the URL is written out by hand in the meta tags and has
-to stay predictable. The README's screenshot is a *separate* file under `docs/`,
-outside `public/`, so it is not part of the published artifact. Note what that
+to stay predictable. The README's screenshots are *separate* files under
+`docs/`, outside `public/`, so they are not part of the published artifact.
+
+**`docs/` holds two now, and they are framed on different sources.**
+`screenshot.png` is the hero, shot on `auto` — kanji with furigana over the
+keyboard, which is what the app is for. `kana-drill.png` is the 五十音 drill on
+the `dakuten` group with the switch set to ア, added 2026-10-28 because Ella
+expected the hero to have changed when the switch shipped and it had not.
+**It had not because nothing in it was wrong**: the 五十音 row only exists while
+`kana` is the selected source, so the switch was never in that frame to go
+stale. Verified by reshooting the hero from the current build and finding it
+identical but for the randomly dealt passage. A second image was the honest fix
+— retaking the first would have changed nothing. The retake rule stays what
+`3085f1d` set: reshoot when a change makes an image *wrong*, as the
+quotes→proverbs rename did, not when a feature lands somewhere else on the
+screen. Note what that
 is **not**: an unreferenced file in `public/` is deployed, not downloaded, and
 an `og:image` is fetched by scrapers rather than by every visitor. The first
 version of this line said visitors would download it, which is wrong. The real
