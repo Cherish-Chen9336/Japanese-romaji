@@ -2,6 +2,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { InMemoryRecordStore } from './records'
 import { THEME_NAMES, isThemeName } from '../engine/types'
+import type { Preferences } from './persistence'
 import {
   emptyProfile,
   loadProfile,
@@ -372,16 +373,32 @@ describe('readKanaScript', () => {
    * The gap this block was written for. Every other preference test checks one
    * field at a time, so a field added to `Preferences` and forgotten in
    * `writePreferences` or `parsePreferences` passed the whole suite.
+   *
+   * **It has to assert the whole object, not the fields it came for.** The
+   * first version of this test wrote a complete set and then checked
+   * `kanaScript` and `kanaGroup` — the two the commit happened to be about —
+   * which is the same one-field-at-a-time sieve wearing a wider name. Dropping
+   * `showKeyboard` from `writePreferences` left it green. `toEqual` is the
+   * whole point; every field is off its default so a dropped one cannot pass
+   * by landing on the value it would have had anyway.
    */
   it('survives a write and read of the whole preference set', () => {
-    const written = {
-      ...readPreferences(),
-      kanaScript: 'katakana' as const,
-      kanaGroup: 'yoon' as const,
+    const written: Preferences = {
+      settings: {
+        paragraphItems: 13,
+        stopOnError: false,
+        confidenceMode: true,
+        whitespaceMarkers: false,
+        timedMode: true,
+      },
+      showKeyboard: false,
+      kanaGroup: 'yoon',
+      kanaScript: 'katakana',
+      source: 'sentences',
     }
     expect(writePreferences(written)).toBe(true)
-    expect(readPreferences().kanaScript).toBe('katakana')
-    expect(readPreferences().kanaGroup).toBe('yoon')
+    expect(readPreferences()).toEqual(written)
+    expect(parsePreferences(written)).toEqual(written)
   })
 
   it('round-trips through parsePreferences, and refuses a bad one', () => {

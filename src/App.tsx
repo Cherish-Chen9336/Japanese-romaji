@@ -1350,7 +1350,7 @@ function App() {
                     <button
                       type="button"
                       class="source-button"
-                      title={option.label}
+                      aria-pressed={source() === option.value}
                       classList={{ active: source() === option.value }}
                       onClick={(event) => {
                         event.stopPropagation();
@@ -1392,7 +1392,6 @@ function App() {
                           class="script-switch__side"
                           aria-pressed={kanaScript() === choice}
                           aria-label={choice}
-                          title={choice}
                           onClick={(event) => {
                             event.stopPropagation();
                             changeKanaScript(choice);
@@ -1410,8 +1409,8 @@ function App() {
                       <button
                         type="button"
                         class="source-button"
+                        aria-pressed={kanaGroup() === group}
                         classList={{ active: kanaGroup() === group }}
-                        title={KANA_GROUP_LABELS[group]}
                         onClick={(event) => {
                           event.stopPropagation();
                           changeKanaGroup(group);

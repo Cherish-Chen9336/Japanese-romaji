@@ -304,7 +304,7 @@ export const katakanaBank: KanaRow[] = gojuonBank.map((row) => ({
 }))
 
 /**
- * Rows for one group of the chart, in one script or both.
+ * Rows for one group of the chart, in the selected script.
  *
  * Hiragana unless asked otherwise. A beginner meets hiragana first and the
  * `kana` source is the one thing never gated on speed, so the default here is

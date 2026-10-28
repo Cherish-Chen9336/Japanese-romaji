@@ -971,8 +971,8 @@ palatalized rows are reachable now; nothing in the corpus reaches them, but the
 drill does.
 
 **Script is a separate axis from group.** The voiced katakana rows are their own
-thing to practise, so folding script into `KanaGroup` would have made twelve
-pairs out of seven buttons.
+thing to practise, and keeping the two apart is what stops them being
+multiplied into one list of every combination.
 
 **It is a two-sided switch beside 五十音, not a row.** Built as its own `SCRIPT`
 row first, and Ella had it replaced the same day: a labelled row is the shape
@@ -983,12 +983,66 @@ name is still the full word, through `aria-label`, with the glyph `aria-hidden`;
 `aria-pressed` carries which side is on, so it reads as a pair of toggles rather
 than a thing to click.
 
+**`aria-label` and `title` cannot both carry the same word.** They did at
+first, and the accessibility tree came out `name="hiragana"
+desc="hiragana"` — the name read, then read again as a description. That is
+how `title` behaves once anything else names the element: it stops being a
+name and becomes a description. The tooltip was the thing worth having and the
+duplication was the price, so the tooltip went. The same redundancy was sitting
+on the source and 五十音 buttons, where `title` repeated the visible text
+exactly; those went with it.
+
+**Forced colours had made the selected side invisible, and nothing could have
+caught it but a picture.** Selection was an accent fill and a foreground
+colour, and forced colours replace both — so the pressed side computed to an
+opaque `Canvas` over a `Canvas` page and the unpressed one to a transparent
+`Canvas`, different strings rendering identical pixels. `aria-pressed` was
+still correct, so the accessibility tree looked fine; 655 tests were still
+green; only a screenshot in `forced-colors: active` showed あ and ア looking
+the same. System colour keywords are the way back, since they are the one
+thing forced colours leaves alone.
+
+**It took three attempts, and each failure was only visible in a picture.**
+Worth writing down, because the first two both *measured* as fixed:
+
+- `background: Highlight` with the glyph in `HighlightText` **rendered あ as a
+  blank white box.** Chromium paints a `Canvas` backplate behind text under
+  forced colours to guarantee it a readable background, so a white glyph lands
+  on a white plate and vanishes inside the very fill meant to carry it. The
+  computed values looked perfect. Mark the side with its border and its
+  foreground, never with a fill.
+- `border: 1px solid transparent`, reserved on both sides so the ring costs no
+  layout shift when it appears, **came back as a black ring on both sides** —
+  `transparent` is not honoured there. The unselected side takes `Canvas`
+  explicitly now, which puts it back inside the pill it sits on.
+- The selected side carries 2px rather than 1, so it differs in weight and not
+  only in hue. A forced-colours palette can be a single colour.
+
+**The row around it had no accessible selected state at all.** `.source-button`
+marked the chosen source and the chosen 五十音 group with an `.active` class
+and a colour, which says nothing to a screen reader and disappears in forced
+colours exactly as the switch's fill did. Both rows carry `aria-pressed` now,
+and the active source takes `Highlight` under forced colours. **What is still
+colour-alone is the normal-mode look of those two rows** — 1.4.1 wants a second
+channel there, and the obvious one is taken: `.hint-button` already wears an
+underline to mean *pressable*, so an underline meaning *selected* in the same
+block would be two meanings on one mark. Left for a decision rather than
+guessed at.
+
 **Losing the row cost `'both'`, and that is the trade.** `KanaScriptChoice` was
 `'hiragana' | 'katakana' | 'both'`; a switch has two sides, so the type is now
 just `KanaScript`. A profile that stored `'both'` reads back as hiragana rather
 than failing, which is the same absent-key rule applied to a value that no
-longer exists. Mixed drilling is the thing given up — reachable again only by
-putting the third state back, and a three-sided switch is not a switch.
+longer exists — a stored `'both'` is no evidence that katakana was wanted, and
+hiragana is where every other unknown lands.
+
+**Mixed drilling is a real capability, and dropping it was a choice, not a
+consequence.** An earlier draft of this section said "a three-sided switch is
+not a switch", which makes the shape sound like it decided. It didn't: the
+switch could have kept two sides and a separate `mix scripts` setting could
+have kept the capability. Practising recognition across both syllabaries
+without changing modes is what a learner loses. It is worth having back if
+anyone misses it; nobody has yet.
 
 **This one *is* a preference**, unlike the chart's toggle, and the distinction
 is the same rule read the other way: `Preferences` carries what decides the
@@ -1008,6 +1062,15 @@ costs nothing to a typist who has never typed katakana, because the filter is on
 **The preference tests were a sieve before this.** Every one checked a single
 field, so a field added to `Preferences` and forgotten in `writePreferences` or
 `parsePreferences` passed the whole suite. There is now a whole-set round trip.
+
+**And the first version of that round trip was the same sieve under a wider
+name** — caught by Codex on 2026-10-28. It wrote a complete `Preferences` and
+then asserted `kanaScript` and `kanaGroup`, the two fields the commit was
+about, which left the other three unguarded: deleting the `showKeyboard` write
+kept it green. It asserts `toEqual` on the whole object now, with every field
+set off its default so a dropped one cannot pass by landing on the value it
+would have had anyway. Verified the way this kind of test has to be — by
+deleting that write and watching it go red.
 
 **Katakana sokuon joined the off-chart strip.** ック, ット, ッピ and ップ, from
 ミュージック, ヘルメット, ショッピング and チューリップ. The mastery test caught

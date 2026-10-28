@@ -681,9 +681,14 @@ rt {
  * without a word. It is the only bordered control in the hints block, which is
  * what keeps "four of these, then one of those" legible at a glance.
  *
- * The glyphs are the labels, so the sides are sized by padding rather than by
- * text: あ and ア are not the same width, and a switch whose halves resize as
- * you flip it reads as a bug.
+ * The glyphs are the labels, so both sides share one minimum inline size
+ * rather than taking their width from the text: あ and ア are not the same
+ * width, and a switch whose halves resize as you flip it reads as a bug.
+ *
+ * The transparent border is reserved, not decorative. Forced colours give the
+ * selected side a visible one, and a border that appears only then would move
+ * the glyph by a pixel at the moment the user most needs the two sides to look
+ * like a pair.
  */
 .script-switch {
   background: var(--color-surface);
@@ -695,13 +700,20 @@ rt {
 }
 
 .script-switch__side {
+  align-items: center;
   background: none;
-  border: none;
+  border: var(--bw-1) solid transparent;
   border-radius: 999px;
   color: var(--color-muted);
   cursor: pointer;
+  display: inline-flex;
   font-size: var(--fs-14);
+  justify-content: center;
   line-height: 1.2;
+  /* 24px is the floor WCAG 2.2 target size asks for. The glyph needs 21, so
+     without this the pair passes only through the spacing exception — true,
+     but a worse thing to aim at than simply being big enough. */
+  min-block-size: 24px;
   min-inline-size: 2.2em;
   padding: 2px 0;
   text-align: center;
@@ -716,6 +728,52 @@ rt {
   color: var(--color-accent-fg);
 }
 
+/*
+ * **Forced colours throw the accent away, and with it the only thing saying
+ * which side is on.** Measured rather than assumed: with the OS palette in
+ * play the selected side computes to an opaque `Canvas` fill over a `Canvas`
+ * page and the unselected side to a transparent one — different strings,
+ * identical pixels — so あ and ア came out looking the same, and the control
+ * stopped being a switch. `aria-pressed` still carried the state, so this was
+ * invisible to the accessibility tree and to the tests; only a screenshot
+ * showed it.
+ *
+ * System colour keywords are the way back, because they are the one thing
+ * forced colours does not override. `Highlight` is the user's own selection
+ * colour, which is the right answer to "which of these is chosen".
+ *
+ * **It marks the side with a ring and the glyph, never with a fill.** The
+ * obvious version — `background: Highlight` with the glyph in `HighlightText`
+ * — renders あ as a blank white box. Chromium paints a `Canvas` backplate
+ * behind text in forced colours to guarantee it a readable background, so a
+ * white glyph lands on a white plate and disappears inside the fill that was
+ * supposed to be carrying it. Border and foreground are both outside what the
+ * backplate touches, so the ring survives where the fill did not.
+ *
+ * **A forced-colours override has to sit below the rule it overrides.** A media
+ * query adds no specificity, so the first version of the companion rule for
+ * `.source-button.active` was written up here beside this one and lost to the
+ * plain `.source-button.active` further down the file — measured as still
+ * `rgb(0, 0, 0)` with the palette on. It lives next to that rule now.
+ */
+@media (forced-colors: active) {
+  /* `transparent` is not honoured here — the reserved border came back as a
+     black ring on both sides, which made the pair look like two selected
+     things. `Canvas` puts it back inside the pill it sits on. */
+  .script-switch__side {
+    border-color: Canvas;
+  }
+
+  /* Weight as well as colour, so the chosen side is not telling a user with a
+     one-colour palette apart by hue alone. */
+  .script-switch__side[aria-pressed="true"] {
+    background: none;
+    border-color: Highlight;
+    border-width: 2px;
+    color: Highlight;
+  }
+}
+
 /* "source" reads as the row's heading, not as another option in it. */
 .hint-label {
   color: var(--color-dim);
@@ -728,14 +786,36 @@ rt {
   text-underline-offset: 3px;
 }
 
+/*
+ * **The separator is decoration, and the `/ ""` is what says so.** Generated
+ * content joins the accessible name, so this dot was making every button in
+ * both rows announce as "·auto", "·kana", "·all". It went unnoticed while a
+ * `title` sat alongside and gave the clean word as a description; removing
+ * that duplicate description is what left the dot on its own. The second half
+ * of `content` is CSS alt text — an empty one keeps the dot on screen and out
+ * of the name.
+ */
 .source-button::before {
   color: var(--color-dim);
-  content: "·";
+  content: "·" / "";
   margin-right: var(--space-2);
 }
 
 .source-button.active {
   color: var(--color-accent);
+}
+
+/*
+ * Forced colours strip the accent, and the chosen source becomes the same
+ * black as the seven beside it. `Highlight` is the user's own selection colour
+ * and the same answer the switch gets. Underline would have been the other
+ * candidate and is already taken: `.hint-button` wears one to mean "pressable"
+ * two rows down, and one mark cannot mean two things in one block.
+ */
+@media (forced-colors: active) {
+  .source-button.active {
+    color: Highlight;
+  }
 }
 
 .source-button small {
